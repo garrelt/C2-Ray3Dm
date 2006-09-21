@@ -1,0 +1,909 @@
+module evolve
+
+  ! This module contains routines having to do with the calculation of
+  ! the ionization evolution of the entire grid (3D).
+     
+  ! This version has been adapted for efficiency in order to be able
+  ! to calculate large meshes.
+    
+  ! - evolve3D : step through grid
+  ! - evolve2D : step through z-plane
+  ! - evolve0D : take care of one grid point
+  ! - evolve0D_global: update entire grid
+
+  ! Needs:
+  ! doric : ionization calculation for one point + photo-ionization rates
+  ! tped : temperature,pressure,electron density calculation
+
+  use my_mpi
+  use sizes
+  use mathconstants
+  use grid
+  use material
+  use photonstatistics
+  use sourceprops
+
+  implicit none
+
+  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
+  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
+  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
+  real(kind=dp) :: photon_loss_all
+  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
+  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+
+  integer :: ierror
+
+contains
+  ! =======================================================================
+  
+  subroutine evolve3D (dt)
+
+    ! Calculates the evolution of the hydrogen ionization state
+     
+    ! Author: Garrelt Mellema
+     
+    ! Date: 21-Aug-2006 (f77/OMP: 13-Jun-2005)
+
+    ! Version: Multiple sources / Using average fractions to converge
+    ! loop over sources
+    
+    ! History:
+    ! 11-Jun-2004 (GM) : grid arrays now passed via common (in grid.h)
+    !    and material arrays also (in material.h).
+    ! 11-Jun-2004 (GM) : adapted for multiple sources.
+    !  3-Jan-2005 (GM) : reintegrated with updated Ifront3D
+    ! 20-May-2005 (GM) : split original eveolve0D into two routines
+    ! 13-Jun-2005 (HM) : OpenMP version : Hugh Merz
+
+    ! For random permutation of sources:
+    use  m_ctrper
+
+    ! All of these include files contain intent(in) variables
+
+    ! contains number of threads to use and arrays used by openmp threads 
+    ! include 'threads.h' 
+    ! integer,external :: omp_get_thread_num
+
+    ! The time step
+    real(kind=8),intent(in) :: dt
+
+    ! Will contains the integer position of the cell being treated
+    integer,dimension(Ndim) :: pos(Ndim)
+      
+    ! Loop variables
+    integer :: i,j,k,l,nx,ns,ns1,niter
+
+    ! Flag variable (passed back from evolve0D_global)
+    integer :: conv_flag
+
+    ! electrondens calculates the electron density (tped)
+    external electrondens
+    real(kind=8) :: electrondens
+
+    ! End of declarations
+
+    ! Initial state (for photon statistics)
+    call state_before ()
+
+    ! initialize average and intermediate results to initial values
+    do nx=0,1
+       do k=1,mesh(3)
+          do j=1,mesh(2)
+             do i=1,mesh(1)
+                xh_av(i,j,k,nx)=xh(i,j,k,nx)
+                xh_intermed(i,j,k,nx)=xh(i,j,k,nx)
+             enddo
+          enddo
+       enddo
+    enddo
+    
+    ! Loop over sources
+    niter=0
+    do
+       ! Loop counter
+       niter=niter+1
+         
+       ! reset global rates to zero for this iteration
+       do k=1,mesh(3)
+          do j=1,mesh(2)
+             do i=1,mesh(1)
+                phih_grid(i,j,k)=0.0
+             enddo
+          enddo
+       enddo
+       
+       ! reset photon loss counter
+       photon_loss=0.0
+       
+       ! Make a random order :: call in serial
+       if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
+       
+#ifdef MPI
+       ! Distribute the input parameters to the other nodes
+       call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+#endif
+       
+       ! Source Loop - distributed for the MPI nodes
+       do ns1=1+rank,NumSrc,npr
+          ns=SrcSeries(ns1)
+          write(30,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
+          
+          ! reset column densities for new source point
+          ! coldensh_out is unique for each source point
+          do k=1,mesh(3)
+             do j=1,mesh(2)
+                do i=1,mesh(1)
+                   coldensh_out(i,j,k)=0.0
+                enddo
+             enddo
+          enddo
+          
+          ! Loop through grid in the order required by short characteristics
+          
+          ! 1. transfer in the upper part of the grid (above srcpos(3))
+          do k=srcpos(3,ns),srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+             pos(3)=k
+             call evolve2D(dt,pos,ns,niter)
+          end do
+          
+          ! 2. transfer in the lower part of the grid (below srcpos(3))
+          do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+             pos(3)=k
+             call evolve2D(dt,pos,ns,niter)
+          end do
+       enddo ! sources loop
+       
+       ! End of parallelization
+       
+       ! Report photon losses over grid boundary
+       write(30,*) 'photon loss counter: ',photon_loss
+       
+#ifdef MPI
+       ! accumulate threaded photon loss
+       call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
+            MPI_DOUBLEPRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+       
+       ! accumulate threaded phih_grid
+       
+       call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLEPRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+       
+       phih_grid(:,:,:)=buffer(:,:,:)
+       
+       ! accumulate threaded xh_intermed
+       call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLEPRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
+       
+       xh_av(:,:,:,1)=buffer(:,:,:)
+       xh_av(:,:,:,0)==max(0.0,min(1.0,1.0-xh_av(:,:,:,1)))
+       
+       ! accumulate threaded xh_intermed
+       call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
+            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLEPRECISION, MPI_MAX, &
+            MPI_COMM_NEW, ierror)
+       
+       xh_intermed(:,:,:,1)=buffer(:,:,:)
+       xh_intermed(:,:,:,0)=max(0.0,min(1.0,1.0-xh_intermed(:,:,:,1)))
+#else
+       photon_loss_all=photon_loss
+#endif
+       
+       photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
+       
+       ! Apply total photo-ionization rates from all sources (phih_grid)
+       write(30,*) 'Applying Rates'
+       conv_flag=0 ! will be used to check for convergence
+       
+       ! Loop through the entire mesh
+       do k=1,mesh(3)
+          do j=1,mesh(2)
+             do i=1,mesh(1)
+                pos(1)=i
+                pos(2)=j
+                pos(3)=k
+                call evolve0D_global(dt,pos,conv_flag)
+             enddo
+          enddo
+       enddo
+       write(*,*) 'Number of non-converged points: ',conv_flag
+       
+       ! Update xh if converged and exit
+       !if (conv_flag.lt.125) then
+       if (conv_flag.lt.int(1.5e-5*mesh(1)*mesh(2)*mesh(3))) then
+          !if (conv_flag.eq.0) then
+          do k=1,mesh(3)
+             do j=1,mesh(2)
+                do i=1,mesh(1)
+                   xh(i,j,k,0)=xh_intermed(i,j,k,0)
+                   xh(i,j,k,1)=xh_intermed(i,j,k,1)
+                enddo
+             enddo
+          enddo
+          exit
+       else
+          if (niter.gt.50) then
+             ! Complain about slow convergence
+             write(30,*) 'Multiple sources not converging'
+             exit
+          endif
+       endif
+    enddo
+
+    ! Calculate photon statistics
+    call calculate_photon_statistics ()
+
+    return
+  end subroutine evolve3D
+
+  ! ===========================================================================
+
+  subroutine evolve2D(dt,pos,ns,niter)
+
+    ! find column density for a z-plane srcpos(3) by sweeping in x and y
+    ! directions
+    
+    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    integer,intent(inout) :: pos(Ndim) ! mesh position
+    integer,intent(in) :: ns           ! current source
+    integer,intent(in) :: niter        ! passed on to evolve0D
+
+    integer :: i,j
+
+    ! sweep in `positive' j direction
+    do j=srcpos(2,ns),srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+       pos(2)=j
+       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `positive' i
+       end do
+       do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `negative' i
+       end do
+    end do
+    
+    ! sweep in `negative' j direction
+    do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+       pos(2)=j
+       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `positive' i
+       end do
+       do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `negative' i
+       end do
+    end do
+
+    return
+  end subroutine evolve2D
+
+  !=======================================================================
+
+  subroutine evolve0D(dt,rtpos,ns,niter)
+    
+    ! Calculates the evolution of the hydrogen ionization state
+    
+    ! Author: Garrelt Mellema
+    
+    ! Date: 21-Aug-2006 (20-May-2005, 5-Jan-2005, 02 Jun 2004)
+    
+    ! Version: multiple sources, fixed temperature
+    
+    ! Multiple sources
+    ! We call this routine for every grid point and for every source (ns).
+    ! The photo-ionization rates for each grid point are found and added
+    ! to phih_grid, but the ionization fractions are not updated. 
+    
+    use tped, only: electrondens
+    use doric_module, only: doric, coldens
+    use radiation, only: photoion, phih, phih_out
+
+    real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
+    
+    ! Tolerance on the convergence for neutral fraction
+    real(kind=8) :: convergence1,convergence2
+    parameter(convergence1=1.0e-3)
+    parameter(convergence2=5.0e-2)
+    
+    real(kind=8),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
+    
+    logical :: falsedummy ! always false, for tests
+    parameter(falsedummy=.false.)
+
+    real(kind=8),intent(in) :: dt
+    integer,intent(in)      :: rtpos(Ndim)
+    integer,intent(in)      :: ns
+    integer,intent(in)      :: niter
+    
+    logical :: finalpass
+    integer :: nx,nd,nit,idim ! loop counters
+    integer :: pos(Ndim)
+    integer :: srcpos1(Ndim)
+    real(kind=8) :: coldensh_in
+    real(kind=8) :: coldensh_cell
+    real(kind=8) :: path
+    real(kind=8) :: de
+    real(kind=8) :: yh(0:1),yh_av(0:1),yh0(0:1)
+    real(kind=8) :: ndens_p
+    real(kind=8) :: avg_temper
+    
+    real(kind=8) :: dist,vol_ph
+    real(kind=8) :: xs,ys,zs
+    real(kind=8) :: yh_av0
+    real(kind=8) :: convergence
+    
+    ! The value of ns tells you the source number.
+    finalpass=.false.
+    convergence=convergence1
+    ! Map pos to mesh pos, assuming a periodic mesh
+    do idim=1,Ndim
+       pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
+    enddo
+
+    ! Initialize local ionization states to the global ones
+    do nx=0,1
+       yh(nx)=xh(pos(1),pos(2),pos(3),nx)
+       yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
+       yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx) ! use calculated xh_av
+    enddo
+
+    ! Initialize local temperature and density
+    avg_temper=temper
+    ndens_p=ndens(pos(1),pos(2),pos(3))
+
+    ! Find the column density at the entrance point of the cell (short
+    ! characteristics)
+
+    if (rtpos(1).eq.srcpos(1,ns).and.rtpos(2).eq.srcpos(2,ns).and. &
+         rtpos(3).eq.srcpos(3,ns)) then
+       ! Do not call cinterp for the source point.
+       ! Set coldensh and path by hand
+       coldensh_in=0.0
+       path=0.5*dr(1)
+       
+       ! Find the distance to the source (average?)
+       dist=0.5*dr(1)         ! this makes vol=dx*dy*dz
+       vol_ph=4.0/3.0*pi*dist**3
+
+    else
+
+       ! For all other points call cinterp to find the column density
+       do nd=1,Ndim
+          srcpos1(nd)=srcpos(nd,ns)
+       enddo
+       ! call cinterp(coldensh_out(:,:,:),pos,srcpos1, &
+       !        coldensh_in,path)
+       call cinterp(rtpos,srcpos1,coldensh_in,path)
+       path=path*dr(1)
+          
+       ! Find the distance to the source
+       xs=dr(1)*real(rtpos(1)-srcpos(1,ns))
+       ys=dr(2)*real(rtpos(2)-srcpos(2,ns))
+       zs=dr(3)*real(rtpos(3)-srcpos(3,ns))
+       dist=sqrt(xs*xs+ys*ys+zs*zs)
+         
+       ! Find the volume of the shell this cell is part of 
+       ! (dilution factor).
+       vol_ph=4.0*pi*dist*dist*path
+
+    endif
+
+    ! Don't do chemistry if column density is above maximum, and if
+    ! cell is still neutral (i.e. untouched)
+    if (coldensh_in.lt.max_coldensh.and.yh0(0).ne.0.0) then
+
+       ! Iterate to get mean ionization state (column density / optical depth) 
+       ! in cell
+       nit=0
+       do 
+          nit=nit+1
+          
+          ! Save the value of yh_av found in the previous iteration
+          yh_av0=yh_av(0)
+          
+          ! Calculate (time averaged) column density of cell
+          coldensh_cell=coldens(path,yh_av(0),ndens_p)
+
+          ! Calculate (photon-conserving) photo-ionization rate
+          call photoion(coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
+
+          ! Restore yh to initial values (for doric)
+          do nx=0,1
+             yh(nx)=yh0(nx)
+          enddo
+              
+          ! Calculate (mean) electron density
+          de=electrondens(ndens_p,yh_av)
+
+          ! Calculate the new and mean ionization states (yh and yh_av)
+          call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih,finalpass)
+
+          ! Do not test for convergence if this is not the first pass
+          ! over the sources
+          if (niter .eq. 1) then
+
+             ! Test for convergence on ionization fraction and temperature
+             if ((abs((yh_av(0)-yh_av0)/yh_av(0)).lt.convergence .or. &
+                  (yh_av(0).lt.1e-12))) exit
+               
+             ! Warn about non-convergence
+             if (nit.gt.5000) then
+                write(30,*) 'Convergence failing (source ',ns,')'
+                write(30,*) 'xh: ',yh_av(0),yh_av0
+                exit
+             endif
+
+             ! For niter > 1, just exit, convergence is checked in evolve0d_global
+          else
+             exit
+          endif
+
+       enddo ! end of iteration
+          
+    else
+
+       ! For high column densities, set photo-ionization rates to zero
+       phih=0.0
+       
+    endif ! high column density test
+
+    ! Add the (time averaged) column density of this cell
+    ! to the total column density (for this source)
+    coldensh_out(pos(1),pos(2),pos(3))=coldensh_in+ &
+         coldens(path,yh_av(0),ndens_p)
+
+    ! Save photo-ionization rates, they will be applied in evolve0D_global
+    if (niter.eq.1) then
+       phih=phih/((yh_av(0)+epsilon)*ndens_p)
+    else
+       phih=phih/((yh_av0+epsilon)*ndens_p)
+    endif
+    phih_grid(pos(1),pos(2),pos(3))= &
+         phih_grid(pos(1),pos(2),pos(3))+phih
+
+    ! Photon statistics: register number of photons leaving the grid
+    if ( &
+         (rtpos(1).eq.srcpos(1,ns)-1-mesh(1)/2).or. &
+         (rtpos(1).eq.srcpos(1,ns)+mesh(1)/2).or. &
+         (rtpos(2).eq.srcpos(2,ns)-1-mesh(2)/2).or. &
+         (rtpos(2).eq.srcpos(2,ns)+mesh(2)/2).or. &
+         (rtpos(3).eq.srcpos(3,ns)-1-mesh(3)/2).or. &
+         (rtpos(3).eq.srcpos(3,ns)+mesh(3)/2)) then
+       
+       ! write(103,*) vol_ph,photon_losst,phih_out,vol
+       photon_loss=photon_loss+ phih_out*vol/vol_ph
+       ! if (pos(1).eq.1)  print *, phih_out*vol/vol_ph
+    endif
+
+    ! Copy ionic abundances back if this is the first iteration
+    ! and the first source. This will speed up convergence if
+    ! the sources are isolated and only ionizing up.
+    if (niter.eq.1) then
+       xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
+            xh_intermed(pos(1),pos(2),pos(3),1))
+       xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
+            xh_intermed(pos(1),pos(2),pos(3),1)
+       xh_av(pos(1),pos(2),pos(3),1)=max(yh_av(1), &
+            xh_av(pos(1),pos(2),pos(3),1))
+       xh_av(pos(1),pos(2),pos(3),0)=1.0- &
+            xh_av(pos(1),pos(2),pos(3),1)
+    endif
+    ! if (niter.eq.1.and.ns.eq.1) then
+    !do nx=0,1
+    ! xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
+    !xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
+    ! enddo
+    ! endif
+
+    return
+  end subroutine evolve0D
+
+  ! =======================================================================
+
+  subroutine evolve0D_global(dt,pos,conv_flag)
+
+    ! Calculates the evolution of the hydrogen ionization state.
+
+    ! Author: Garrelt Mellema
+
+    ! Date: 20-May-2005 (5-Jan-2005, 02 Jun 2004)
+    
+    ! Version: Multiple sources, Global update, no ray tracing
+
+    ! Multiple sources
+    ! Final pass: the collected rates are applied and the new ionization 
+    ! fractions and temperatures are calculated.
+    ! We check for convergence
+
+    ! Tolerance on the convergence for neutral fraction
+    real(kind=8),parameter :: convergence1=1.0e-3
+    real(kind=8),parameter :: convergence2=5.0e-2
+
+    real(kind=8),intent(in) :: dt
+    integer,intent(in) :: pos(Ndim)
+    integer,intent(inout) :: conv_flag
+
+    logical :: finalpass
+    integer :: nx,nit ! loop counter
+    real(kind=8) :: de
+    real(kind=8) :: yh(0:1),yh_av(0:1),yh0(0:1)
+    real(kind=8) :: avg_temper
+    real(kind=8) :: ndens_p
+
+    real(kind=8) :: phih
+
+    real(kind=8) :: yh_av0
+    real(kind=8) :: convergence
+    
+    external electrondens
+    real(kind=8) :: electrondens
+
+
+    ! This routine does the final (whole grid) pass
+    finalpass=.true.
+    convergence=convergence2
+
+    ! Initialize local ionization states to global ones
+    do nx=0,1
+       yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
+       yh(nx)=yh0(nx)
+       yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx) ! use calculated xh_av
+    enddo
+
+    ! Initialize local scalars for density and temperature
+    ndens_p=ndens(pos(1),pos(2),pos(3))
+    avg_temper=temper
+
+    ! Use the collected rates
+    phih=phih_grid(pos(1),pos(2),pos(3))
+    
+    ! Add lost photons
+    ! (if the cell is ionized, add a fraction of the lost photons)
+    !if (xh_intermed(pos(1),pos(2),pos(3),1).gt.0.5)
+    phih=phih+photon_loss/(vol*xh_av(pos(1),pos(2),pos(3),0)*ndens_p)
+
+    nit=0
+    do 
+       nit=nit+1
+       ! Save the values of yh_av found in the previous
+       ! iteration
+       yh_av0=yh_av(0)
+
+       ! Copy ionic abundances back to initial values for doric
+       do nx=0,1
+          yh(nx)=yh0(nx)
+       enddo
+              
+       ! Calculate (mean) electron density
+       de=electrondens(ndens_p,yh_av)
+
+       ! Calculate the new and mean ionization states
+       call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih,finalpass)
+
+       ! Test for convergence on ionization fraction
+       if ((abs((yh_av(0)-yh_av0)/yh_av(0)).lt.convergence1 &
+             .or. (yh_av(0).lt.1e-12))) exit
+                  
+       ! Warn about non-convergence
+       if (nit.gt.5000) then
+          write(*,*) 'Convergence failing (global)'
+          write(*,*) 'xh: ',yh_av(0),yh_av0
+          exit
+       endif
+    enddo
+
+    ! Test for convergence on ionization fraction
+    yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
+    !if ((abs((yh_av(0)-yh_av0)/yh_av(0)).gt.convergence &
+    ! .and. &
+    ! (yh_av(0).gt.1e-12))) then
+    !      conv_flag=conv_flag+1
+
+
+    if (abs((yh_av(0)-yh_av0)).gt.convergence2 .and. &
+         (abs((yh_av(0)-yh_av0)/yh_av(0)).gt.convergence2 .and. &
+         (yh_av(0).gt.1e-12))) then
+       conv_flag=conv_flag+1
+       ! Report on convergence
+       ! if (conv_flag .gt. 0 .and. conv_flag .le. 10) then
+       ! write(*,*) pos(1),pos(2),pos(3),yh_av(0),yh_av0, &
+       ! ndens(pos(1),pos(2),pos(3))/avg_dens
+       !endif
+    endif
+
+    ! Copy ionic abundances back to intermediate global arrays.
+    do nx=0,1
+       xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
+       xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
+    enddo
+
+    return
+  end subroutine evolve0D_global
+
+  ! ===========================================================================
+
+  subroutine cinterp (pos,srcpos,cdensi,path)
+    
+    ! Author: Garrelt Mellema
+    
+    ! Date: 21-Mar-2006 (06-Aug-2004)
+    
+    ! History:
+    ! Original routine written by Alex Raga, Garrelt Mellema, Jane Arthur
+    ! and Wolfgang Steffen in 1999.
+    ! This version: Modified for use with a grid based approach.
+    ! Better handling of the diagonals.
+    ! Fortran90
+    
+    ! does the interpolation to find the column density at pos
+    ! as seen from the source point srcpos. the interpolation
+    ! depends on the orientation of the ray. The ray crosses either
+    ! a z-plane, a y-plane or an x-plane.
+    
+    integer,dimension(Ndim) :: pos
+    integer srcpos(Ndim)
+    real(kind=dp) :: cdensi
+    real(kind=dp) :: path
+
+    integer :: i,j,k,i0,j0,k0
+
+    integer :: idel,jdel,kdel
+    integer :: idela,jdela,kdela
+    integer :: im,jm,km
+    integer :: ip,imp,jp,jmp,kp,kmp
+    integer :: sgni,sgnj,sgnk
+    real(kind=dp) :: alam,xc,yc,zc,dx,dy,dz,s1,s2,s3,s4
+    real(kind=dp) :: c1,c2,c3,c4
+    real(kind=dp) :: dxp,dyp,dzp
+    real(kind=dp) :: w1,w2,w3,w4
+    real(kind=dp) :: di,dj,dk
+
+
+    ! map to local variables (should be pointers ;)
+    i=pos(1)
+    j=pos(2)
+    k=pos(3)
+    i0=srcpos(1)
+    j0=srcpos(2)
+    k0=srcpos(3)
+    
+    ! calculate the distance between the source point (i0,j0,k0) and 
+    ! the destination point (i,j,k)
+    idel=i-i0
+    jdel=j-j0
+    kdel=k-k0
+    idela=abs(i-i0)
+    jdela=abs(j-j0)
+    kdela=abs(k-k0)
+    
+    ! Find coordinates of points closer to source
+    sgni=sign(1,idel)
+!      if (idel.eq.0) sgni=0
+    sgnj=sign(1,jdel)
+!      if (jdel.eq.0) sgnj=0
+    sgnk=sign(1,kdel)
+!      if (kdel.eq.0) sgnk=0
+    im=i-sgni
+    jm=j-sgnj
+    km=k-sgnk
+    di=real(i-i0)
+    dj=real(j-j0)
+    dk=real(k-k0)
+
+    ! Z plane (bottom and top face) crossing
+    ! we find the central (c) point (xc,xy) where the ray crosses 
+    ! the z-plane below or above the destination (d) point, find the 
+    ! column density there through interpolation, and add the contribution
+    ! of the neutral material between the c-point and the destination
+    ! point.
+    
+    if (kdela >= jdela.and.kdela >= idela) then
+       
+       ! alam is the parameter which expresses distance along the line s to d
+       ! add 0.5 to get to the interface of the d cell.
+       if(kdel >= 0) then
+          ! ray crosses z plane below destination point
+          alam=(real(km-k0)+0.5)/dk
+       else
+          ! ray crosses z plane above destination point
+          alam=(real(km-k0)-0.5)/dk
+       end if
+              
+       xc=alam*di+real(i0) ! x of crossing point on z-plane 
+       yc=alam*dj+real(j0) ! y of crossing point on z-plane
+       
+       dx=2.0*abs(xc-(real(im)+0.5*sgni)) ! distances from c-point to
+       dy=2.0*abs(yc-(real(jm)+0.5*sgnj)) ! the corners.
+       
+       s1=(1.-dx)*(1.-dy)    ! interpolation weights of
+       s2=(1.-dy)*dx         ! corner points to c-point
+       s3=(1.-dx)*dy
+       s4=dx*dy
+       
+       !s1=((1.-dx)*(1.-dy))**2    ! interpolation weights of
+       !s2=((1.-dy)*dx)**2         ! corner points to c-point
+       !s3=((1.-dx)*dy)**2
+       !s4=(dx*dy)**2
+
+       ip=modulo(i-1,mesh(1))+1
+       imp=modulo(im-1,mesh(1))+1
+       jp=modulo(j-1,mesh(2))+1
+       jmp=modulo(jm-1,mesh(2))+1
+       kmp=modulo(km-1,mesh(3))+1
+       c1=coldensh_out(imp,jmp,kmp)    !# column densities at the
+       c2=coldensh_out(ip,jmp,kmp)     !# four corners
+       c3=coldensh_out(imp,jp,kmp)
+       c4=coldensh_out(ip,jp,kmp)
+       
+       ! extra weights for better fit to analytical solution
+       w1=s1*weightf(c1)
+       w2=s2*weightf(c2)
+       w3=s3*weightf(c3)
+       w4=s4*weightf(c4)
+       ! column density at the crossing point
+       cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4) 
+
+       ! Take care of diagonals
+       ! if (kdela.eq.idela.or.kdela.eq.jdela) then
+       ! if (kdela.eq.idela.and.kdela.eq.jdela) then
+       ! cdensi=sqrt(3.0)*cdensi
+       !else
+       !cdensi=sqrt(2.0)*cdensi
+       !endif
+       !endif
+
+       if (kdela == 1.and.(idela == 1.or.jdela == 1)) then
+          if (idela == 1.and.jdela == 1) then
+             cdensi=sqrt(3.0)*cdensi
+          else
+             cdensi=sqrt(2.0)*cdensi
+          endif
+       endif
+       ! if (kdela.eq.1) then
+       ! if ((w3.eq.1.0).or.(w2.eq.1.0)) cdensi=sqrt(2.0)*cdensi
+       ! if (w1.eq.1.0) cdensi=sqrt(3.0)*cdensi
+       ! write(*,*) idela,jdela,kdela
+       !endif
+
+       ! Path length from c through d to other side cell.
+       dxp=di/dk
+       dyp=dj/dk
+       path=sqrt(dxp*dxp+dyp*dyp+1.0) ! pathlength from c to d point  
+
+
+       ! y plane (left and right face) crossing
+       ! (similar approach as for the z plane, see comments there)
+    elseif (jdela >= idela.and.jdela >= kdela) then
+          
+       if(jdel >= 0) then
+          alam=(real(jm-j0)+0.5)/dj
+       else
+          alam=(real(jm-j0)-0.5)/dj
+       end if
+       zc=alam*dk+real(k0)
+       xc=alam*di+real(i0)
+       dz=2.0*abs(zc-(real(km)+0.5*sgnk))
+       dx=2.0*abs(xc-(real(im)+0.5*sgni))
+       s1=(1.-dx)*(1.-dz)
+       s2=(1.-dz)*dx
+       s3=(1.-dx)*dz
+       s4=dx*dz
+       !s1=((1.-dx)*(1.-dz))**2
+       !s2=((1.-dz)*dx)**2
+       !s3=((1.-dx)*dz)**2
+       !s4=(dx*dz)**2
+       ip=modulo(i-1,mesh(1))+1
+       imp=modulo(im-1,mesh(1))+1
+       jmp=modulo(jm-1,mesh(2))+1
+       kp=modulo(k-1,mesh(3))+1
+       kmp=modulo(km-1,mesh(3))+1
+       c1=coldensh_out(imp,jmp,kmp)
+       c2=coldensh_out(ip,jmp,kmp)
+       c3=coldensh_out(imp,jmp,kp)
+       c4=coldensh_out(ip,jmp,kp)
+
+       ! extra weights for better fit to analytical solution
+       w1=s1*weightf(c1)
+       w2=s2*weightf(c2)
+       w3=s3*weightf(c3)
+       w4=s4*weightf(c4)
+       
+       cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4)
+       
+       ! Take care of diagonals
+       if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
+          if (idela == 1.and.kdela == 1) then
+             !write(*,*) 'error',i,j,k
+             cdensi=sqrt(3.0)*cdensi
+          else
+             !write(*,*) 'diagonal',i,j,k
+             cdensi=sqrt(2.0)*cdensi
+          endif
+       endif
+
+       dxp=di/dj
+       dzp=dk/dj
+       path=sqrt(dxp*dxp+1.0+dzp*dzp)
+       
+
+       ! x plane (front and back face) crossing
+       ! (similar approach as with z plane, see comments there)
+
+    elseif(idela >= jdela.and.idela >= kdela) then
+       
+       if(idel >= 0) then
+          alam=(real(im-i0)+0.5)/di
+       else
+          alam=(real(im-i0)-0.5)/di
+       end if
+       zc=alam*dk+real(k0)
+       yc=alam*dj+real(j0)
+       dz=2.0*abs(zc-(real(km)+0.5*sgnk))
+       dy=2.0*abs(yc-(real(jm)+0.5*sgnj))
+       s1=(1.-dz)*(1.-dy)
+       s2=(1.-dz)*dy
+       s3=(1.-dy)*dz
+       s4=dy*dz
+       !s1=((1.-dz)*(1.-dy))**2
+       !s2=((1.-dz)*dy)**2
+       !s3=((1.-dy)*dz)**2
+       !s4=(dz*dy)**2
+
+       imp=modulo(im-1,mesh(1))+1
+       jp=modulo(j-1,mesh(2))+1
+       jmp=modulo(jm-1,mesh(2))+1
+       kp=modulo(k-1,mesh(3))+1
+       kmp=modulo(km-1,mesh(3))+1
+       c1=coldensh_out(imp,jmp,kmp)
+       c2=coldensh_out(imp,jp,kmp)
+       c3=coldensh_out(imp,jmp,kp)
+       c4=coldensh_out(imp,jp,kp)
+       ! extra weights for better fit to analytical solution
+       w1=s1*weightf(c1)
+       w2=s2*weightf(c2)
+       w3=s3*weightf(c3)
+       w4=s4*weightf(c4)
+       
+       cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4)
+       
+       if ( idela == 1 .and. ( jdela == 1 .or. kdela == 1 ) ) then
+          if ( jdela == 1 .and. kdela == 1 ) then
+             ! WRITE(*,*) 'error',i,j,k
+             cdensi=sqrt(3.0)*cdensi
+          else
+             ! WRITE(*,*) 'diagonal',i,j,k
+             cdensi=sqrt(2.0)*cdensi
+          endif
+       endif
+       
+       dyp=dj/di
+       dzp=dk/di
+       path=sqrt(1.0+dyp*dyp+dzp*dzp)
+       
+    end if
+    
+    return
+  end subroutine cinterp
+
+  ! =========================================================================
+
+  real(kind=dp) function weightf (cd)
+
+    use cgsconstants
+    use cgsphotoconstants
+
+    real(kind=dp),intent(in) :: cd
+
+    ! weightf=1.0
+    ! weightf=1.0/max(1.0d0,cd**0.54)
+    ! weightf=exp(-min(700.0,cd*0.15*6.3d-18))
+    weightf=1.0/max(0.6d0,cd*sigh)
+
+    ! weightf=1.0/log(max(e_ln,cd))
+
+    return
+  end function weightf
+
+end module evolve
