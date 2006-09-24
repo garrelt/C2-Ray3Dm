@@ -14,7 +14,7 @@ module sizes
   integer,parameter,public :: Ndim=3
 
   !Size of the mesh for spatial coordinate.
-  integer,dimension(Ndim),parameter,public :: mesh=(/203, 203, 203/)
+  integer,dimension(Ndim),parameter,public :: mesh=(/ 203, 203, 203 /)
   !integer,dimension(Ndim),parameter :: mesh=(/406, 406, 406/)
   !integer,dimension(Ndim),parameter :: mesh=(/812, 812, 812/)
 

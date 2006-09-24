@@ -35,15 +35,15 @@ contains
 
   end subroutine initialize_photonstatistics
 
-  subroutine photon_statistics (dt)
+  subroutine calculate_photon_statistics (dt)
 
     real(kind=dp),intent(in) :: dt
 
     call state_after ()
-    call total_rate (dt)
+    call total_rates (dt)
     call total_ionizations ()
     
-  end subroutine photon_statistics
+  end subroutine calculate_photon_statistics
 
   subroutine state_before ()
 
