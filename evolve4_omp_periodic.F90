@@ -16,7 +16,7 @@ module evolve
   ! tped : temperature,pressure,electron density calculation
 
   use precision, only: dp
-  use my_mpi, only: rank, npr
+  use my_mpi
   use sizes, only: Ndim, mesh
   !use cgsconstants
   use grid, only: x,y,z,vol,dr
@@ -32,8 +32,6 @@ module evolve
   real(kind=dp) :: photon_loss_all
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
-
-  integer :: ierror
 
 contains
   ! =======================================================================
@@ -71,6 +69,10 @@ contains
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
+
+#ifdef MPI
+    integer :: ierror
+#endif
 
     ! End of declarations
 
@@ -153,25 +155,25 @@ contains
 #ifdef MPI
        ! accumulate threaded photon loss
        call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
-            MPI_DOUBLEPRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
        
        ! accumulate threaded phih_grid
        
        call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLEPRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
        
        phih_grid(:,:,:)=buffer(:,:,:)
        
        ! accumulate threaded xh_intermed
        call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLEPRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
+            MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
        
        xh_av(:,:,:,1) = buffer(:,:,:)
        xh_av(:,:,:,0) = max(0.0,min(1.0,1.0-xh_av(:,:,:,1)))
        
        ! accumulate threaded xh_intermed
        call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
-            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLEPRECISION, MPI_MAX, &
+            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
             MPI_COMM_NEW, ierror)
        
        xh_intermed(:,:,:,1)=buffer(:,:,:)

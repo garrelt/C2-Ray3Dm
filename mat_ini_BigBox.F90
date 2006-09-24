@@ -6,6 +6,7 @@ module material
   !  - dens_ini : initializes the density field (from PMFAST output)
   !  - xfrac_ini : initializes ionization fractions (in case of restart).
   use sizes
+  use my_mpi
   use grid
   use cgsconstants
   use cosmology_parameters
@@ -22,6 +23,10 @@ module material
   logical isothermal
   real(kind=8) :: clumping
   real(kind=8) :: avg_dens
+
+#ifdef MPI
+  integer,private :: ierror
+#endif
 
   ! real(kind=8) :: coldensh_out(mesh(1),mesh(2),mesh(3))
   ! common /coldensties/ coldensh_out

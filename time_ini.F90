@@ -21,6 +21,10 @@ contains
 
     ! Date: 20-Aug-2006 (f77: 10-Mar-2004)
 
+#ifdef MPI
+    integer :: ierror
+#endif
+
     if (rank == 0) then
        ! Ask for number of time steps
        write(*,'(A,$)') 'Enter number of time steps: '

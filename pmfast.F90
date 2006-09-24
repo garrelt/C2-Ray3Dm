@@ -36,7 +36,7 @@ module pmfast
   integer,parameter :: tot_nfiles=7 ! number of files at 812^3
 
 #ifdef MPI
-  integer :: ierror
+  integer,private :: ierror
 #endif
 
 contains

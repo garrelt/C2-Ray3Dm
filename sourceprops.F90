@@ -1,7 +1,7 @@
 module sourceprops
 
   use precision
-  use my_mpi, only: rank
+  use my_mpi
   use cgsconstants, only: m_p
   use astroconstants, only: M_SOLAR
   use cosmology_parameters, only: Omega_B, Omega0
@@ -42,6 +42,10 @@ contains
 
     character(len=180) :: sourcelistfile,sourcelistfilesuppress
     integer :: ns,ns0
+
+#ifdef MPI
+    integer :: ierror
+#endif
 
     ! Ask for input
     if (rank == 0) then

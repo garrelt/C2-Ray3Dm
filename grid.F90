@@ -3,7 +3,7 @@ module grid
   use sizes, only: Ndim, mesh
   use astroconstants, only: Mpc
   use cosmology_parameters, only: h
-  use my_mpi, only: rank
+  use my_mpi
   
   implicit none
 
@@ -40,6 +40,10 @@ contains
     integer :: i,j,k
     real(kind=8) :: xgrid,ygrid,zgrid
     
+#ifdef MPI
+    integer :: ierror
+#endif
+
     ! Ask for grid size
     if (rank == 0) then
        write(*,'(A,$)') 'Enter physical (comoving) size of grid in x,y,z (Mpc): '
