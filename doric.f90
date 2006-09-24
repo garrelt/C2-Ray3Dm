@@ -35,7 +35,7 @@ contains
       
       use cgsconstants
       use subgrid_clumping
-      use radiation
+      !use radiation
       use tped
       use c2ray_parameters, only: epsilon
 
@@ -43,6 +43,8 @@ contains
       real(kind=dp),intent(inout) :: rhe
       real(kind=dp),dimension(0:1),intent(out) :: xfh
       real(kind=dp),dimension(0:1),intent(inout) :: xfh_av
+      real(kind=dp),intent(in) :: phih
+      logical,intent(in) :: finalpass
       
       integer :: itt
       real(kind=dp) :: temp0,brech0,sqrtt0,acolh0

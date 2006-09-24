@@ -7,7 +7,7 @@ module output_module
   ! close_down : close files
   ! output : write output
 
-  use my_mpi
+  use my_mpi, only: rank
   
   implicit none
   
@@ -47,7 +47,8 @@ contains
     ! ndens_yz_',f5.3,'.bin'
     
     ! photon statistics
-    use photonstatistics
+    use photonstatistics, only: do_photonstatistics, &
+         initialize_photonstatistics
 
     if (rank == 0) then
        write(*,*) 'Which output streams do you want?'
@@ -97,8 +98,8 @@ contains
     !              Number of (ionizations + recombinations) / photons 
     !                   since t=0
 
-    use sizes
-    use grid
+    use sizes, only: mesh
+    use grid, only: x
     use material
     use sourceprops
     use photonstatistics

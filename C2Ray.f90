@@ -2,29 +2,44 @@ Program Ifront
 
   ! Author: Garrelt Mellema
 
-  ! Date: 20-Aug-2006
+  ! Date: 23-Sep-2006
 
   ! Goal:
-  ! Calculates the evolution in time of an ionization front,
-  ! trying to make sure photons are conserved.
+  ! Cosmological reionization simulation using precomputed density fields
+  ! and source lists.
   
   ! Does not include hydrodynamics
   ! Assumes constant time step
 
   ! Needs following `modules'
-  ! output : output routines
-  ! grid_ini : initialize grid
-  ! rad_ini : initialize radiative parameters
-  ! mat_ini : initialize material properties
-  ! time_ini : initialize time properties
+  ! c2ray_parameters : all the tunable parameters for the code
+  ! my_mpi : sets up the MPI parallel environment
+  ! output_module : output routines
+  ! grid : sets up the grid
+  ! radiation : radiation tools
+  ! pmfast : interface to PMFAST output
+  ! cosmology : cosmological utilities
+  ! material : material properties
+  ! times : time and time step utilities
+  ! sourceprops : source properties
   ! evolve : evolve grid in time
 
-  implicit none
+  use precision, only: dp
+  use c2ray_parameters, only: cosmological
+  use astroconstants, only: YEAR
+  use my_mpi, only: mpi_setup, mpi_end
+  use output_module, only: setup_output,output,close_down
+  use grid, only: grid_ini
+  use radiation, only: rad_ini
+  use pmfast, only: pmfast_ini, NumZred, zred_array
+  use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
+       time2zred, zred
+  use material, only: mat_ini, xfrac_ini, dens_ini
+  use times, only: time_ini, set_timesteps
+  use sourceprops, only: source_properties
+  use evolve, only: evolve3D
 
-  use my_mpi
-  use output
-  use grid
-  use radiation
+  implicit none
 
   integer :: restart,nz,flag
 
@@ -34,12 +49,9 @@ Program Ifront
   ! end_time - end time of calculation (s)
   ! output_time - time interval between outputs (s)
   ! next_output_time - time of next output (s)
-  real(kind=8) :: end_time,time,output_time,next_output_time
-  real(kind=8) :: dt,actual_dt
-  real(kind=8) :: zred_interm
-  
-  external time2zred
-  real(kind=8) :: time2zred
+  real(kind=dp) :: end_time,time,output_time,next_output_time
+  real(kind=dp) :: dt,actual_dt
+  real(kind=dp) :: zred_interm
 
   ! Set up MPI structure
   call mpi_setup()
@@ -66,7 +78,7 @@ Program Ifront
   time=0.0
 
   ! Initialize cosmology
-  call cosmo_ini(zred_array(1),time)
+  call cosmology_init(zred_array(1),time)
 
   !if restarts read ionization fractions from file
   !if (restart.ne.0) call xfrac_ini(zred_array(1))
@@ -93,7 +105,7 @@ Program Ifront
      next_output_time=time+output_time
 
      ! Initialize source position
-     call source_properties(zred,end_time-time)
+     call source_properties(zred)
 
      ! print*,'zred before dens_ini=',zred
      ! Initialize density field

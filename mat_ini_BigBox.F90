@@ -57,6 +57,7 @@ contains
     real(kind=8) :: temper_val
     character(len=1) :: answer
 
+    write(*,*) mesh
     ! restart
     restart=0 ! no restart by default
 

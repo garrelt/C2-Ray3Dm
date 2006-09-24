@@ -6,8 +6,6 @@ module cosmology_parameters
   use astroconstants, only: Mpc
   implicit none
 
-  logical,parameter :: cosmological=.true.
-
   ! WMAP3
   real(kind=dp),parameter :: h=0.73 ! Hubble constant (in 100 km/s/Mpc)
   real(kind=dp),parameter :: Omega0=0.24 ! Matter density (in critical density)

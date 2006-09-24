@@ -22,8 +22,8 @@ module c2ray_parameters
   real(kind=8),parameter :: convergence2=1.0e-2
 
   ! Parameters for nominal SED
-  real(kind=dp) :: teff_nominal=50000.0
-  real(kind=dp) :: s_star_nominal=1e50
+  real(kind=dp),parameter :: teff_nominal=50000.0
+  real(kind=dp),parameter :: s_star_nominal=1e50
   
   ! Subgrid clumping
   ! 1: constant clumping (with clumping_factor)

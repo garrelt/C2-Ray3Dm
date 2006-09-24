@@ -15,13 +15,14 @@ module evolve
   ! doric : ionization calculation for one point + photo-ionization rates
   ! tped : temperature,pressure,electron density calculation
 
-  use my_mpi
-  use sizes
-  use mathconstants
-  use grid
-  use material
-  use photonstatistics
-  use sourceprops
+  use precision, only: dp
+  use my_mpi, only: rank, npr
+  use sizes, only: Ndim, mesh
+  !use cgsconstants
+  use grid, only: x,y,z,vol,dr
+  use material, only: ndens, xh, temper
+  use photonstatistics, only: state_before, calculate_photon_statistics, photon_loss
+  use sourceprops, only: SrcSeries, NumSrc, srcpos
 
   implicit none
 
@@ -57,13 +58,7 @@ contains
     ! 13-Jun-2005 (HM) : OpenMP version : Hugh Merz
 
     ! For random permutation of sources:
-    use  m_ctrper
-
-    ! All of these include files contain intent(in) variables
-
-    ! contains number of threads to use and arrays used by openmp threads 
-    ! include 'threads.h' 
-    ! integer,external :: omp_get_thread_num
+    use  m_ctrper, only: ctrper
 
     ! The time step
     real(kind=8),intent(in) :: dt
@@ -76,10 +71,6 @@ contains
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
-
-    ! electrondens calculates the electron density (tped)
-    external electrondens
-    real(kind=8) :: electrondens
 
     ! End of declarations
 
@@ -175,8 +166,8 @@ contains
        call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLEPRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
        
-       xh_av(:,:,:,1)=buffer(:,:,:)
-       xh_av(:,:,:,0)==max(0.0,min(1.0,1.0-xh_av(:,:,:,1)))
+       xh_av(:,:,:,1) = buffer(:,:,:)
+       xh_av(:,:,:,0) = max(0.0,min(1.0,1.0-xh_av(:,:,:,1)))
        
        ! accumulate threaded xh_intermed
        call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
@@ -206,7 +197,7 @@ contains
              enddo
           enddo
        enddo
-       write(*,*) 'Number of non-converged points: ',conv_flag
+       write(30,*) 'Number of non-converged points: ',conv_flag
        
        ! Update xh if converged and exit
        !if (conv_flag.lt.125) then
@@ -231,7 +222,7 @@ contains
     enddo
 
     ! Calculate photon statistics
-    call calculate_photon_statistics ()
+    call calculate_photon_statistics (dt)
 
     return
   end subroutine evolve3D
@@ -295,17 +286,18 @@ contains
     ! We call this routine for every grid point and for every source (ns).
     ! The photo-ionization rates for each grid point are found and added
     ! to phih_grid, but the ionization fractions are not updated. 
-    
+
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, phih, phih_out
-
-    real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
+    use c2ray_parameters, only: epsilon,convergence1,convergence2
+    use mathconstants, only: pi
+    !real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
     
     ! Tolerance on the convergence for neutral fraction
-    real(kind=8) :: convergence1,convergence2
-    parameter(convergence1=1.0e-3)
-    parameter(convergence2=5.0e-2)
+    !real(kind=8) :: convergence1,convergence2
+    !parameter(convergence1=1.0e-3)
+    !parameter(convergence2=5.0e-2)
     
     real(kind=8),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
     
@@ -319,13 +311,13 @@ contains
     
     logical :: finalpass
     integer :: nx,nd,nit,idim ! loop counters
-    integer :: pos(Ndim)
-    integer :: srcpos1(Ndim)
+    integer,dimension(Ndim) :: pos
+    integer,dimension(Ndim) :: srcpos1
     real(kind=8) :: coldensh_in
     real(kind=8) :: coldensh_cell
     real(kind=8) :: path
     real(kind=8) :: de
-    real(kind=8) :: yh(0:1),yh_av(0:1),yh0(0:1)
+    real(kind=8),dimension(0:1) :: yh,yh_av,yh0
     real(kind=8) :: ndens_p
     real(kind=8) :: avg_temper
     
@@ -338,9 +330,11 @@ contains
     finalpass=.false.
     convergence=convergence1
     ! Map pos to mesh pos, assuming a periodic mesh
-    do idim=1,Ndim
-       pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
-    enddo
+    pos(:)=modulo(rtpos(:)-1,mesh(:))+1
+    !do idim=1,Ndim
+       !pos(idim)=modulo(rtpos(idim)-1,203)+1
+       !pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
+    !enddo
 
     ! Initialize local ionization states to the global ones
     do nx=0,1
@@ -516,10 +510,14 @@ contains
     ! Final pass: the collected rates are applied and the new ionization 
     ! fractions and temperatures are calculated.
     ! We check for convergence
-
+    
+    use tped, only: electrondens
+    use doric_module, only: doric, coldens
+    !use radiation, only: photoion, phih, phih_out
+    use c2ray_parameters, only: convergence1,convergence2
     ! Tolerance on the convergence for neutral fraction
-    real(kind=8),parameter :: convergence1=1.0e-3
-    real(kind=8),parameter :: convergence2=5.0e-2
+    !real(kind=8),parameter :: convergence1=1.0e-3
+    !real(kind=8),parameter :: convergence2=5.0e-2
 
     real(kind=8),intent(in) :: dt
     integer,intent(in) :: pos(Ndim)
@@ -537,10 +535,6 @@ contains
     real(kind=8) :: yh_av0
     real(kind=8) :: convergence
     
-    external electrondens
-    real(kind=8) :: electrondens
-
-
     ! This routine does the final (whole grid) pass
     finalpass=.true.
     convergence=convergence2
@@ -588,8 +582,8 @@ contains
                   
        ! Warn about non-convergence
        if (nit.gt.5000) then
-          write(*,*) 'Convergence failing (global)'
-          write(*,*) 'xh: ',yh_av(0),yh_av0
+          write(30,*) 'Convergence failing (global)'
+          write(30,*) 'xh: ',yh_av(0),yh_av0
           exit
        endif
     enddo
@@ -608,7 +602,7 @@ contains
        conv_flag=conv_flag+1
        ! Report on convergence
        ! if (conv_flag .gt. 0 .and. conv_flag .le. 10) then
-       ! write(*,*) pos(1),pos(2),pos(3),yh_av(0),yh_av0, &
+       ! write(30,*) pos(1),pos(2),pos(3),yh_av(0),yh_av0, &
        ! ndens(pos(1),pos(2),pos(3))/avg_dens
        !endif
     endif
@@ -764,7 +758,7 @@ contains
        ! if (kdela.eq.1) then
        ! if ((w3.eq.1.0).or.(w2.eq.1.0)) cdensi=sqrt(2.0)*cdensi
        ! if (w1.eq.1.0) cdensi=sqrt(3.0)*cdensi
-       ! write(*,*) idela,jdela,kdela
+       ! write(30,*) idela,jdela,kdela
        !endif
 
        ! Path length from c through d to other side cell.
@@ -815,10 +809,10 @@ contains
        ! Take care of diagonals
        if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
           if (idela == 1.and.kdela == 1) then
-             !write(*,*) 'error',i,j,k
+             !write(30,*) 'error',i,j,k
              cdensi=sqrt(3.0)*cdensi
           else
-             !write(*,*) 'diagonal',i,j,k
+             !write(30,*) 'diagonal',i,j,k
              cdensi=sqrt(2.0)*cdensi
           endif
        endif
@@ -870,10 +864,10 @@ contains
        
        if ( idela == 1 .and. ( jdela == 1 .or. kdela == 1 ) ) then
           if ( jdela == 1 .and. kdela == 1 ) then
-             ! WRITE(*,*) 'error',i,j,k
+             ! WRITE(30,*) 'error',i,j,k
              cdensi=sqrt(3.0)*cdensi
           else
-             ! WRITE(*,*) 'diagonal',i,j,k
+             ! WRITE(30,*) 'diagonal',i,j,k
              cdensi=sqrt(2.0)*cdensi
           endif
        endif
@@ -891,8 +885,7 @@ contains
 
   real(kind=dp) function weightf (cd)
 
-    use cgsconstants
-    use cgsphotoconstants
+    use cgsphotoconstants, only: sigh
 
     real(kind=dp),intent(in) :: cd
 
