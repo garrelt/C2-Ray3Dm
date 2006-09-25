@@ -120,6 +120,8 @@ contains
 
     dr(:)=dr(:)*zfactor
     
+    vol=vol*zfactor3
+
     ! Source position: single source version
     rsrcpos(:,:)=rsrcpos(:,:)*zfactor
     
@@ -129,7 +131,9 @@ contains
     ! Change the volumes (not needed???)
     ! volx(i,j,k)=volx(i,j,k)*zfactor3
     ! voly(i,j,k)=voly(i,j,k)*zfactor3
+
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
+    write(30,*) 'zfactor3=',zfactor3
 
   end subroutine cosmo_evol
 

@@ -23,7 +23,7 @@ module c2ray_parameters
 
   ! Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
-  real(kind=dp),parameter :: s_star_nominal=1e50
+  real(kind=dp),parameter :: s_star_nominal=1e50_dp
   
   ! Subgrid clumping
   ! 1: constant clumping (with clumping_factor)

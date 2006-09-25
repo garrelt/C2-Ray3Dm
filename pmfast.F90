@@ -88,7 +88,7 @@ contains
     if (mesh(1) == 203) id_str="coarsest"
     if (mesh(1) == 406) id_str="coarser"
     if (mesh(1) == 812) id_str="coarse"
-    print*,id_str
+    write(30,*) 'Type of resolution: ',id_str
 
     return
   end subroutine pmfast_ini

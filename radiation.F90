@@ -184,10 +184,11 @@ contains
        endif
        else
           ! teff and S_star were set in the parameter module
-          ! Assign some fiducial values, these are scaled to correspond 
-          ! to S_star in routine spec_diag
           teff=teff_nominal
           S_star=S_star_nominal
+          totflux=sigmasb*teff**4
+          ! Assign some fiducial values, these are scaled to correspond 
+          ! to S_star in routine spec_diag
           rstar=r_solar
           lstar=rstar*rstar*(4.0d0*pi*totflux)
     endif
@@ -460,8 +461,10 @@ contains
     ! Find the hydrogen photo-ionization rate (ingoing)
     ! Since all optical depths are hydrogen, we can use
     ! tau1 for all.
-    phih_in=NormFlux(nsrc)*(hphot(iodpo1,1)+(hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)/S_star
-    if (.not.isothermal) hvphih_in=NormFlux(nsrc)*(hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)/S_star
+    phih_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+         (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
+    if (.not.isothermal) hvphih_in=NormFlux(nsrc)* &
+         (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
     ! find the table positions for the optical depth (outgoing)
     tau1=log10(max(1.0e-20,tauh_out))
@@ -472,8 +475,10 @@ contains
     iodp11=min(NumTau,iodpo1+1)
     
     ! find the hydrogen photo-ionization rate (outgoing)
-    phih_out=NormFlux(nsrc)*(hphot(iodpo1,1)+(hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)/S_star
-    if (.not.isothermal) hvphih_out=NormFlux(nsrc)*(hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)/S_star
+    phih_out=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+         (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
+    if (.not.isothermal) hvphih_out=NormFlux(nsrc)* &
+         (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
     ! The photon conserving photo-ionization rate is the difference between
     ! the one coming in, and the one going out.

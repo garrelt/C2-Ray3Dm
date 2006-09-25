@@ -21,7 +21,6 @@ module material
   real(kind=8) :: temper
   real(kind=8) :: xh(mesh(1),mesh(2),mesh(3),0:1)
   logical isothermal
-  real(kind=8) :: clumping
   real(kind=8) :: avg_dens
 
 #ifdef MPI
@@ -52,7 +51,7 @@ contains
     ! - adapted for multiple cosmological sources
     ! - f90 version with MPI
 
-    ! The material properties (ndens, temper, xh, clumping) are passed 
+    ! The material properties (ndens, temper, xh) are passed 
     ! around via a common block contained in material.h
 
 
@@ -62,14 +61,11 @@ contains
     real(kind=8) :: temper_val
     character(len=1) :: answer
 
-    write(*,*) mesh
     ! restart
     restart=0 ! no restart by default
 
     if (rank == 0) then
        ! Ask for clumping factor, temperature, restart. Read in values
-       write(*,'(A,$)') 'Enter clumping factor: '
-       read(*,*) clumping
        write(*,'(A,$)') 'Enter initial temperature (K): '
        read(*,*) temper_val
        write(*,'(A,$)') 'Restart (y/n)? : '
@@ -81,7 +77,6 @@ contains
     endif
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(clumping,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
        call MPI_BCAST(temper_val,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
        call MPI_BCAST(restart,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
@@ -168,11 +163,13 @@ contains
           deallocate(ndens_real)
        endif
     endif
+    write(30,*) 'Distributing the density'
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,ierror)
 #endif
+    write(30,*) 'Density distributed'
        
     ! Report on data: min, max, total
     write(30,*) 'minimum: ',minval(ndens)/8.

@@ -63,7 +63,12 @@ contains
       
       ! Find the true photo-ionization rate
       ! (divide by (time averaged) density of neutrals)
-      aphoth0=phih/((xfh_av(0)+epsilon)*rhh)
+      if (finalpass) then
+         aphoth0=phih
+      else
+         aphoth0=phih/((xfh_av(0)+epsilon)*rhh)
+      endif
+      !aphoth0=phih/((xfh_av(0)+epsilon)*rhh)
       
       ! determine the hydrogen and helium ionization states and 
       ! electron density

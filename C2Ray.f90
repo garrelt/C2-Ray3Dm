@@ -38,8 +38,12 @@ Program Ifront
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties
   use evolve, only: evolve3D
+  use subgrid_clumping, only: set_clumping
 
   implicit none
+
+  ! Start and end time for CPU report
+  real :: tstart,tend
 
   integer :: restart,nz,flag
 
@@ -52,6 +56,9 @@ Program Ifront
   real(kind=dp) :: end_time,time,output_time,next_output_time
   real(kind=dp) :: dt,actual_dt
   real(kind=dp) :: zred_interm
+
+  ! Initialize cpu timer
+  call cpu_time(tstart)
 
   ! Set up MPI structure
   call mpi_setup()
@@ -95,17 +102,17 @@ Program Ifront
   do nz=1,NumZred-1
      
      zred=zred_array(nz)
-     write(*,*) 'Doing redshift: ',zred,' to ',zred_array(nz+1)
+     write(30,*) 'Doing redshift: ',zred,' to ',zred_array(nz+1)
      
      ! Initialize time parameters
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
-     write(*,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
+     write(30,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
          
      next_output_time=time+output_time
 
      ! Initialize source position
-     call source_properties(zred)
+     call source_properties(zred,end_time-time)
 
      ! print*,'zred before dens_ini=',zred
      ! Initialize density field
@@ -117,7 +124,7 @@ Program Ifront
         actual_dt=min(next_output_time-time,dt)
         
         ! Report time and time step
-        write(*,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
+        write(30,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
              time/YEAR,actual_dt/YEAR,' (years)'
 
         ! For cosmological simulations evolve proper quantities
@@ -125,7 +132,7 @@ Program Ifront
            call redshift_evol(time+0.5*actual_dt)
            call cosmo_evol()
         endif
-            
+        call set_clumping(real(1.0/(1.0+zred),4))
         ! print*,'check', restart,flag,time
         if(flag.eq.1 .and. restart .eq. 2)then !i.e. do not call the first time around
                                                 !if restart is at middle point in time
@@ -162,7 +169,12 @@ Program Ifront
 
   call close_down ()
   
+  ! Find out CPU time
+  call cpu_time(tend)
+
+  write(30,*) 'CPU time: ',tend-tstart,' s'
+
   ! End the run
-  call mpi_end()
+  call mpi_end ()
 
 end Program Ifront

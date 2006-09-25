@@ -16,6 +16,7 @@ contains
     real,intent(in) :: a
     real :: z
 
+    write(30,*) 'Setting clumping factor',type_of_clumping, clumping_factor
     select case (type_of_clumping)
     case(1)
        clumping = clumping_factor

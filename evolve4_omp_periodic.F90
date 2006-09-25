@@ -145,6 +145,7 @@ contains
              pos(3)=k
              call evolve2D(dt,pos,ns,niter)
           end do
+          write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        enddo ! sources loop
        
        ! End of parallelization
@@ -192,15 +193,18 @@ contains
        do k=1,mesh(3)
           do j=1,mesh(2)
              do i=1,mesh(1)
-                pos(1)=i
-                pos(2)=j
-                pos(3)=k
+                pos=(/ i,j,k /)
+                !pos(1)=i
+                !pos(2)=j
+                !pos(3)=k
                 call evolve0D_global(dt,pos,conv_flag)
              enddo
           enddo
        enddo
        write(30,*) 'Number of non-converged points: ',conv_flag
        
+       write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+
        ! Update xh if converged and exit
        !if (conv_flag.lt.125) then
        if (conv_flag.lt.int(1.5e-5*mesh(1)*mesh(2)*mesh(3))) then
@@ -442,7 +446,8 @@ contains
 
        ! For high column densities, set photo-ionization rates to zero
        phih=0.0
-       
+       phih_out=0.0
+
     endif ! high column density test
 
     ! Add the (time averaged) column density of this cell
@@ -468,7 +473,6 @@ contains
          (rtpos(3).eq.srcpos(3,ns)-1-mesh(3)/2).or. &
          (rtpos(3).eq.srcpos(3,ns)+mesh(3)/2)) then
        
-       ! write(103,*) vol_ph,photon_losst,phih_out,vol
        photon_loss=photon_loss+ phih_out*vol/vol_ph
        ! if (pos(1).eq.1)  print *, phih_out*vol/vol_ph
     endif

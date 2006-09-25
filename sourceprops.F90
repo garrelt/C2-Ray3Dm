@@ -1,6 +1,6 @@
 module sourceprops
 
-  use precision
+  use precision, only: dp
   use my_mpi
   use cgsconstants, only: m_p
   use astroconstants, only: M_SOLAR
@@ -8,28 +8,24 @@ module sourceprops
   use pmfast, only: id_str, M_grid
   use material, only: xh
   use grid, only: x,y,z
-  !use sizes
-  !use mathconstants
-  !use cgs
-
-  use c2ray_parameters, only: phot_per_atom1, phot_per_atom2, lifetime
+  use c2ray_parameters, only: phot_per_atom1, phot_per_atom2, lifetime,S_star_nominal 
 
   integer :: NumSrc
-  real(kind=dp),dimension(:,:),allocatable :: srcpos
+  integer,dimension(:,:),allocatable :: srcpos
   real(kind=dp),dimension(:,:),allocatable :: rsrcpos
   real(kind=dp),dimension(:),allocatable :: srcMass
   real(kind=dp),dimension(:),allocatable :: NormFlux
   integer,dimension(:),allocatable :: srcSeries
 
-  integer,private :: NumSrc0
-  real(kind=dp),dimension(3),private :: srcpos0
+  integer,private :: NumSrc0=0
+  integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: srcMass00,srcMass01
 
 contains
   
   ! =======================================================================
 
-  subroutine source_properties(zred_now)
+  subroutine source_properties(zred_now,lifetime2)
 
     ! Input routine: establish the source properties
     ! Author: Garrelt Mellema
@@ -39,6 +35,7 @@ contains
     use  m_ctrper
 
     real(kind=8),intent(in) :: zred_now ! current redshift
+    real(kind=8),intent(in) :: lifetime2 ! time step
 
     character(len=180) :: sourcelistfile,sourcelistfilesuppress
     integer :: ns,ns0
@@ -46,6 +43,14 @@ contains
 #ifdef MPI
     integer :: ierror
 #endif
+
+    if (NumSrc0 /= 0) then
+       deallocate(srcpos)
+       deallocate(rsrcpos)
+       deallocate(srcMass)
+       deallocate(NormFlux)
+       deallocate(srcSeries)
+    endif
 
     ! Ask for input
     if (rank == 0) then
@@ -82,15 +87,14 @@ contains
           if (SrcMass00 /= 0.0 .or. &
                xh(srcpos0(1),srcpos0(2),srcpos0(3),1).lt.0.1) NumSrc=NumSrc+1
        enddo
+       close(50)
     endif
+
 #ifdef MPI
     call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
-    deallocate(srcpos)
-    deallocate(rsrcpos)
-    deallocate(srcMass)
-    deallocate(NormFlux)
-    deallocate(srcSeries)
+
+    write(30,*) 'Number of sources, with suppression: ',NumSrc
     allocate(srcpos(3,NumSrc))
     allocate(rsrcpos(3,NumSrc))
     allocate(SrcMass(NumSrc))
@@ -98,9 +102,12 @@ contains
     allocate(SrcSeries(NumSrc))
 
     if (rank == 0) then
+       open(unit=50,file=sourcelistfile,status='old')
+       ! Number of sources
+       read(50,*) NumSrc0
        ! Read in source positions and mass
+       ns=0
        do ns0=1,NumSrc0
-          
           read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
                SrcMass00,SrcMass01
           
@@ -111,7 +118,6 @@ contains
              srcpos(1,ns)=srcpos0(1)
              srcpos(2,ns)=srcpos0(2)
              srcpos(3,ns)=srcpos0(3)
-            
              ! Source is always at cell centre!!
              rsrcpos(1,ns)=x(srcpos(1,ns))
              rsrcpos(2,ns)=y(srcpos(2,ns))
@@ -139,8 +145,6 @@ contains
                   xh(srcpos0(1),srcpos0(2),srcpos0(3),0)
           endif
        enddo
-       ! Report
-       write(30,*) 'Number of sources: ',NumSrc
 
        ! Save new source list, without the suppressed ones
        write(49,*) NumSrc
@@ -156,14 +160,15 @@ contains
 #ifdef MPI
     ! Distribute the source parameters to the other nodes
     call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
-    call MPI_BCAST(rsrcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
-    call MPI_BCAST(SrcMass,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(SrcMass,NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
 #endif
 
     ! Turn masses into luminosities
     do ns=1,NumSrc
        NormFlux(ns)=SrcMass(ns)*M_grid*  &!note that now photons/atom are included in SrcMass
-            Omega_B/(Omega0*m_p*lifetime)!/S_star
+            Omega_B/(Omega0*m_p*lifetime2)/S_star_nominal
+         write(30,*) NormFlux(ns)*S_star_nominal
     enddo
 
     if (rank == 0) then

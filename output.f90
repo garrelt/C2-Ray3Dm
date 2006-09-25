@@ -103,6 +103,7 @@ contains
     use material
     use sourceprops
     use photonstatistics
+    use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=8),intent(in) :: zred_now,time,dt
 
@@ -111,9 +112,6 @@ contains
     character(len=40) :: file1,file2,file3,file4,file5,file6
     real(kind=8) :: totalsrc
     logical crossing,recording_photonstats
-
-    real(kind=8) :: teff,rstar,lstar,S_star
-    common /spectrum/ teff,rstar,lstar,S_star
 
     if (rank == 0) then
        ! Stream 1
