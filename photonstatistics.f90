@@ -1,6 +1,11 @@
 module photonstatistics
   
   ! This module handles the calculation of the photon statistics
+  ! For: C2-Ray
+
+  ! Author: Garrelt Mellema
+
+  ! Date: 26-Sep-2006
 
   ! Photon statistics
   ! photon_loss is a sum over all sources, summing is done in evolve0d.
@@ -24,7 +29,7 @@ module photonstatistics
   real(kind=dp) :: grtotal_ion
   real(kind=dp) :: photon_loss
 
-  real(kind=8),private :: h0_before,h0_after,h1_before,h1_after
+  real(kind=dp),private :: h0_before,h0_after,h1_before,h1_after
   integer,private :: i,j,k
 
 contains
@@ -39,9 +44,11 @@ contains
 
     real(kind=dp),intent(in) :: dt
 
-    call state_after ()
-    call total_rates (dt)
-    call total_ionizations ()
+    ! Call the individual routines needed for this calculation
+
+    call state_after () ! number of neutrals after integration
+    call total_rates (dt) ! total photons used in balancing recombinations etc.
+    call total_ionizations () ! final statistics
     
   end subroutine calculate_photon_statistics
 
@@ -68,6 +75,8 @@ contains
     real(kind=dp),dimension(0:1) :: yh
  
     ! Photon statistics: Determine total number of recombinations/collisions
+    ! Should match the code in doric_module
+
     totrec=0.0
     totcollisions=0.0
     do k=1,mesh(3)

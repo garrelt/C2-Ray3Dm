@@ -1,8 +1,10 @@
 module times
 
+  ! This module handles the time variables
+
   use my_mpi
-  use astroconstants
-  use cosmology_parameters
+  use astroconstants, only: YEAR
+  use cosmology_parameters, only: zred_t0, t0
   use cosmology, only: t0, zred_t0
 
   implicit none
