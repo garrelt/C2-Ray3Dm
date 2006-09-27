@@ -133,17 +133,7 @@ contains
           enddo
           
           ! Loop through grid in the order required by short characteristics
-          ! and useful for parallelization
-
-          ! First do source point
-          pos(:)=srcpos(:,ns)
-          call evolve0D(dt,pos,ns,niter)
-
-          ! Then do the the axes
-          do naxis=1,6
-             call evolve1D_axis(dt,pos,ns,niter,naxis)
-          enddo
-
+          
           ! 1. transfer in the upper part of the grid (above srcpos(3))
           do k=srcpos(3,ns),srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
              pos(3)=k
@@ -245,7 +235,7 @@ contains
 
   ! ===========================================================================
 
-  subroutine evolve2D(dt,pos,ns,niter,nquadrant)
+  subroutine evolve2D(dt,pos,ns,niter)
 
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
     ! directions
@@ -254,124 +244,35 @@ contains
     integer,intent(inout) :: pos(Ndim) ! mesh position
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
-    integer,intent(in) :: nquadrant    ! which quadrant to do    
+
     integer :: i,j
 
-    select case (nquadrant)
-    case (1)
-       ! sweep in `positive' i,j,k direction
-       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-          pos(1)=k
-          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-             pos(2)=j
-             do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
-                pos(1)=i
-                call evolve0D(dt,pos,ns,niter) !# `positive' i
-             end do
-          enddo
-       enddo
-    case (2)
-       ! sweep in `positive' i,j,k direction
-       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-          pos(1)=k
-          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-             pos(2)=j
-             do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
-                pos(1)=i
-                call evolve0D(dt,pos,ns,niter) !# `negative' i
-             end do
-          end do
-       enddo
-    case (3)
-       ! sweep in `positive' i,j,k direction
-       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-          pos(1)=k
-          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
-             pos(2)=j
-             do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
-                pos(1)=i
-                call evolve0D(dt,pos,ns,niter) !# `negative' i
-             end do
-          end do
-       enddo
-    case(4)
-       ! sweep in `positive' i,j,k direction
-       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-          pos(1)=k
-          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
-             pos(2)=j
-             do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
-                pos(1)=i
-                call evolve0D(dt,pos,ns,niter) !# `negative' i
-             end do
-          end do
-       enddo
-
-    return
-  end subroutine evolve2D
-
-  ! ===========================================================================
-
-  subroutine evolve1D(dt,pos,ns,niter,naxis)
-
-    ! find column density for the axes going through the source point
-    ! should be called after having done the source point
-    
-    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
-    integer,intent(inout) :: pos(Ndim) ! mesh position
-    integer,intent(in) :: ns           ! current source
-    integer,intent(in) :: niter        ! passed on to evolve0D
-    integer,intent(in) :: naxis        ! axis to do
-
-    integer :: i,j,k
-
-    select case (naxis)
-    case(1)
-       ! sweep in `positive' i direction
-       pos(2:3)=srcpos(2:3,ns)
-       do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+    ! sweep in `positive' j direction
+    do j=srcpos(2,ns),srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+       pos(2)=j
+       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) !# `positive' i
-       enddo
-    case(2)
-       ! sweep in `negative' i direction
-       pos(2:3)=srcpos(2:3,ns)
+       end do
        do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) !# `negative' i
        end do
-    case(3)
-       ! sweep in `positive' j direction
-       pos(1)=srcpos(1,ns)
-       pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-          pos(2)=j
-          call evolve0D(dt,pos,ns,niter) !# `positive' j
-       end do
-    case(4)
-       ! sweep in `negative' j direction
-       pos(1)=srcpos(1,ns)
-       pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
-          pos(2)=j
-          call evolve0D(dt,pos,ns,niter) !# `negative' j
-       end do
-    case(5)
-       ! sweep in `positive' k direction
-       pos(1:2)=srcpos(1:2,ns)
-       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-          pos(3)=k
-          call evolve0D(dt,pos,ns,niter) !# `positive' k
-       end do
-    case(6)
-       ! sweep in `negative' k direction
-       pos(1:2)=srcpos(1:2,ns)
-       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
-          pos(3)=k
-          call evolve0D(dt,pos,ns,niter) !# `negative' k
-       end do
-    end select
+    end do
     
+    ! sweep in `negative' j direction
+    do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+       pos(2)=j
+       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `positive' i
+       end do
+       do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+          pos(1)=i
+          call evolve0D(dt,pos,ns,niter) !# `negative' i
+       end do
+    end do
+
     return
   end subroutine evolve2D
 
