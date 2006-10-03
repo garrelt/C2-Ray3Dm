@@ -2,14 +2,15 @@ module times
 
   ! This module handles the time variables
 
+  use precision, only: dp
   use my_mpi
   use astroconstants, only: YEAR
-  use cosmology_parameters, only: zred_t0, t0
-  use cosmology, only: t0, zred_t0
+  use cosmology, only: t0, zred_t0, zred2time
 
   implicit none
-  integer number_timesteps
-  integer number_outputs
+
+  integer :: number_timesteps
+  integer :: number_outputs
   
 contains
 
@@ -57,17 +58,17 @@ contains
 
     ! Date: 20-Aug-2006 (f77: 19-May-2005)
 
-    real(kind=8),intent(in) :: zred0
-    real(kind=8),intent(in) :: zred_end
-    real(kind=8),intent(out) :: end_time
-    real(kind=8),intent(out) :: dt
-    real(kind=8),intent(out) :: output_dt
+    real(kind=dp),intent(in) :: zred0
+    real(kind=dp),intent(in) :: zred_end
+    real(kind=dp),intent(out) :: end_time
+    real(kind=dp),intent(out) :: dt
+    real(kind=dp),intent(out) :: output_dt
 
-    real(kind=8) :: current_time
+    real(kind=dp) :: current_time
 
     ! Convert to time (in seconds)
-    current_time=t0*( ( (1.0+zred_t0)/(1.0+zred0) )**1.5-1.0)
-    end_time=t0*( ( (1.0+zred_t0)/(1.0+zred_end) )**1.5-1.0)
+    current_time=zred2time(zred0) !t0*( ( (1.0+zred_t0)/(1.0+zred0) )**1.5-1.0)
+    end_time=zred2time(zred_end) !t0*( ( (1.0+zred_t0)/(1.0+zred_end) )**1.5-1.0)
 
     ! Set value of time step
     dt=(end_time-current_time)/real(number_timesteps)

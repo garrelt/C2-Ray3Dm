@@ -1,9 +1,13 @@
 module abundances
 
-  real(kind=8),parameter :: abu_he=0.074
-  real(kind=8),parameter :: abu_c=7.1e-7
+  ! This module sets elemental abundances
 
-  real(kind=8),parameter :: mu=(1.0-abu_he)+4.0*abu_he
+  use precision, only: dp
+
+  real(kind=dp),parameter :: abu_he=0.074
+  real(kind=dp),parameter :: abu_c=7.1e-7
+
+  real(kind=dp),parameter :: mu=(1.0-abu_he)+4.0*abu_he
 
   !-----------------------------------------------------------------------
   !     set heavy element abundances

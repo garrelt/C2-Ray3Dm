@@ -21,7 +21,8 @@ module evolve
   !use cgsconstants
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
-  use photonstatistics, only: state_before, calculate_photon_statistics, photon_loss
+  use photonstatistics, only: state_before, calculate_photon_statistics, &
+       photon_loss
   use sourceprops, only: SrcSeries, NumSrc, srcpos
 
   implicit none
@@ -59,7 +60,7 @@ contains
     use  m_ctrper, only: ctrper
 
     ! The time step
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
 
     ! Will contains the integer position of the cell being treated
     integer,dimension(Ndim) :: pos(Ndim)
@@ -80,16 +81,8 @@ contains
     call state_before ()
 
     ! initialize average and intermediate results to initial values
-    do nx=0,1
-       do k=1,mesh(3)
-          do j=1,mesh(2)
-             do i=1,mesh(1)
-                xh_av(i,j,k,nx)=xh(i,j,k,nx)
-                xh_intermed(i,j,k,nx)=xh(i,j,k,nx)
-             enddo
-          enddo
-       enddo
-    enddo
+    xh_av(:,:,:,:)=xh(:,:,:,:)
+    xh_intermed(:,:,:,:)=xh(:,:,:,:)
     
     ! Loop over sources
     niter=0
@@ -98,13 +91,7 @@ contains
        niter=niter+1
          
        ! reset global rates to zero for this iteration
-       do k=1,mesh(3)
-          do j=1,mesh(2)
-             do i=1,mesh(1)
-                phih_grid(i,j,k)=0.0
-             enddo
-          enddo
-       enddo
+       phih_grid(:,:,:)=0.0
        
        ! reset photon loss counter
        photon_loss=0.0
@@ -124,13 +111,7 @@ contains
           
           ! reset column densities for new source point
           ! coldensh_out is unique for each source point
-          do k=1,mesh(3)
-             do j=1,mesh(2)
-                do i=1,mesh(1)
-                   coldensh_out(i,j,k)=0.0
-                enddo
-             enddo
-          enddo
+          coldensh_out(:,:,:)=0.0
           
           ! Loop through grid in the order required by short characteristics
           
@@ -209,14 +190,7 @@ contains
        !if (conv_flag.lt.125) then
        if (conv_flag.lt.int(1.5e-5*mesh(1)*mesh(2)*mesh(3))) then
           !if (conv_flag.eq.0) then
-          do k=1,mesh(3)
-             do j=1,mesh(2)
-                do i=1,mesh(1)
-                   xh(i,j,k,0)=xh_intermed(i,j,k,0)
-                   xh(i,j,k,1)=xh_intermed(i,j,k,1)
-                enddo
-             enddo
-          enddo
+          xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
           if (niter.gt.50) then
@@ -240,7 +214,7 @@ contains
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
     ! directions
     
-    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
     integer,intent(inout) :: pos(Ndim) ! mesh position
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
@@ -301,16 +275,16 @@ contains
     !real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
     
     ! Tolerance on the convergence for neutral fraction
-    !real(kind=8) :: convergence1,convergence2
+    !real(kind=dp) :: convergence1,convergence2
     !parameter(convergence1=1.0e-3)
     !parameter(convergence2=5.0e-2)
     
-    real(kind=8),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
+    real(kind=dp),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
     
     logical :: falsedummy ! always false, for tests
     parameter(falsedummy=.false.)
 
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
     integer,intent(in)      :: rtpos(Ndim)
     integer,intent(in)      :: ns
     integer,intent(in)      :: niter
@@ -319,18 +293,18 @@ contains
     integer :: nx,nd,nit,idim ! loop counters
     integer,dimension(Ndim) :: pos
     integer,dimension(Ndim) :: srcpos1
-    real(kind=8) :: coldensh_in
-    real(kind=8) :: coldensh_cell
-    real(kind=8) :: path
-    real(kind=8) :: de
-    real(kind=8),dimension(0:1) :: yh,yh_av,yh0
-    real(kind=8) :: ndens_p
-    real(kind=8) :: avg_temper
+    real(kind=dp) :: coldensh_in
+    real(kind=dp) :: coldensh_cell
+    real(kind=dp) :: path
+    real(kind=dp) :: de
+    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0
+    real(kind=dp) :: ndens_p
+    real(kind=dp) :: avg_temper
     
-    real(kind=8) :: dist,vol_ph
-    real(kind=8) :: xs,ys,zs
-    real(kind=8) :: yh_av0
-    real(kind=8) :: convergence
+    real(kind=dp) :: dist,vol_ph
+    real(kind=dp) :: xs,ys,zs
+    real(kind=dp) :: yh_av0
+    real(kind=dp) :: convergence
     
     ! The value of ns tells you the source number.
     finalpass=.false.
@@ -370,9 +344,7 @@ contains
     else
 
        ! For all other points call cinterp to find the column density
-       do nd=1,Ndim
-          srcpos1(nd)=srcpos(nd,ns)
-       enddo
+       srcpos1(:)=srcpos(:,ns)
        ! call cinterp(coldensh_out(:,:,:),pos,srcpos1, &
        !        coldensh_in,path)
        call cinterp(rtpos,srcpos1,coldensh_in,path)
@@ -410,9 +382,7 @@ contains
           call photoion(coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
 
           ! Restore yh to initial values (for doric)
-          do nx=0,1
-             yh(nx)=yh0(nx)
-          enddo
+          yh(:)=yh0(:)
               
           ! Calculate (mean) electron density
           de=electrondens(ndens_p,yh_av)
@@ -522,24 +492,24 @@ contains
     !use radiation, only: photoion, phih, phih_out
     use c2ray_parameters, only: convergence1,convergence2
     ! Tolerance on the convergence for neutral fraction
-    !real(kind=8),parameter :: convergence1=1.0e-3
-    !real(kind=8),parameter :: convergence2=5.0e-2
+    !real(kind=dp),parameter :: convergence1=1.0e-3
+    !real(kind=dp),parameter :: convergence2=5.0e-2
 
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
     integer,intent(in) :: pos(Ndim)
     integer,intent(inout) :: conv_flag
 
     logical :: finalpass
     integer :: nx,nit ! loop counter
-    real(kind=8) :: de
-    real(kind=8) :: yh(0:1),yh_av(0:1),yh0(0:1)
-    real(kind=8) :: avg_temper
-    real(kind=8) :: ndens_p
+    real(kind=dp) :: de
+    real(kind=dp) :: yh(0:1),yh_av(0:1),yh0(0:1)
+    real(kind=dp) :: avg_temper
+    real(kind=dp) :: ndens_p
 
-    real(kind=8) :: phih
+    real(kind=dp) :: phih
 
-    real(kind=8) :: yh_av0
-    real(kind=8) :: convergence
+    real(kind=dp) :: yh_av0
+    real(kind=dp) :: convergence
     
     ! This routine does the final (whole grid) pass
     finalpass=.true.
@@ -572,9 +542,7 @@ contains
        yh_av0=yh_av(0)
 
        ! Copy ionic abundances back to initial values for doric
-       do nx=0,1
-          yh(nx)=yh0(nx)
-       enddo
+       yh(:)=yh0(:)
               
        ! Calculate (mean) electron density
        de=electrondens(ndens_p,yh_av)

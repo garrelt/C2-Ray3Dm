@@ -16,10 +16,10 @@ module c2ray_parameters
   real(kind=dp),parameter :: epsilon=1e-40_dp
 
   ! Convergence criterion for per source calculation (evolve0d)
-  real(kind=8),parameter :: convergence1=1.0e-3
+  real(kind=dp),parameter :: convergence1=1.0e-3
 
   ! Convergence criterion for global calculation (evolve0d)
-  real(kind=8),parameter :: convergence2=1.0e-2
+  real(kind=dp),parameter :: convergence2=1.0e-2
 
   ! Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0

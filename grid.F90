@@ -1,21 +1,23 @@
 module grid
 
+  use precision, only: dp
   use sizes, only: Ndim, mesh
   use astroconstants, only: Mpc
   use cosmology_parameters, only: h
   use my_mpi
-  
+  use file_admin, only: stdinput
+
   implicit none
 
   ! Contains grid data
   ! dr - cell size
   ! x,y,z - x,y,z coordinates
   ! vol - volume of one cell
-  real(kind=8),dimension(Ndim) :: dr
-  real(kind=8),dimension(mesh(1)) :: x
-  real(kind=8),dimension(mesh(2)) :: y
-  real(kind=8),dimension(mesh(3)) :: z
-  real(kind=8) :: vol
+  real(kind=dp),dimension(Ndim) :: dr
+  real(kind=dp),dimension(mesh(1)) :: x
+  real(kind=dp),dimension(mesh(2)) :: y
+  real(kind=dp),dimension(mesh(3)) :: z
+  real(kind=dp) :: vol
   
 contains
 
@@ -38,7 +40,7 @@ contains
     ! contained in common block in grid.h
     
     integer :: i,j,k
-    real(kind=8) :: xgrid,ygrid,zgrid
+    real(kind=dp) :: xgrid,ygrid,zgrid
     
 #ifdef MPI
     integer :: ierror
@@ -47,7 +49,7 @@ contains
     ! Ask for grid size
     if (rank == 0) then
        write(*,'(A,$)') 'Enter physical (comoving) size of grid in x,y,z (Mpc): '
-       read(*,*) xgrid,ygrid,zgrid
+       read(stdinput,*) xgrid,ygrid,zgrid
     endif
     
 #ifdef MPI

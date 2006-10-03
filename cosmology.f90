@@ -23,7 +23,7 @@ contains
 
   subroutine cosmology_init (zred0,time)
     
-    real(kind=8),intent(in) :: zred0
+    real(kind=dp),intent(in) :: zred0
     real(kind=dp),intent(in) :: time
     
     ! Cosmological time corresponding to (initial) redshift zred0
@@ -53,14 +53,37 @@ contains
 
     ! History: - 20-Aug-2006, conversion to f90
 
-    real(kind=8) :: time2zred
-    real(kind=8),intent(in) :: time
+    real(kind=dp) :: time2zred
+    real(kind=dp),intent(in) :: time
 
     ! Calculate the redshift
-    time2zred = -1+(1.+zred_t0)*((t0+time)/t0)**(-2./3.)
+    time2zred = -1+(1.+zred_t0)*(t0/(t0+time))**(2./3.)
 
     return
   end function time2zred
+
+  ! =======================================================================
+
+  function zred2time (zred1)
+
+    ! Calculates the time for a given cosmological redshift
+
+    ! Author: Garrelt Mellema
+
+    ! Date: 30-Sep-2006
+    
+    ! Version: f90
+
+    ! History: 
+
+    real(kind=dp) :: zred2time
+    real(kind=dp),intent(in) :: zred1
+
+    ! Calculate the redshift
+    zred2time = t0*( ((1.0+zred_t0)/(1.0+zred1))**1.5 - 1.0 )
+
+    return
+  end function zred2time
 
   ! =======================================================================
 

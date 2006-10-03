@@ -1,34 +1,35 @@
 module material
 
-  ! This file contains routines for initializing data on the grid
+  ! This module contains the grid data and routines for initializing them.
   ! These are
   !  - mat_ini : initializes temperature and ionization fractions at start
   !  - dens_ini : initializes the density field (from PMFAST output)
   !  - xfrac_ini : initializes ionization fractions (in case of restart).
-  use sizes
+
+  use precision, only: dp,si
+  use sizes, only: mesh
+  use file_admin, only: stdinput
   use my_mpi
-  use grid
-  use cgsconstants
-  use cosmology_parameters
-  use pmfast
+  use grid, only: vol
+  use cgsconstants, only: m_p
+  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
+  use pmfast, only: M_grid, id_str, dir_dens, tot_nfiles
   use abundances, only: mu
+
   implicit none
 
   ! ndens - number density (cm^-3) of a cell
   ! temper - temperature (K) of a cell
   ! xh - ionization fractions for one cell
-  real(kind=8) :: ndens(mesh(1),mesh(2),mesh(3))
-  real(kind=8) :: temper
-  real(kind=8) :: xh(mesh(1),mesh(2),mesh(3),0:1)
+  real(kind=dp) :: ndens(mesh(1),mesh(2),mesh(3))
+  real(kind=dp) :: temper
+  real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1)
   logical isothermal
-  real(kind=8) :: avg_dens
 
 #ifdef MPI
   integer,private :: ierror
 #endif
 
-  ! real(kind=8) :: coldensh_out(mesh(1),mesh(2),mesh(3))
-  ! common /coldensties/ coldensh_out
 contains
   ! ============================================================================
   subroutine mat_ini (restart)
@@ -51,28 +52,24 @@ contains
     ! - adapted for multiple cosmological sources
     ! - f90 version with MPI
 
-    ! The material properties (ndens, temper, xh) are passed 
-    ! around via a common block contained in material.h
-
-
     integer,intent(out) :: restart ! will be /= 0 if a restart is intended
 
     integer :: i,j,k,n ! loop counters
-    real(kind=8) :: temper_val
+    real(kind=dp) :: temper_val
     character(len=1) :: answer
 
     ! restart
     restart=0 ! no restart by default
 
     if (rank == 0) then
-       ! Ask for clumping factor, temperature, restart. Read in values
+       ! Ask for temperature, restart. Read in values
        write(*,'(A,$)') 'Enter initial temperature (K): '
-       read(*,*) temper_val
+       read(stdinput,*) temper_val
        write(*,'(A,$)') 'Restart (y/n)? : '
-       read(*,*) answer
+       read(stdinput,*) answer
        if (answer.eq.'y'.or.answer.eq.'Y') restart=1
        write(*,'(A,$)') 'Restart at midpoint (y/n)? : '
-       read(*,*) answer
+       read(stdinput,*) answer
        if (answer.eq.'y'.or.answer.eq.'Y') restart=2
     endif
 #ifdef MPI       
@@ -113,22 +110,24 @@ contains
     ! - PMFAST input
     ! - MPI
 
-    real(kind=8),intent(in) :: zred_now
+    real(kind=dp),intent(in) :: zred_now
     
     integer :: i,j,k,n,nfile ! loop counters
     character(len=512):: dens_file
     character(len=6) :: zred_str
     character(len=1) :: nfile_str
-    real(kind=8) :: convert ! conversion factor
-    real(kind=8) :: summed_density
+    real(kind=dp) :: convert ! conversion factor
+    real(kind=dp) :: summed_density
+    real(kind=dp) :: avg_dens
 
-    ! density in file is in real(kind=4), read in via this array
-    real,dimension(:,:,:),allocatable :: ndens_real
+    ! density in file is in 4B reals, read in via this array
+    real(kind=si),dimension(:,:,:),allocatable :: ndens_real
 
     if (rank == 0) then
        ! construct filename
        write(zred_str,'(f6.3)') zred_now
        if (id_str /= "coarse") then
+          ! Allocate array needed to read in data
           allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
           write(30,*) 'Reading ',id_str,' input'
           dens_file=trim(adjustl(dir_dens))//"coarser_densities/"// &
@@ -138,14 +137,18 @@ contains
           ! Open density file: note that it is in `binary' form
           open(unit=20,file=dens_file,form='binary',status='old')
           
-          ! Read in data
+          ! Read in data and store it in ndens
           read(20) ndens_real
           ndens(:,:,:)=ndens_real(:,:,:)
           
           ! close file
           close(20)
+
+          ! Deallocate array needed for reading in the data.
           deallocate(ndens_real)
        else
+          ! For the highest resolution the density is spread out
+          ! over tot_nfiles. Otherwise the same.
           allocate(ndens_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
           do nfile=0,tot_nfiles-1
              write(nfile_str,'(I1)') nfile
@@ -163,13 +166,13 @@ contains
           deallocate(ndens_real)
        endif
     endif
-    write(30,*) 'Distributing the density'
+    !write(30,*) 'Distributing the density'
 #ifdef MPI       
-    ! Distribute the input parameters to the other nodes
+    ! Distribute the density to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,ierror)
 #endif
-    write(30,*) 'Density distributed'
+    !write(30,*) 'Density distributed'
        
     ! Report on data: min, max, total
     write(30,*) 'minimum: ',minval(ndens)/8.
@@ -220,16 +223,13 @@ contains
 
     ! Date: 19-May-2005
 
-    ! The ionization fractions are passed around via a common block contained
-    ! in material.h
-
-    real(kind=8),intent(in) :: zred_now
+    real(kind=dp),intent(in) :: zred_now
     
     character(len=180) :: xfrac_file
     character(len=6) :: zred_str
     integer :: m1,m2,m3
-    ! File contains reals
-    real,dimension(:,:,:),allocatable :: xh1_real
+    ! Array needed to read in 4B reals
+    real(kind=si),dimension(:,:,:),allocatable :: xh1_real
 
     if (rank == 0) then
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
@@ -253,6 +253,7 @@ contains
        close(20)
        deallocate(xh1_real)
     endif
+
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3)*2,MPI_DOUBLE_PRECISION,0,&

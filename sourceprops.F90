@@ -34,8 +34,8 @@ contains
     ! For random permutation of sources
     use  m_ctrper
 
-    real(kind=8),intent(in) :: zred_now ! current redshift
-    real(kind=8),intent(in) :: lifetime2 ! time step
+    real(kind=dp),intent(in) :: zred_now ! current redshift
+    real(kind=dp),intent(in) :: lifetime2 ! time step
 
     character(len=180) :: sourcelistfile,sourcelistfilesuppress
     integer :: ns,ns0

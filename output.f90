@@ -8,7 +8,8 @@ module output_module
   ! output : write output
 
   use my_mpi, only: rank
-  
+  use file_admin, only: stdinput
+
   implicit none
   
   integer,parameter :: max_input_streams=5
@@ -55,7 +56,7 @@ contains
        write(*,*) 'Enter a mask for streams 1 through 5'
        write(*,*) 'E.g. 1,0,1,0,0 means streams 1 and 3, but not 2, 4, 5'
     
-       read(*,*) streams(1),streams(2),streams(3),streams(4),streams(5)
+       read(stdinput,*) streams(1),streams(2),streams(3),streams(4),streams(5)
        
        ! Open files
        if (do_photonstatistics) open(unit=90,file='PhotonCounts.out', &
@@ -105,12 +106,12 @@ contains
     use photonstatistics
     use radiation, only: teff,rstar,lstar,S_star
 
-    real(kind=8),intent(in) :: zred_now,time,dt
+    real(kind=dp),intent(in) :: zred_now,time,dt
 
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=8) :: totalsrc
+    real(kind=dp) :: totalsrc
     logical crossing,recording_photonstats
 
     if (rank == 0) then

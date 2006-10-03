@@ -18,10 +18,10 @@ module evolve
   use precision, only: dp
   use my_mpi
   use sizes, only: Ndim, mesh
-  !use cgsconstants
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
-  use photonstatistics, only: state_before, calculate_photon_statistics, photon_loss
+  use photonstatistics, only: state_before, calculate_photon_statistics, &
+       photon_loss
   use sourceprops, only: SrcSeries, NumSrc, srcpos
 
   implicit none
@@ -62,10 +62,10 @@ contains
     real(kind=8),intent(in) :: dt
 
     ! Will contains the integer position of the cell being treated
-    integer,dimension(Ndim) :: pos(Ndim)
+    integer,dimension(Ndim) :: pos
       
     ! Loop variables
-    integer :: i,j,k,l,nx,ns,ns1,niter
+    integer :: i,j,k,l,nx,ns,ns1,niter,naxis,nplane,nquadrant
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
@@ -80,16 +80,8 @@ contains
     call state_before ()
 
     ! initialize average and intermediate results to initial values
-    do nx=0,1
-       do k=1,mesh(3)
-          do j=1,mesh(2)
-             do i=1,mesh(1)
-                xh_av(i,j,k,nx)=xh(i,j,k,nx)
-                xh_intermed(i,j,k,nx)=xh(i,j,k,nx)
-             enddo
-          enddo
-       enddo
-    enddo
+    xh_av(:,:,:,:)=xh(:,:,:,:)
+    xh_intermed(:,:,:,:)=xh(:,:,:,:)
     
     ! Loop over sources
     niter=0
@@ -98,13 +90,7 @@ contains
        niter=niter+1
          
        ! reset global rates to zero for this iteration
-       do k=1,mesh(3)
-          do j=1,mesh(2)
-             do i=1,mesh(1)
-                phih_grid(i,j,k)=0.0
-             enddo
-          enddo
-       enddo
+       phih_grid(:,:,:)=0.0
        
        ! reset photon loss counter
        photon_loss=0.0
@@ -124,13 +110,7 @@ contains
           
           ! reset column densities for new source point
           ! coldensh_out is unique for each source point
-          do k=1,mesh(3)
-             do j=1,mesh(2)
-                do i=1,mesh(1)
-                   coldensh_out(i,j,k)=0.0
-                enddo
-             enddo
-          enddo
+          coldensh_out(:,:,:)=0.0
           
           ! Loop through grid in the order required by short characteristics
           ! and useful for parallelization
@@ -139,22 +119,31 @@ contains
           pos(:)=srcpos(:,ns)
           call evolve0D(dt,pos,ns,niter)
 
-          ! Then do the the axes
-          do naxis=1,6
-             call evolve1D_axis(dt,pos,ns,niter,naxis)
-          enddo
+          ! do independent areas of the mesh in parallel using OpenMP
+          !$omp parallel default(shared) private(naxis,nplane,nquadrant)
 
-          ! 1. transfer in the upper part of the grid (above srcpos(3))
-          do k=srcpos(3,ns),srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-             pos(3)=k
-             call evolve2D(dt,pos,ns,niter)
+          ! Then do the the axes
+          !$omp do schedule (dynamic,1)
+          do naxis=1,6
+             call evolve1D_axis(dt,ns,niter,naxis)
+          enddo
+          !$omp end do
+
+          ! Then the source planes
+          !$omp do schedule (dynamic,1)
+          do nplane=1,12
+             call evolve2D_plane(dt,ns,niter,nplane)
           end do
+          !$omp end do
           
-          ! 2. transfer in the lower part of the grid (below srcpos(3))
-          do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
-             pos(3)=k
-             call evolve2D(dt,pos,ns,niter)
+          ! Then the quadrants
+          !$omp do schedule (dynamic,1)
+          do nquadrant=1,8
+             call evolve3D_quadrant(dt,ns,niter,nquadrant)
           end do
+          !$omp end do
+          !$omp end parallel
+
           write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        enddo ! sources loop
        
@@ -219,14 +208,7 @@ contains
        !if (conv_flag.lt.125) then
        if (conv_flag.lt.int(1.5e-5*mesh(1)*mesh(2)*mesh(3))) then
           !if (conv_flag.eq.0) then
-          do k=1,mesh(3)
-             do j=1,mesh(2)
-                do i=1,mesh(1)
-                   xh(i,j,k,0)=xh_intermed(i,j,k,0)
-                   xh(i,j,k,1)=xh_intermed(i,j,k,1)
-                enddo
-             enddo
-          enddo
+          xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
           if (niter.gt.50) then
@@ -245,17 +227,17 @@ contains
 
   ! ===========================================================================
 
-  subroutine evolve2D(dt,pos,ns,niter,nquadrant)
+  subroutine evolve3D_quadrant(dt,ns,niter,nquadrant)
 
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
     ! directions
     
     real(kind=8),intent(in) :: dt      ! passed on to evolve0D
-    integer,intent(inout) :: pos(Ndim) ! mesh position
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: nquadrant    ! which quadrant to do    
-    integer :: i,j
+    integer :: i,j,k
+    integer,dimension(Ndim) :: pos ! mesh position
 
     select case (nquadrant)
     case (1)
@@ -306,24 +288,72 @@ contains
              end do
           end do
        enddo
-
+    case (5)
+       ! sweep in `positive' i,j,k direction
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(1)=k
+          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+             pos(2)=j
+             do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+                pos(1)=i
+                call evolve0D(dt,pos,ns,niter) !# `positive' i
+             end do
+          enddo
+       enddo
+    case (6)
+       ! sweep in `positive' i,j,k direction
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(1)=k
+          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+             pos(2)=j
+             do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+                pos(1)=i
+                call evolve0D(dt,pos,ns,niter) !# `negative' i
+             end do
+          end do
+       enddo
+    case (7)
+       ! sweep in `positive' i,j,k direction
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(1)=k
+          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+             pos(2)=j
+             do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+                pos(1)=i
+                call evolve0D(dt,pos,ns,niter) !# `negative' i
+             end do
+          end do
+       enddo
+    case(8)
+       ! sweep in `positive' i,j,k direction
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(1)=k
+          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+             pos(2)=j
+             do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+                pos(1)=i
+                call evolve0D(dt,pos,ns,niter) !# `negative' i
+             end do
+          end do
+       enddo
+    end select
     return
-  end subroutine evolve2D
+  end subroutine evolve3D_quadrant
 
   ! ===========================================================================
 
-  subroutine evolve1D(dt,pos,ns,niter,naxis)
+  subroutine evolve1D_axis(dt,ns,niter,naxis)
 
     ! find column density for the axes going through the source point
     ! should be called after having done the source point
     
     real(kind=8),intent(in) :: dt      ! passed on to evolve0D
-    integer,intent(inout) :: pos(Ndim) ! mesh position
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: naxis        ! axis to do
 
     integer :: i,j,k
+    integer,dimension(Ndim) :: pos ! mesh position
 
     select case (naxis)
     case(1)
@@ -373,7 +403,149 @@ contains
     end select
     
     return
-  end subroutine evolve2D
+  end subroutine evolve1D_axis
+
+  ! ===========================================================================
+
+  subroutine evolve2D_plane(dt,ns,niter,nplane)
+
+    ! find column density for the axes going through the source point
+    ! should be called after having done the source point
+    
+    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    integer,intent(in) :: ns           ! current source
+    integer,intent(in) :: niter        ! passed on to evolve0D
+    integer,intent(in) :: nplane        ! axis to do
+
+    integer,dimension(Ndim) :: pos ! mesh position
+
+    integer :: i,j,k
+
+    select case (nplane)
+    case(1)
+       ! sweep in `positive' i direction
+       pos(3)=srcpos(3,ns)
+       do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+          pos(2)=j
+          do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(2)
+       ! sweep in `negative' i direction
+       do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+          pos(2)=j
+          do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(3)
+       ! sweep in `positive' i direction
+       pos(3)=srcpos(3,ns)
+       do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+          pos(2)=j
+          do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(4)
+       ! sweep in `positive' i direction
+       pos(3)=srcpos(3,ns)
+       do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+          pos(2)=j
+          do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(5)
+       ! sweep in `positive' i direction
+       pos(2)=srcpos(2,ns)
+       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+          pos(3)=k
+          do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(6)
+       ! sweep in `positive' i direction
+       pos(2)=srcpos(2,ns)
+       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+          pos(3)=k
+          do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(7)
+       ! sweep in `positive' i direction
+       pos(2)=srcpos(2,ns)
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(3)=k
+          do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(8)
+       ! sweep in `positive' i direction
+       pos(2)=srcpos(2,ns)
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(3)=k
+          do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+             pos(1)=i
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(9) 
+       ! sweep in `positive' i direction
+       pos(1)=srcpos(1,ns)
+       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+          pos(3)=k
+          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+             pos(2)=j
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(10) 
+       ! sweep in `positive' i direction
+       pos(1)=srcpos(1,ns)
+       do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+          pos(3)=k
+          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+             pos(2)=j
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(11) 
+       ! sweep in `positive' i direction
+       pos(1)=srcpos(1,ns)
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(3)=k
+          do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+             pos(2)=j
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+    case(12) 
+       ! sweep in `positive' i direction
+       pos(1)=srcpos(1,ns)
+       do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          pos(3)=k
+          do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+             pos(2)=j
+             call evolve0D(dt,pos,ns,niter) !# `positive' i
+          enddo
+       enddo
+       
+    end select
+    
+    return
+  end subroutine evolve2D_plane
 
   !=======================================================================
 
@@ -469,9 +641,8 @@ contains
     else
 
        ! For all other points call cinterp to find the column density
-       do nd=1,Ndim
-          srcpos1(nd)=srcpos(nd,ns)
-       enddo
+       srcpos1(:)=srcpos(:,ns)
+
        ! call cinterp(coldensh_out(:,:,:),pos,srcpos1, &
        !        coldensh_in,path)
        call cinterp(rtpos,srcpos1,coldensh_in,path)
@@ -509,9 +680,7 @@ contains
           call photoion(coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
 
           ! Restore yh to initial values (for doric)
-          do nx=0,1
-             yh(nx)=yh0(nx)
-          enddo
+          yh(:)=yh0(:)
               
           ! Calculate (mean) electron density
           de=electrondens(ndens_p,yh_av)
@@ -625,7 +794,7 @@ contains
     !real(kind=8),parameter :: convergence2=5.0e-2
 
     real(kind=8),intent(in) :: dt
-    integer,intent(in) :: pos(Ndim)
+    integer,dimension(Ndim),intent(in) :: pos
     integer,intent(inout) :: conv_flag
 
     logical :: finalpass
@@ -645,11 +814,9 @@ contains
     convergence=convergence2
 
     ! Initialize local ionization states to global ones
-    do nx=0,1
-       yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
-       yh(nx)=yh0(nx)
-       yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx) ! use calculated xh_av
-    enddo
+    yh0(:)=xh(pos(1),pos(2),pos(3),:)
+    yh(:)=yh0(:)
+    yh_av(:)=xh_av(pos(1),pos(2),pos(3),:) ! use calculated xh_av
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -671,9 +838,7 @@ contains
        yh_av0=yh_av(0)
 
        ! Copy ionic abundances back to initial values for doric
-       do nx=0,1
-          yh(nx)=yh0(nx)
-       enddo
+       yh(:)=yh0(:)
               
        ! Calculate (mean) electron density
        de=electrondens(ndens_p,yh_av)
@@ -713,10 +878,8 @@ contains
     endif
 
     ! Copy ionic abundances back to intermediate global arrays.
-    do nx=0,1
-       xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
-       xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
-    enddo
+    xh_intermed(pos(1),pos(2),pos(3),:)=yh(:)
+    xh_av(pos(1),pos(2),pos(3),:)=yh_av(:)
 
     return
   end subroutine evolve0D_global

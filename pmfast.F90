@@ -18,21 +18,22 @@ module pmfast
   implicit none
 
   integer,parameter :: n_box=3248    ! cells/side (in N-body)
-  real(kind=8),parameter :: boxsize=100.0  ! Box size in Mpc/h comoving
+  real(kind=dp),parameter :: boxsize=100.0  ! Box size in Mpc/h comoving
 
   ! properties of the box:
   ! M_box      - mass in box
   ! M_particle - mass per particle
   ! M_grid - mean mass per pmfast cell
-  real(kind=8) :: M_box,M_particle,M_grid
+  real(kind=dp) :: M_box,M_particle,M_grid
   
   ! redshift sequence information
   integer :: NumZred               ! number of redshifts
-  real(kind=8),dimension(:),allocatable :: zred_array ! array of redshifts
+  real(kind=dp),dimension(:),allocatable :: zred_array ! array of redshifts
   character(len=8) :: id_str       ! resolution dependent string
 
-  character(len=180),parameter :: dir_dens="/disk/sn-12/garrelt/Simulations/"// &
-       "Reionization/100Mpc_WMAP3/203/"
+  character(len=180) :: dir_dens
+  character(len=180),parameter :: dir_dens_path = &
+       "/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
   integer,parameter :: tot_nfiles=7 ! number of files at 812^3
 
 #ifdef MPI
@@ -45,9 +46,31 @@ contains
     
     
     character(len=180) :: redshift_file ! name of file with list of redshifts
-    real(kind=8) :: rho_crit_0_MpcM_sun,rho_bar,rho_matter
+    real(kind=dp) :: rho_crit_0_MpcM_sun,rho_bar,rho_matter
     integer :: nz ! loop counter
+    character(len=20) :: dataroot='DEISA_DATA'
+    character(len=256) :: value
+    integer :: len, status
 
+    ! In some cases a special file system is used, and its name is
+    ! found from an environment variable.
+    call get_environment_variable (dataroot, value, len, status, .true.)
+    if (status == 0) then
+       ! The directory with density files is located in the dataroot
+       ! plus the dir_dens_path parameter
+       if (len > 0) then
+          dir_dens=value(1:len)//dir_dens_path
+       else
+          dir_dens=dir_dens_path
+       endif
+    elseif (status == 1) then
+       ! Assume that the whole path is set in the parameter
+       dir_dens=dir_dens_path
+    elseif (status == -1) then
+       ! Warning
+       write(30,*) 'Data file system name is truncated'
+    endif
+       
     ! Ask for redshift file
     if (rank == 0) then
        write(*,'(A,$)') 'File with redshifts: '
