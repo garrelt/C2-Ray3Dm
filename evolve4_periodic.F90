@@ -16,9 +16,9 @@ module evolve
   ! tped : temperature,pressure,electron density calculation
 
   use precision, only: dp
-  use my_mpi
+  use my_mpi ! supplies all the MPI definitions
   use sizes, only: Ndim, mesh
-  !use cgsconstants
+
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
   use photonstatistics, only: state_before, calculate_photon_statistics, &
@@ -63,7 +63,7 @@ contains
     real(kind=dp),intent(in) :: dt
 
     ! Will contains the integer position of the cell being treated
-    integer,dimension(Ndim) :: pos(Ndim)
+    integer,dimension(Ndim) :: pos
       
     ! Loop variables
     integer :: i,j,k,l,nx,ns,ns1,niter
@@ -215,7 +215,7 @@ contains
     ! directions
     
     real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
-    integer,intent(inout) :: pos(Ndim) ! mesh position
+    integer,dimension(Ndim),intent(inout) :: pos ! mesh position
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
 
@@ -496,7 +496,7 @@ contains
     !real(kind=dp),parameter :: convergence2=5.0e-2
 
     real(kind=dp),intent(in) :: dt
-    integer,intent(in) :: pos(Ndim)
+    integer,dimension(Ndim),intent(in) :: pos
     integer,intent(inout) :: conv_flag
 
     logical :: finalpass
