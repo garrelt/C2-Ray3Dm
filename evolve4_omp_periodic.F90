@@ -325,6 +325,7 @@ contains
     case(2)
        write(30,*) nplane
        ! sweep in +i,-j direction
+       pos(3)=srcpos(3,ns)
        do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
           pos(2)=j
           do i=srcpos(1,ns)+1,srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
