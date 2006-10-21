@@ -134,11 +134,12 @@ Program Ifront
      call dens_ini(zred)
      
      ! Set time if restart at intermediate time
-     time=zred2time(zred_interm)
+     if (restart == 2) time=zred2time(zred_interm)
 
      ! Loop until end time is reached
      do
         ! Make sure you produce output at the correct time
+        write(30,*) next_output_time,time,dt
         actual_dt=min(next_output_time-time,dt)
         
         ! Report time and time step
