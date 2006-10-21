@@ -10,31 +10,33 @@ module pmfast
   ! It sets an identifier (id_str) for the resolution (used when
   ! reading in source list files and density fields.
 
-  use sizes
-  use astroconstants
+  use precision, only: dp
+  use sizes, only: mesh
+  use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
-  use cosmology_parameters
+  use cosmology_parameters, only: rho_crit_0, Omega0, h
 
   implicit none
 
-  integer,parameter :: n_box=3248    ! cells/side (in N-body)
-  real(kind=dp),parameter :: boxsize=100.0  ! Box size in Mpc/h comoving
+  integer,parameter,private :: n_box=3248    ! cells/side (in N-body)
+  real(kind=dp),parameter,private :: boxsize=100.0  ! Box size in Mpc/h comoving
 
   ! properties of the box:
   ! M_box      - mass in box
   ! M_particle - mass per particle
   ! M_grid - mean mass per pmfast cell
-  real(kind=dp) :: M_box,M_particle,M_grid
+  real(kind=dp),private :: M_box,M_particle
+  real(kind=dp),public :: M_grid
   
   ! redshift sequence information
-  integer :: NumZred               ! number of redshifts
-  real(kind=dp),dimension(:),allocatable :: zred_array ! array of redshifts
-  character(len=8) :: id_str       ! resolution dependent string
+  integer, public :: NumZred               ! number of redshifts
+  real(kind=dp),dimension(:),allocatable,public :: zred_array ! array of redshifts
+  character(len=8),public :: id_str       ! resolution dependent string
 
-  character(len=180) :: dir_dens
-  character(len=180),parameter :: dir_dens_path = &
-       "/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
-  integer,parameter :: tot_nfiles=7 ! number of files at 812^3
+  character(len=180),public :: dir_dens
+  character(len=180),parameter,private :: dir_dens_path ="./"! &
+       !"/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
+  integer,parameter,public :: tot_nfiles=7 ! number of files at 812^3
 
 #ifdef MPI
   integer,private :: ierror
@@ -44,9 +46,8 @@ contains
 
   subroutine pmfast_ini ()
     
-    
     character(len=180) :: redshift_file ! name of file with list of redshifts
-    real(kind=dp) :: rho_crit_0_MpcM_sun,rho_bar,rho_matter
+    real(kind=dp) :: rho_crit_0_MpcM_sun,rho_matter
     integer :: nz ! loop counter
     character(len=20) :: dataroot='DEISA_DATA'
     character(len=256) :: value
@@ -96,11 +97,7 @@ contains
 #endif
 
     ! Parameters of simulations boxes
-    ! critical density in M0/Mpc^3
-    rho_crit_0_MpcM_sun=rho_crit_0*Mpc**3/M_SOLAR
-    rho_crit_0_MpcM_sun=rho_crit_0*Mpc**3/M_SOLAR
 
-    !rho_bar = rho_crit_0_MpcM_sun*Omega0 ! mean matter density in M0/Mpc^3
     rho_matter = rho_crit_0*Omega0        ! mean matter density (g/cm^3)
     M_box      = rho_matter*(boxsize*Mpc/h)**3   ! mass in box (g, not M0) 
     M_particle = 8.0*M_box/(real(n_box)**3) ! mass per particle (g, not M0)

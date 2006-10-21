@@ -1,12 +1,17 @@
 # F90 compiler
-F90 = mpif90
-#F90 = ifort
+#F90 = mpif90
+F90 = ifort
 #F90 = f90
 #F90 = pf90
 #LDR     = $(F90)
 
 # F90 options
-F90FLAGS = -xW -O3 -vec_report -u -fpe0 -ipo -DMPI -openmp
+IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo
+#F90FLAGS1 = -xW $(IFORTFLAGS) 
+F90FLAGS1 = -xB $(IFORTFLAGS) 
+#F90FLAGS = $(F90FLAGS) -DMPI
+F90FLAGS = $(F90FLAGS1) -openmp 
+
 #F90FLAGS = -O3 -u -fpe0 -vec_report -ipo #Lobster 6
 #F90FLAGS = -O4 -omp -fpe1# -fpe4 Compaq
 #F90FLAGS  = -O3 -openmp
@@ -38,6 +43,9 @@ C2Ray_3D_BigBox_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o mpi.o fi
 
 C2Ray_3D_BigBox_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
 	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+
+C2Ray_3D_BigBox_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
 
 clean : 
 	rm -f *.o *.mod *.l *.il
