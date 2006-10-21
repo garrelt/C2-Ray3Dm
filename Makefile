@@ -10,8 +10,8 @@ IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo
 F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xB $(IFORTFLAGS) 
 #F90FLAGS = $(F90FLAGS) -DMPI
-#F90FLAGS = $(F90FLAGS1) -openmp 
-F90FLAGS = $(F90FLAGS1)
+F90FLAGS = $(F90FLAGS1) -openmp 
+#F90FLAGS = $(F90FLAGS1)
 
 #F90FLAGS = -O3 -u -fpe0 -vec_report -ipo #Lobster 6
 #F90FLAGS = -O4 -omp -fpe1# -fpe4 Compaq
