@@ -62,7 +62,7 @@ contains
     use  m_ctrper, only: ctrper
 
     ! The time step
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
 
     ! Will contains the integer position of the cell being treated
     integer,dimension(Ndim) :: pos
@@ -236,7 +236,7 @@ contains
     ! find column density for the axes going through the source point
     ! should be called after having done the source point
     
-    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: naxis        ! axis to do
@@ -301,7 +301,7 @@ contains
     ! find column density for the axes going through the source point
     ! should be called after having done the source point
     
-    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: nplane        ! plane to do
@@ -312,6 +312,7 @@ contains
 
     select case (nplane)
     case(1)
+       write(30,*) nplane
        ! sweep in +i,+j direction
        pos(3)=srcpos(3,ns)
        do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
@@ -322,6 +323,7 @@ contains
           enddo
        enddo
     case(2)
+       write(30,*) nplane
        ! sweep in +i,-j direction
        do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
           pos(2)=j
@@ -331,6 +333,7 @@ contains
           enddo
        enddo
     case(3)
+       write(30,*) nplane
        ! sweep in -i,+j direction
        pos(3)=srcpos(3,ns)
        do j=srcpos(2,ns)+1,srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
@@ -341,6 +344,7 @@ contains
           enddo
        enddo
     case(4)
+       write(30,*) nplane
        ! sweep in -i,-j direction
        pos(3)=srcpos(3,ns)
        do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
@@ -351,6 +355,7 @@ contains
           enddo
        enddo
     case(5)
+       write(30,*) nplane
        ! sweep in +i,+k direction
        pos(2)=srcpos(2,ns)
        do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
@@ -361,6 +366,7 @@ contains
           enddo
        enddo
     case(6)
+       write(30,*) nplane
        ! sweep in -i,+k direction
        pos(2)=srcpos(2,ns)
        do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
@@ -371,6 +377,7 @@ contains
           enddo
        enddo
     case(7)
+       write(30,*) nplane
        ! sweep in -i,-k direction
        pos(2)=srcpos(2,ns)
        do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
@@ -381,6 +388,7 @@ contains
           enddo
        enddo
     case(8)
+       write(30,*) nplane
        ! sweep in +i,-k direction
        pos(2)=srcpos(2,ns)
        do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
@@ -391,6 +399,7 @@ contains
           enddo
        enddo
     case(9) 
+       write(30,*) nplane
        ! sweep in +j,+k direction
        pos(1)=srcpos(1,ns)
        do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
@@ -401,6 +410,7 @@ contains
           enddo
        enddo
     case(10) 
+       write(30,*) nplane
        ! sweep in -j,+k direction
        pos(1)=srcpos(1,ns)
        do k=srcpos(3,ns)+1,srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
@@ -411,6 +421,7 @@ contains
           enddo
        enddo
     case(11) 
+       write(30,*) nplane
        ! sweep in +j,-k direction
        pos(1)=srcpos(1,ns)
        do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
@@ -421,6 +432,7 @@ contains
           enddo
        enddo
     case(12) 
+       write(30,*) nplane
        ! sweep in -j,-k direction
        pos(1)=srcpos(1,ns)
        do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
@@ -443,7 +455,7 @@ contains
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
     ! directions
     
-    real(kind=8),intent(in) :: dt      ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: nquadrant    ! which quadrant to do    
@@ -576,16 +588,16 @@ contains
     !real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
     
     ! Tolerance on the convergence for neutral fraction
-    !real(kind=8) :: convergence1,convergence2
+    !real(kind=dp) :: convergence1,convergence2
     !parameter(convergence1=1.0e-3)
     !parameter(convergence2=5.0e-2)
     
-    real(kind=8),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
+    real(kind=dp),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
     
     logical :: falsedummy ! always false, for tests
     parameter(falsedummy=.false.)
 
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
     integer,intent(in)      :: rtpos(Ndim)
     integer,intent(in)      :: ns
     integer,intent(in)      :: niter
@@ -594,18 +606,18 @@ contains
     integer :: nx,nd,nit,idim ! loop counters
     integer,dimension(Ndim) :: pos
     integer,dimension(Ndim) :: srcpos1
-    real(kind=8) :: coldensh_in
-    real(kind=8) :: coldensh_cell
-    real(kind=8) :: path
-    real(kind=8) :: de
-    real(kind=8),dimension(0:1) :: yh,yh_av,yh0
-    real(kind=8) :: ndens_p
-    real(kind=8) :: avg_temper
+    real(kind=dp) :: coldensh_in
+    real(kind=dp) :: coldensh_cell
+    real(kind=dp) :: path
+    real(kind=dp) :: de
+    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0
+    real(kind=dp) :: ndens_p
+    real(kind=dp) :: avg_temper
     
-    real(kind=8) :: dist,vol_ph
-    real(kind=8) :: xs,ys,zs
-    real(kind=8) :: yh_av0
-    real(kind=8) :: convergence
+    real(kind=dp) :: dist,vol_ph
+    real(kind=dp) :: xs,ys,zs
+    real(kind=dp) :: yh_av0
+    real(kind=dp) :: convergence
     
     ! The value of ns tells you the source number.
     finalpass=.false.
@@ -794,24 +806,24 @@ contains
     !use radiation, only: photoion, phih, phih_out
     use c2ray_parameters, only: convergence1,convergence2
     ! Tolerance on the convergence for neutral fraction
-    !real(kind=8),parameter :: convergence1=1.0e-3
-    !real(kind=8),parameter :: convergence2=5.0e-2
+    !real(kind=dp),parameter :: convergence1=1.0e-3
+    !real(kind=dp),parameter :: convergence2=5.0e-2
 
-    real(kind=8),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt
     integer,dimension(Ndim),intent(in) :: pos
     integer,intent(inout) :: conv_flag
 
     logical :: finalpass
     integer :: nx,nit ! loop counter
-    real(kind=8) :: de
-    real(kind=8) :: yh(0:1),yh_av(0:1),yh0(0:1)
-    real(kind=8) :: avg_temper
-    real(kind=8) :: ndens_p
+    real(kind=dp) :: de
+    real(kind=dp) :: yh(0:1),yh_av(0:1),yh0(0:1)
+    real(kind=dp) :: avg_temper
+    real(kind=dp) :: ndens_p
 
-    real(kind=8) :: phih
+    real(kind=dp) :: phih
 
-    real(kind=8) :: yh_av0
-    real(kind=8) :: convergence
+    real(kind=dp) :: yh_av0
+    real(kind=dp) :: convergence
     
     ! This routine does the final (whole grid) pass
     finalpass=.true.
