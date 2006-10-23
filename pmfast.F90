@@ -12,6 +12,7 @@ module pmfast
 
   use precision, only: dp
   use sizes, only: mesh
+  use file_admin, only: stdinput
   use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
   use cosmology_parameters, only: rho_crit_0, Omega0, h
@@ -34,8 +35,8 @@ module pmfast
   character(len=8),public :: id_str       ! resolution dependent string
 
   character(len=180),public :: dir_dens
-  character(len=180),parameter,private :: dir_dens_path ="./"! &
-       !"/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
+  character(len=180),parameter,private :: dir_dens_path = &
+       "/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
   integer,parameter,public :: tot_nfiles=7 ! number of files at 812^3
 
 #ifdef MPI
@@ -75,7 +76,7 @@ contains
     ! Ask for redshift file
     if (rank == 0) then
        write(*,'(A,$)') 'File with redshifts: '
-       read(*,*) redshift_file
+       read(stdinput,*) redshift_file
        
        ! Open and read redshift file
        open(unit=60,file=redshift_file,form='formatted',status='old')

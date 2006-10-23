@@ -45,6 +45,8 @@ contains
 #endif
 
     if (NumSrc0 /= 0) then
+
+       write(30,*) 'Deallocating source arrays'
        deallocate(srcpos)
        deallocate(rsrcpos)
        deallocate(srcMass)
@@ -91,6 +93,7 @@ contains
     endif
 
 #ifdef MPI
+    call MPI_BCAST(NumSrc0,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
     call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
 
