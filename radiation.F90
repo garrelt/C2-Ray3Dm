@@ -60,12 +60,22 @@ module radiation
   
   real(kind=dp) :: tauHI=0.0
 
+  type photrates
+     real(kind=dp) :: h
+     real(kind=dp) :: hv_h
+     real(kind=dp) :: h_in
+     real(kind=dp) :: hv_h_in
+     real(kind=dp) :: h_out
+     real(kind=dp) :: hv_h_out
+  end type photrates
+
   ! photo-ionization rates
-  real(kind=dp),public :: phih,hvphih
-  real(kind=dp),public :: phih_in,phih_out
-  real(kind=dp),public :: hvphih_in,hvphih_out
+  !real(kind=dp),public :: phih,hvphih
+  !real(kind=dp),public :: phih_in,phih_out
+  !real(kind=dp),public :: hvphih_in,hvphih_out
+
 #ifdef MPI       
-    integer :: ierror
+    integer,private :: ierror
 #endif
 
 contains
@@ -421,7 +431,7 @@ contains
 
   ! =======================================================================
   
-  subroutine photoion (hcolum_in,hcolum_out,vol,nsrc)
+  subroutine photoion (phi,hcolum_in,hcolum_out,vol,nsrc)
     
     ! Calculates photo-ionization rates
     
@@ -439,6 +449,7 @@ contains
     use cgsphotoconstants
     use sourceprops, only: NormFlux
 
+    type(photrates),intent(out) :: phi
     real(kind=dp),intent(in) :: hcolum_in,hcolum_out,vol
     integer,intent(in) :: nsrc
 
@@ -461,9 +472,9 @@ contains
     ! Find the hydrogen photo-ionization rate (ingoing)
     ! Since all optical depths are hydrogen, we can use
     ! tau1 for all.
-    phih_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+    phi%h_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
          (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
-    if (.not.isothermal) hvphih_in=NormFlux(nsrc)* &
+    if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
          (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
     ! find the table positions for the optical depth (outgoing)
@@ -475,15 +486,15 @@ contains
     iodp11=min(NumTau,iodpo1+1)
     
     ! find the hydrogen photo-ionization rate (outgoing)
-    phih_out=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+    phi%h_out=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
          (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
-    if (.not.isothermal) hvphih_out=NormFlux(nsrc)* &
+    if (.not.isothermal) phi%hv_h_out=NormFlux(nsrc)* &
          (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
     ! The photon conserving photo-ionization rate is the difference between
     ! the one coming in, and the one going out.
-    phih=(phih_in-phih_out)/vol
-    if (.not.isothermal) hvphih=(hvphih_in-hvphih_out)/vol
+    phi%h=(phi%h_in-phi%h_out)/vol
+    if (.not.isothermal) phi%hv_h=(phi%hv_h_in-phi%hv_h_out)/vol
 
   end subroutine photoion
 

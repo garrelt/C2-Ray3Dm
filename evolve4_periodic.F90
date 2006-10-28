@@ -269,15 +269,9 @@ contains
 
     use tped, only: electrondens
     use doric_module, only: doric, coldens
-    use radiation, only: photoion, phih, phih_out
+    use radiation, only: photoion, photrates
     use c2ray_parameters, only: epsilon,convergence1,convergence2
     use mathconstants, only: pi
-    !real(kind=dp),parameter :: epsilon=1e-40_dp ! small value
-    
-    ! Tolerance on the convergence for neutral fraction
-    !real(kind=dp) :: convergence1,convergence2
-    !parameter(convergence1=1.0e-3)
-    !parameter(convergence2=5.0e-2)
     
     real(kind=dp),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
     
@@ -306,6 +300,8 @@ contains
     real(kind=dp) :: yh_av0
     real(kind=dp) :: convergence
     
+    type(photrates) :: phi
+
     ! The value of ns tells you the source number.
     finalpass=.false.
     convergence=convergence1
@@ -379,7 +375,7 @@ contains
           coldensh_cell=coldens(path,yh_av(0),ndens_p)
 
           ! Calculate (photon-conserving) photo-ionization rate
-          call photoion(coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
+          call photoion(phi,coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
 
           ! Restore yh to initial values (for doric)
           yh(:)=yh0(:)
@@ -388,7 +384,7 @@ contains
           de=electrondens(ndens_p,yh_av)
 
           ! Calculate the new and mean ionization states (yh and yh_av)
-          call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih,finalpass)
+          call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phi%h,finalpass)
 
           ! Do not test for convergence if this is not the first pass
           ! over the sources
@@ -415,8 +411,8 @@ contains
     else
 
        ! For high column densities, set photo-ionization rates to zero
-       phih=0.0
-       phih_out=0.0
+       phi%h=0.0
+       phi%h_out=0.0
 
     endif ! high column density test
 
@@ -427,12 +423,12 @@ contains
 
     ! Save photo-ionization rates, they will be applied in evolve0D_global
     if (niter.eq.1) then
-       phih=phih/((yh_av(0)+epsilon)*ndens_p)
+       phih=phi%h/((yh_av(0)+epsilon)*ndens_p)
     else
-       phih=phih/((yh_av0+epsilon)*ndens_p)
+       phih=phi%h/((yh_av0+epsilon)*ndens_p)
     endif
     phih_grid(pos(1),pos(2),pos(3))= &
-         phih_grid(pos(1),pos(2),pos(3))+phih
+         phih_grid(pos(1),pos(2),pos(3))+phi%h
 
     ! Photon statistics: register number of photons leaving the grid
     if ( &
@@ -443,7 +439,7 @@ contains
          (rtpos(3).eq.srcpos(3,ns)-1-mesh(3)/2).or. &
          (rtpos(3).eq.srcpos(3,ns)+mesh(3)/2)) then
        
-       photon_loss=photon_loss+ phih_out*vol/vol_ph
+       photon_loss=photon_loss+ phi%h_out*vol/vol_ph
        ! if (pos(1).eq.1)  print *, phih_out*vol/vol_ph
     endif
 
@@ -489,11 +485,7 @@ contains
     
     use tped, only: electrondens
     use doric_module, only: doric, coldens
-    !use radiation, only: photoion, phih, phih_out
     use c2ray_parameters, only: convergence1,convergence2
-    ! Tolerance on the convergence for neutral fraction
-    !real(kind=dp),parameter :: convergence1=1.0e-3
-    !real(kind=dp),parameter :: convergence2=5.0e-2
 
     real(kind=dp),intent(in) :: dt
     integer,dimension(Ndim),intent(in) :: pos
