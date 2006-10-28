@@ -1,6 +1,6 @@
 # F90 compiler
-#F90 = mpif90
-F90 = ifort
+F90 = mpif90
+#F90 = ifort
 #F90 = f90
 #F90 = pf90
 #LDR     = $(F90)
@@ -9,8 +9,9 @@ F90 = ifort
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo
 F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xB $(IFORTFLAGS) 
+F90FLAGS = $(F90FLAGS1) -openmp -DMPI
 #F90FLAGS = $(F90FLAGS) -DMPI
-F90FLAGS = $(F90FLAGS1) -openmp 
+#F90FLAGS = $(F90FLAGS1) -openmp
 #F90FLAGS = $(F90FLAGS1)
 
 #F90FLAGS = -O3 -u -fpe0 -vec_report -ipo #Lobster 6
