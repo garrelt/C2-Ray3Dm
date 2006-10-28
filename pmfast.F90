@@ -85,7 +85,6 @@ contains
        do nz=1,NumZred
           read(60,*) zred_array(nz)
        enddo
-       ! print*,nz,zred_array
        close(20)
     endif
 
@@ -99,10 +98,10 @@ contains
 
     ! Parameters of simulations boxes
 
-    rho_matter = rho_crit_0*Omega0        ! mean matter density (g/cm^3)
-    M_box      = rho_matter*(boxsize*Mpc/h)**3   ! mass in box (g, not M0) 
-    M_particle = 8.0*M_box/(real(n_box)**3) ! mass per particle (g, not M0)
-    M_grid = M_particle/8.
+    rho_matter = rho_crit_0*Omega0             ! mean matter density (g/cm^3)
+    M_box      = rho_matter*(boxsize*Mpc/h)**3 ! mass in box (g, not M0) 
+    M_particle = 8.0*M_box/(real(n_box)**3)    ! mass per particle (g, not M0)
+    M_grid = M_particle/8.                     ! mass in grid cell (g)
 
     ! Set identifying string (resolution-dependent)
     ! Construct the file name

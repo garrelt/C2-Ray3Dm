@@ -19,9 +19,9 @@ module evolve
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
+  use sourceprops, only: SrcSeries, NumSrc, srcpos
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss
-  use sourceprops, only: SrcSeries, NumSrc, srcpos
 
   implicit none
 
@@ -32,9 +32,9 @@ module evolve
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
-  real(kind=dp) :: photon_loss_all
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  real(kind=dp) :: photon_loss_all
 
 contains
   ! =======================================================================
@@ -444,7 +444,7 @@ contains
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
     ! directions
     
-    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt     ! passed on to evolve0D
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
     integer,intent(in) :: nquadrant    ! which quadrant to do    
@@ -556,7 +556,8 @@ contains
 
   subroutine evolve0D(dt,rtpos,ns,niter)
     
-    ! Calculates the evolution of the hydrogen ionization state
+    ! Calculates the evolution of the hydrogen ionization state in a
+    ! single cell.
     
     ! Author: Garrelt Mellema
     
@@ -569,11 +570,11 @@ contains
     ! The photo-ionization rates for each grid point are found and added
     ! to phih_grid, but the ionization fractions are not updated. 
 
+    use mathconstants, only: pi
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
     use c2ray_parameters, only: epsilon,convergence1,convergence2
-    use mathconstants, only: pi
     
     real(kind=dp),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
     
