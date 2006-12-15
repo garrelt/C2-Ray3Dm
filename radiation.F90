@@ -192,15 +192,15 @@ contains
           rstar=r_solar
           lstar=rstar*rstar*(4.0d0*pi*totflux)
        endif
-       else
-          ! teff and S_star were set in the parameter module
-          teff=teff_nominal
-          S_star=S_star_nominal
-          totflux=sigmasb*teff**4
-          ! Assign some fiducial values, these are scaled to correspond 
-          ! to S_star in routine spec_diag
-          rstar=r_solar
-          lstar=rstar*rstar*(4.0d0*pi*totflux)
+    else
+       ! teff and S_star were set in the parameter module
+       teff=teff_nominal
+       S_star=S_star_nominal
+       totflux=sigmasb*teff**4
+       ! Assign some fiducial values, these are scaled to correspond 
+       ! to S_star in routine spec_diag
+       rstar=r_solar
+       lstar=rstar*rstar*(4.0d0*pi*totflux)
     endif
 
 #ifdef MPI       

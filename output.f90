@@ -212,17 +212,14 @@ contains
           ! Photon Statistics
           total_ion=total_ion!+photon_loss
           grtotal_ion=grtotal_ion+total_ion-totcollisions
-          totalsrc=0.0
-          do ns=1,NumSrc
-             totalsrc=NormFlux(ns)+totalsrc
-          enddo
+          totalsrc=sum(NormFlux(1:NumSrc))
           if (time.gt.0.0) then
-             write(90,'(f6.3,5(1pe10.3))') &
+             write(90,'(f6.3,6(1pe10.3))') &
                   zred_now, &
                   (total_ion-totcollisions)/(totalsrc*s_star*dt), &
                   dh0/total_ion, &
-                  photon_loss/total_ion, &
                   totrec/total_ion, &
+                  photon_loss/total_ion, &
                   totcollisions/total_ion, &
                   grtotal_ion/(totalsrc*s_star*time)
           endif

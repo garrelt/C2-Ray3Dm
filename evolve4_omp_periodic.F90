@@ -744,13 +744,13 @@ contains
          (rtpos(3).eq.srcpos(3,ns)+mesh(3)/2)) then
        
        photon_loss=photon_loss+ phi%h_out*vol/vol_ph
-       if (phi%h_out > 0.0) then 
-          write(30,*) 'Photon loss: ',rtpos
-          write(30,*) srcpos(:,ns)
-          write(30,*) phi%h, phi%h_out
-          write(30,*) coldensh_in, coldensh_cell
-          write(30,*) ns, dist
-       endif
+       !if (phi%h_out > 0.0) then 
+       !   write(30,*) 'Photon loss: ',rtpos
+       !   write(30,*) srcpos(:,ns)
+       !   write(30,*) phi%h, phi%h_out
+       !   write(30,*) coldensh_in, coldensh_cell
+       !   write(30,*) ns, dist
+       !endif
        ! if (pos(1).eq.1)  print *, phih_out*vol/vol_ph
     endif
 
