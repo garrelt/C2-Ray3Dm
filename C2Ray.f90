@@ -124,8 +124,6 @@ Program Ifront
           end_time,dt,output_time)
      write(30,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
          
-     next_output_time=time+output_time
-
      ! Initialize source position
      call source_properties(zred,end_time-time)
 
@@ -134,7 +132,10 @@ Program Ifront
      call dens_ini(zred)
      
      ! Set time if restart at intermediate time
-     if (restart == 2) time=zred2time(zred_interm)
+     if (nz==1 .and. restart == 2) then
+        time=zred2time(zred_interm)
+     endif
+     next_output_time=time+output_time
 
      ! Loop until end time is reached
      do
@@ -155,10 +156,10 @@ Program Ifront
 
         ! do not call the first time around
         ! if restart is at middle point in time
-        if (nz /= 1 .or. restart /= 2) then 
+        !if (nz /= 1 .or. restart /= 2) then 
            ! Take one time step
-           call evolve3D(actual_dt)
-        end if
+        call evolve3D(actual_dt)
+        !end if
 
         ! Update time
         time=time+actual_dt
