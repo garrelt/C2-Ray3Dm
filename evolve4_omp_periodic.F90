@@ -173,7 +173,7 @@ contains
             MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
        
        xh_av(:,:,:,1) = buffer(:,:,:)
-       xh_av(:,:,:,0) = max(0.0,min(1.0,1.0-xh_av(:,:,:,1)))
+       xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
        
        ! accumulate threaded xh_intermed
        call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
@@ -181,7 +181,7 @@ contains
             MPI_COMM_NEW, ierror)
        
        xh_intermed(:,:,:,1)=buffer(:,:,:)
-       xh_intermed(:,:,:,0)=max(0.0,min(1.0,1.0-xh_intermed(:,:,:,1)))
+       xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
 #else
        photon_loss_all=photon_loss
 #endif
