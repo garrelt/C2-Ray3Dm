@@ -27,7 +27,7 @@ module evolve
 
   private
 
-  public :: evolve3D
+  public :: evolve3D, phih_grid
 
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
