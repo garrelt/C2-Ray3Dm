@@ -102,6 +102,7 @@ contains
     use sizes, only: mesh
     use grid, only: x
     use material
+    use evolve, only: phih_grid
     use sourceprops
     use photonstatistics
     use radiation, only: teff,rstar,lstar,S_star
@@ -142,12 +143,23 @@ contains
        endif
        
        ! Stream 3
+!       if (streams(3).eq.1) then
+!          write(file1,'(f6.3)') zred_now
+!          file1='Temper3_'//trim(adjustl(file1))//'.bin'
+!          open(unit=53,file=file1,form='unformatted',status='unknown')
+!          write(53) mesh(1),mesh(2),mesh(3)
+!          write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
+!               k=1,mesh(3))
+!          close(53)
+!       endif
+       
+       ! Stream 3
        if (streams(3).eq.1) then
           write(file1,'(f6.3)') zred_now
-          file1='Temper3_'//trim(adjustl(file1))//'.bin'
+          file1='IonRates3_'//trim(adjustl(file1))//'.bin'
           open(unit=53,file=file1,form='unformatted',status='unknown')
           write(53) mesh(1),mesh(2),mesh(3)
-          write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
+          write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
           close(53)
        endif

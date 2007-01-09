@@ -130,12 +130,14 @@ Program Ifront
      ! print*,'zred before dens_ini=',zred
      ! Initialize density field
      call dens_ini(zred)
-     
+
      ! Set time if restart at intermediate time
      if (nz==1 .and. restart == 2) then
         time=zred2time(zred_interm)
+        next_output_time=end_time
+     else
+        next_output_time=time+output_time
      endif
-     next_output_time=time+output_time
 
      ! Loop until end time is reached
      do
@@ -169,7 +171,7 @@ Program Ifront
            call output(time2zred(time),time,dt)
            next_output_time=next_output_time+output_time
         endif
-
+        write(30,*) 'STOP? ',time,end_time,(time-end_time)/end_time
         if (abs(time-end_time).lt.1e-6*end_time) exit
      enddo
 

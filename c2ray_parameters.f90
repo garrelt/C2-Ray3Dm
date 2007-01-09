@@ -45,9 +45,9 @@ module c2ray_parameters
 
   ! Source properties
   ! Photon per atom for high mass sources
-  real,parameter :: phot_per_atom1=2000.0
+  real,parameter :: phot_per_atom1=250.0
   ! Photon per atom for low mass sources
-  real,parameter :: phot_per_atom2=2000.0
+  real,parameter :: phot_per_atom2=250.0
   ! Life time of sources
   real,parameter :: lifetime=20e6*YEAR
   ! Upper limit for low mass sources
