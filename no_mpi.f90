@@ -11,9 +11,13 @@ module my_mpi
   !----------------------------------------------------------------------------
   
 
-  !implicit none
-
   !private
+
+#ifdef XLF
+  USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
+#endif
+
+  implicit none
 
   integer,parameter,public :: NPDIM=3 ! dimension of problem
 
@@ -40,7 +44,7 @@ contains
     character(len=10) :: filename        ! name of the log file
     character(len=4) :: number
     integer :: ierror
-    integer :: hostnm
+    !integer :: hostnm
     character(len=100) :: hostname
 
     call mpi_basic ()
