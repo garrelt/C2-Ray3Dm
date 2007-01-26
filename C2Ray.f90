@@ -41,6 +41,10 @@ Program Ifront
   use subgrid_clumping, only: set_clumping
   use file_admin, only:stdinput
 
+#ifdef XLF
+  USE XLFUTILITY, only: iargc, getarg, flush => flush_
+#endif
+
   implicit none
 
   ! Start and end time for CPU report
@@ -83,7 +87,7 @@ Program Ifront
 
   ! Initialize output
   call setup_output()
-
+  call flush(30)
   !Initialize grid
   call grid_ini()
 
@@ -99,6 +103,7 @@ Program Ifront
   ! Initialize time step parameters
   call time_ini ()
 
+  call flush(30)
   ! Set time to zero
   time=0.0
 
@@ -132,7 +137,10 @@ Program Ifront
      call dens_ini(zred)
 
      ! Set time if restart at intermediate time
-     if (nz==1 .and. restart == 2) then
+     ! Set next output time
+     ! Note: this assumes that there are ALWAYS two time steps
+     ! between redshifts. Should be made more general.
+     if (nz == 1 .and. restart == 2) then
         time=zred2time(zred_interm)
         next_output_time=end_time
      else
@@ -156,12 +164,8 @@ Program Ifront
         endif
         call set_clumping(real(1.0/(1.0+zred),4))
 
-        ! do not call the first time around
-        ! if restart is at middle point in time
-        !if (nz /= 1 .or. restart /= 2) then 
-           ! Take one time step
+        ! Take one time step
         call evolve3D(actual_dt)
-        !end if
 
         ! Update time
         time=time+actual_dt
@@ -171,8 +175,8 @@ Program Ifront
            call output(time2zred(time),time,dt)
            next_output_time=next_output_time+output_time
         endif
-        !write(30,*) 'STOP? ',time,end_time,(time-end_time)/end_time
         if (abs(time-end_time).lt.1e-6*end_time) exit
+        call flush(30)
      enddo
 
      ! stop
