@@ -18,7 +18,13 @@ module my_mpi
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
   use mpi
+
+#ifdef XLF
+  USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
+#else
   USE OMP_LIB, only: omp_get_num_threads
+#endif
+
   implicit none
 
   !include 'mpif.h'
@@ -47,7 +53,7 @@ contains
     character(len=10) :: filename        ! name of the log file
     character(len=4) :: number
     integer :: ierror
-    integer :: hostnm
+    !integer :: hostnm
     character(len=100) :: hostname
 
     call mpi_basic
@@ -57,7 +63,7 @@ contains
     filename=trim(adjustl('log.'//trim(adjustl(number))))
     open(unit=30,file=filename,status='unknown')
 
-    write(30,*) 'Log file for rank ',rank
+    write(30,*) 'Log file for rank ',rank,' of ',npr
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
