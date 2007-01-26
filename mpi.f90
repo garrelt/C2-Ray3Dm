@@ -17,16 +17,17 @@ module my_mpi
 
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
-  !use mpi
-
+  use mpi
+  USE OMP_LIB, only: omp_get_num_threads
   implicit none
 
-  include 'mpif.h'
+  !include 'mpif.h'
 
   integer,parameter,public :: NPDIM=3 ! dimension of problem
 
   integer,public :: rank            ! rank of the processor
   integer,public :: npr             ! number of processors
+  integer,public :: nthreads        ! number of threads (per processor)
   integer,public :: MPI_COMM_NEW    ! the (new) communicator
 
   integer,dimension(NPDIM),public :: dims ! number of processors in 
@@ -61,6 +62,12 @@ contains
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     write(30,*) 'The Processor is ',hostname
+
+    !$omp parallel default(shared)
+    nthreads=omp_get_num_threads()
+    !$omp end parallel
+    write(30,*) ' Number of OpenMP threads is ',nthreads
+
     call flush(30)
 
     call mpi_topology

@@ -423,9 +423,9 @@ contains
 
     ! Save photo-ionization rates, they will be applied in evolve0D_global
     if (niter.eq.1) then
-       phih=phi%h/((yh_av(0)+epsilon)*ndens_p)
+       phi%h=phi%h/((yh_av(0)+epsilon)*ndens_p)
     else
-       phih=phi%h/((yh_av0+epsilon)*ndens_p)
+       phi%h=phi%h/((yh_av0+epsilon)*ndens_p)
     endif
     phih_grid(pos(1),pos(2),pos(3))= &
          phih_grid(pos(1),pos(2),pos(3))+phi%h

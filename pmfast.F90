@@ -56,6 +56,7 @@ contains
 
     ! In some cases a special file system is used, and its name is
     ! found from an environment variable.
+#ifdef DEISA
     call get_environment_variable (dataroot, value, len, status, .true.)
     if (status == 0) then
        ! The directory with density files is located in the dataroot
@@ -72,6 +73,9 @@ contains
        ! Warning
        write(30,*) 'Data file system name is truncated'
     endif
+#else
+    dir_dens=dir_dens_path
+#endif
        
     ! Ask for redshift file
     if (rank == 0) then

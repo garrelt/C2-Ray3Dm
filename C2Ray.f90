@@ -171,7 +171,7 @@ Program Ifront
            call output(time2zred(time),time,dt)
            next_output_time=next_output_time+output_time
         endif
-        write(30,*) 'STOP? ',time,end_time,(time-end_time)/end_time
+        !write(30,*) 'STOP? ',time,end_time,(time-end_time)/end_time
         if (abs(time-end_time).lt.1e-6*end_time) exit
      enddo
 
