@@ -22,7 +22,7 @@ module my_mpi
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
 #else
-  USE OMP_LIB, only: omp_get_num_threads
+  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 
   implicit none
@@ -53,7 +53,8 @@ contains
     character(len=10) :: filename        ! name of the log file
     character(len=4) :: number
     integer :: ierror
-    !integer :: hostnm
+    integer :: hostnm
+    integer :: tn
     character(len=100) :: hostname
 
     call mpi_basic
@@ -64,15 +65,24 @@ contains
     open(unit=30,file=filename,status='unknown')
 
     write(30,*) 'Log file for rank ',rank,' of ',npr
-    ! Figure out hostname
-    ! NOTE: compiler dependent!!!
-    ierror=hostnm(hostname)
-    write(30,*) 'The Processor is ',hostname
 
     !$omp parallel default(shared)
     nthreads=omp_get_num_threads()
     !$omp end parallel
     write(30,*) ' Number of OpenMP threads is ',nthreads
+
+    ! Figure out hostname
+    ! NOTE: compiler dependent!!!
+    !$omp parallel default(shared)
+    tn=omp_get_thread_num()+1
+    ierror=hostnm(hostname)
+    if (ierror == 0) then
+       write(30,*) 'Thread number ',tn,' running on Processor ',hostname
+    else 
+       write(30,*) 'Error establishing identity of processor for thread ',tn
+    endif
+    !$omp end parallel
+
 
     call flush(30)
 
