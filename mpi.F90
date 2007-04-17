@@ -23,6 +23,7 @@ module my_mpi
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
 #else
   USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+  USE IFPORT, only: hostnm, flush
 #endif
 
   implicit none
