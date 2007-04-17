@@ -2,8 +2,6 @@ module subgrid_clumping
 
   ! This module specifies the clumping behaviour of the matter
 
-  use cosmology, only: zred
-  
   implicit none
 
   integer,parameter,private :: type_of_clumping=1
@@ -25,10 +23,10 @@ contains
        clumping = 27.466*exp(-0.114*z+0.001328*z*z)
     case(3)
        z=1.0/a-1.0
-       clumping=26.2917*exp(-0.1822*zred+0.003505*zred*zred)
+       clumping=26.2917*exp(-0.1822*z+0.003505*z*z)
     case(4)
        z=1.0/a-1.0
-       clumping=17.57*exp(-0.101*zred+0.0011*zred*zred)
+       clumping=17.57*exp(-0.101*z+0.0011*z*z)
     end select
     
   end subroutine set_clumping
