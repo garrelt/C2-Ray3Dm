@@ -182,10 +182,10 @@ contains
        
        xh_intermed(:,:,:,1)=buffer(:,:,:)
        xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
+
 #else
        photon_loss_all=photon_loss
 #endif
-       
        photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
        ! Apply total photo-ionization rates from all sources (phih_grid)
@@ -797,7 +797,7 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     !use radiation, only: photoion, phih, phih_out
-    use c2ray_parameters, only: convergence1,convergence2
+    use c2ray_parameters, only: convergence1,convergence2,epsilon
     ! Tolerance on the convergence for neutral fraction
     !real(kind=dp),parameter :: convergence1=1.0e-3
     !real(kind=dp),parameter :: convergence2=5.0e-2
@@ -837,7 +837,8 @@ contains
     ! Add lost photons
     ! (if the cell is ionized, add a fraction of the lost photons)
     !if (xh_intermed(pos(1),pos(2),pos(3),1).gt.0.5)
-    phih=phih+photon_loss/(vol*xh_av(pos(1),pos(2),pos(3),0)*ndens_p)
+    if (xh_av(pos(1),pos(2),pos(3),0) > epsilon) &
+         phih=phih+photon_loss/(vol*xh_av(pos(1),pos(2),pos(3),0)*ndens_p)
 
     nit=0
     do 
