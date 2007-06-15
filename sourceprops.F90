@@ -117,7 +117,7 @@ contains
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1).lt.0.1) then
              ! the cell is still neutral, no suppression
              ns=ns+1
-             ! Source positions in file start at zero!
+             ! Source positions in file start at 1!
              srcpos(1,ns)=srcpos0(1)
              srcpos(2,ns)=srcpos0(2)
              srcpos(3,ns)=srcpos0(3)
@@ -131,7 +131,7 @@ contains
              !the cell is ionized but source is massive enough to survive
                                 !and is assumed Pop. II 
              ns=ns+1
-             ! Source positions in file start at zero!
+             ! Source positions in file start at 1!
              srcpos(1,ns)=srcpos0(1)
              srcpos(2,ns)=srcpos0(2)
              srcpos(3,ns)=srcpos0(3)
