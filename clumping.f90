@@ -15,7 +15,6 @@ contains
     real,intent(in) :: a
     real :: z
 
-    write(30,*) 'Setting clumping factor',type_of_clumping, clumping_factor
     select case (type_of_clumping)
     case(1)
        clumping = clumping_factor
@@ -29,6 +28,8 @@ contains
        z=1.0/a-1.0
        clumping=17.57*exp(-0.101*z+0.0011*z*z)
     end select
+    write(30,*) 'Setting global clumping factor to ',clumping,'(type ', &
+         type_of_clumping,')'
     
   end subroutine set_clumping
 
