@@ -225,7 +225,7 @@ contains
 
     real(kind=dp),intent(in) :: zred_now
     
-    character(len=180) :: xfrac_file
+    character(len=512) :: xfrac_file
     character(len=6) :: zred_str
     integer :: m1,m2,m3
     ! Array needed to read in 4B reals
