@@ -100,7 +100,7 @@ contains
     !                   since t=0
 
     use sizes, only: mesh
-    use grid, only: x
+    use grid, only: x, vol
     use material
     use evolve, only: phih_grid
     use sourceprops
@@ -113,6 +113,7 @@ contains
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
     real(kind=dp) :: totalsrc
+    real(kind=dp) :: totions,totphots
     logical crossing,recording_photonstats
 
     if (rank == 0) then
@@ -238,6 +239,10 @@ contains
        endif
     endif
     
+    totions=sum(ndens*xh(:,:,:,1))*vol
+    totphots=totalsrc*s_star*dt
+    write(95,*) totions,totphots,s_star,dt 
+
     return
   end subroutine output
 
