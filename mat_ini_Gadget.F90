@@ -159,10 +159,9 @@ contains
     write(30,*) 'maximum: ',maxval(ndens)
     write(30,*) 'summed density: ',sum(ndens)
 
-    ! The original values in terms of the mean density
-    ! Below is the conversion factor
-    ! vol is redshift dependent, that is why we need to recalculate this
-    ! M_particle should be in g
+    ! The original values are in terms of mass density
+    ! Below is the conversion factor to number density.
+    ! This makes the density ndens, the TOTAL number density.
     convert=1.0/(mu*m_p)
 
     ! Assign density to the grid
@@ -189,7 +188,7 @@ contains
          ' cm^-3)'
 
     ! Take only the H part of the particle density
-    !ndens=ndens*0.5!(1.0-abu_he)
+    ndens=ndens*(1.0-abu_he)
 
     return
   end subroutine dens_ini
