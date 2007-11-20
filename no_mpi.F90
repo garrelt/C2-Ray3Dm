@@ -15,9 +15,14 @@ module my_mpi
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
-#else
-  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+#endif
+
+#ifdef IFORT
   USE IFPORT, only: hostnm, flush
+#endif
+
+#if defined IFORT && defined OPENMP 
+  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 
   implicit none
@@ -58,11 +63,13 @@ contains
     filename=trim(adjustl("log."//trim(adjustl(number))))
     open(unit=30,file=filename,status="unknown",action="write")
 
+    write(unit=30,fmt=*) "Log file for rank ",rank
+
+#ifdef OPENMP
     !$omp parallel default(shared)
     nthreads=omp_get_num_threads()
     !$omp end parallel
     write(30,*) ' Number of OpenMP threads is ',nthreads
-    write(unit=30,fmt=*) "Log file for rank ",rank
 
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
@@ -75,6 +82,16 @@ contains
        write(30,*) 'Error establishing identity of processor for thread ',tn
     endif
     !$omp end parallel
+#else
+    ! Figure out hostname
+    ! NOTE: compiler dependent!!!
+    ierror=hostnm(hostname)
+    if (ierror == 0) then
+       write(30,*) '  running on Processor ',hostname
+    else 
+       write(30,*) 'Error establishing identity of processor'
+    endif
+#endif
 
     call flush(30)
 
