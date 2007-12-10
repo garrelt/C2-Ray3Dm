@@ -2,11 +2,10 @@ module subgrid_clumping
 
   ! This module specifies the clumping behaviour of the matter
 
-  use c2ray_parameters, only: type_of_clumping
+  use c2ray_parameters, only: type_of_clumping,clumping_factor
 
   implicit none
 
-  real,parameter,private :: clumping_factor=1.0
   real,public :: clumping
 
 contains
