@@ -10,7 +10,7 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence_fraction=1.5e-5
 
   ! Set to true to let C2-Ray not change the temperature
-  logical,parameter :: isothermal=.true.
+  logical,parameter :: isothermal=.false.
 
   ! A really small number
   real(kind=dp),parameter :: epsilon=1e-40_dp
@@ -50,6 +50,8 @@ module c2ray_parameters
   real,parameter :: phot_per_atom2=250.0
   ! Life time of sources
   real,parameter :: lifetime=20e6*YEAR
+  ! Smallest number of particles that makes a reliable halo
+  real,parameter :: MinParticleContent=20. ! in solar masses
   ! Upper limit for low mass sources
   real,parameter :: LowMassLimit=1e9 ! in solar masses
   ! Upper limit for suppression criterion
