@@ -1,14 +1,14 @@
 module doric_module
   
   ! This module contains routines having to do with the calculation of
-  ! the ionization evolution of a single point.
+  ! the ionization evolution of a single grid point.
   ! It can used for Yguazu-a or non-hydro photo-ionization calculations.
-  
+
   ! - doric : time dependent solution of the ionization equation
   ! - coldens : column density of a single cell.
   ! - coldensh_bndry : Boundary condition for H column density
 
-  use precision
+  use precision, only: dp
 
   implicit none
 

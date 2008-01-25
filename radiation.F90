@@ -409,6 +409,7 @@ contains
     enddo
     
     if (.not.isothermal) then
+       allocate(hheat(0:NumTau,NumFreqBnd))
        call vector_romberg (func2,weight,NumFreq,NumFreq,NumTau,phot)
        do n=0,NumTau
           hheat(n,1)=phot(n)
@@ -466,7 +467,7 @@ contains
     ! odpos1=min(1.0d0*NumTau,max(0.0d0,1.0d0+(tau1-minlogtau)/
     odpos1=min(real(NumTau,dp),max(0.0_dp,1.0+(tau1-minlogtau)/dlogtau))
     iodpo1=int(odpos1)
-    dodpo1=odpos1-real(iodpo1)
+    dodpo1=odpos1-real(iodpo1,dp)
     iodp11=min(NumTau,iodpo1+1)
     
     ! Find the hydrogen photo-ionization rate (ingoing)
@@ -482,7 +483,7 @@ contains
     ! odpos1=min(1.0d0*NumTau,max(0.0d0,1.0d0+(tau1-minlogtau)/
     odpos1=min(real(NumTau,dp),max(0.0_dp,1.0+(tau1-minlogtau)/dlogtau))
     iodpo1=int(odpos1)
-    dodpo1=odpos1-real(iodpo1)
+    dodpo1=odpos1-real(iodpo1,dp)
     iodp11=min(NumTau,iodpo1+1)
     
     ! find the hydrogen photo-ionization rate (outgoing)
