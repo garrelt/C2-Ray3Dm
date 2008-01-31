@@ -24,6 +24,7 @@ module evolve
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss
   use sourceprops, only: SrcSeries, NumSrc, srcpos
+  use c2ray_parameters, only: convergence_fraction
 
   implicit none
 
@@ -127,6 +128,7 @@ contains
              call evolve2D(dt,pos,ns,niter)
           end do
           write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(30,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        enddo ! sources loop
        
        ! End of parallelization
@@ -187,13 +189,12 @@ contains
        write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
 
        ! Update xh if converged and exit
-       !if (conv_flag.lt.125) then
-       if (conv_flag.lt.int(1.5e-5*mesh(1)*mesh(2)*mesh(3))) then
-          !if (conv_flag.eq.0) then
+       if (conv_flag < int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
+          !if (conv_flag == 0) then
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
-          if (niter.gt.50) then
+          if (niter > 50) then
              ! Complain about slow convergence
              write(30,*) 'Multiple sources not converging'
              exit
@@ -273,7 +274,7 @@ contains
     use c2ray_parameters, only: epsilon,convergence1,convergence2
     use mathconstants, only: pi
     
-    real(kind=dp),parameter :: max_coldensh=2e19 ! column density for stopping chemisty
+    real(kind=dp),parameter :: max_coldensh=2e23_dp ! column density for stopping chemisty
     
     logical :: falsedummy ! always false, for tests
     parameter(falsedummy=.false.)
@@ -297,7 +298,7 @@ contains
     
     real(kind=dp) :: dist,vol_ph
     real(kind=dp) :: xs,ys,zs
-    real(kind=dp) :: yh_av0
+    real(kind=dp) :: yh_av0,yh1_0
     real(kind=dp) :: convergence
     
     type(photrates) :: phi
@@ -326,8 +327,8 @@ contains
     ! Find the column density at the entrance point of the cell (short
     ! characteristics)
 
-    if (rtpos(1).eq.srcpos(1,ns).and.rtpos(2).eq.srcpos(2,ns).and. &
-         rtpos(3).eq.srcpos(3,ns)) then
+    if (rtpos(1) == srcpos(1,ns).and.rtpos(2) == srcpos(2,ns).and. &
+         rtpos(3) == srcpos(3,ns)) then
        ! Do not call cinterp for the source point.
        ! Set coldensh and path by hand
        coldensh_in=0.0
@@ -335,7 +336,8 @@ contains
        
        ! Find the distance to the source (average?)
        dist=0.5*dr(1)         ! this makes vol=dx*dy*dz
-       vol_ph=4.0/3.0*pi*dist**3
+       !vol_ph=4.0/3.0*pi*dist**3
+       vol_ph=dr(1)*dr(2)*dr(3)
 
     else
 
@@ -360,7 +362,7 @@ contains
 
     ! Don't do chemistry if column density is above maximum, and if
     ! cell is still neutral (i.e. untouched)
-    if (coldensh_in.lt.max_coldensh.and.yh0(0).ne.0.0) then
+    if (coldensh_in < max_coldensh.and.yh0(0).ne.0.0) then
 
        ! Iterate to get mean ionization state (column density / optical depth) 
        ! in cell
@@ -368,9 +370,18 @@ contains
        do 
           nit=nit+1
           
-          ! Save the value of yh_av found in the previous iteration
-          yh_av0=yh_av(0)
-          
+          if ( niter == 1 ) then
+             ! Store the value of yh_av found in the previous iteration
+             ! (for convergence test)
+             yh_av0=yh_av(0)
+          else
+             ! Restore yh_av to the value from evolve0d_global
+             yh_av(0)=xh_av(pos(1),pos(2),pos(3),0)
+          endif
+          ! Store the value of yh found in the previous iteration
+          ! (for convergence test)
+          yh1_0=yh(0)
+
           ! Calculate (time averaged) column density of cell
           coldensh_cell=coldens(path,yh_av(0),ndens_p)
 
@@ -388,16 +399,21 @@ contains
 
           ! Do not test for convergence if this is not the first pass
           ! over the sources
-          if (niter .eq. 1) then
+          if (niter == 1) then
 
-             ! Test for convergence on ionization fraction and temperature
-             if ((abs((yh_av(0)-yh_av0)/yh_av(0)).lt.convergence .or. &
-                  (yh_av(0).lt.1e-12))) exit
+             ! Test for convergence on ionization fraction
+             ! Depending on how the multiple sources are handled this
+             ! could be convergence on yh_av or on yh
+             !if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence .or. &
+             !     (yh_av(0) < 1e-12))) exit
+             if ((abs((yh(0)-yh1_0)/yh(0)) < convergence .or. &
+                  (yh(0) < 1e-12))) exit
                
              ! Warn about non-convergence
-             if (nit.gt.5000) then
+             if (nit > 5000) then
                 write(30,*) 'Convergence failing (source ',ns,')'
-                write(30,*) 'xh: ',yh_av(0),yh_av0
+                !write(30,*) 'xh: ',yh_av(0),yh_av0
+                write(30,*) 'xh: ',yh(0),yh1_0
                 exit
              endif
 
@@ -422,31 +438,36 @@ contains
          coldens(path,yh_av(0),ndens_p)
 
     ! Save photo-ionization rates, they will be applied in evolve0D_global
-    if (niter.eq.1) then
+    ! To get true rates one needs to divide by n(H0). We do this by
+    ! dividing by yh_av(0) (one source) during the first iteration, and by the
+    ! global value (calculated in evolve0d_global) in subsequent iterations.
+    ! This piece of code is likely to change often in experiments.
+    if (niter == 1) then
        phi%h=phi%h/((yh_av(0)+epsilon)*ndens_p)
     else
-       phi%h=phi%h/((yh_av0+epsilon)*ndens_p)
+       !phi%h=phi%h/((yh_av0+epsilon)*ndens_p)
+       phi%h=phi%h/((xh_av(pos(1),pos(2),pos(3),0)+epsilon)*ndens_p)
     endif
     phih_grid(pos(1),pos(2),pos(3))= &
          phih_grid(pos(1),pos(2),pos(3))+phi%h
 
     ! Photon statistics: register number of photons leaving the grid
     if ( &
-         (rtpos(1).eq.srcpos(1,ns)-1-mesh(1)/2).or. &
-         (rtpos(1).eq.srcpos(1,ns)+mesh(1)/2).or. &
-         (rtpos(2).eq.srcpos(2,ns)-1-mesh(2)/2).or. &
-         (rtpos(2).eq.srcpos(2,ns)+mesh(2)/2).or. &
-         (rtpos(3).eq.srcpos(3,ns)-1-mesh(3)/2).or. &
-         (rtpos(3).eq.srcpos(3,ns)+mesh(3)/2)) then
+         (rtpos(1) == srcpos(1,ns)-1-mesh(1)/2).or. &
+         (rtpos(1) == srcpos(1,ns)+mesh(1)/2).or. &
+         (rtpos(2) == srcpos(2,ns)-1-mesh(2)/2).or. &
+         (rtpos(2) == srcpos(2,ns)+mesh(2)/2).or. &
+         (rtpos(3) == srcpos(3,ns)-1-mesh(3)/2).or. &
+         (rtpos(3) == srcpos(3,ns)+mesh(3)/2)) then
        
        photon_loss=photon_loss+ phi%h_out*vol/vol_ph
-       ! if (pos(1).eq.1)  print *, phih_out*vol/vol_ph
+       ! if (pos(1) == 1)  print *, phih_out*vol/vol_ph
     endif
 
     ! Copy ionic abundances back if this is the first iteration
     ! and the first source. This will speed up convergence if
     ! the sources are isolated and only ionizing up.
-    if (niter.eq.1) then
+    if (niter == 1) then
        xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
             xh_intermed(pos(1),pos(2),pos(3),1))
        xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
@@ -456,12 +477,13 @@ contains
        xh_av(pos(1),pos(2),pos(3),0)=1.0- &
             xh_av(pos(1),pos(2),pos(3),1)
     endif
-    ! if (niter.eq.1.and.ns.eq.1) then
+    ! if (niter == 1.and.ns == 1) then
+    !if (niter == 1) then
     !do nx=0,1
     ! xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
-    !xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
-    ! enddo
-    ! endif
+    !   xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
+    !enddo
+    !endif
 
     return
   end subroutine evolve0D
@@ -523,7 +545,7 @@ contains
     
     ! Add lost photons
     ! (if the cell is ionized, add a fraction of the lost photons)
-    !if (xh_intermed(pos(1),pos(2),pos(3),1).gt.0.5)
+    !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
     phih=phih+photon_loss/(vol*xh_av(pos(1),pos(2),pos(3),0)*ndens_p)
 
     nit=0
@@ -542,12 +564,13 @@ contains
        ! Calculate the new and mean ionization states
        call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih,finalpass)
 
+       !phih=phih*yh_av0/yh_av(0)
        ! Test for convergence on ionization fraction
-       if ((abs((yh_av(0)-yh_av0)/yh_av(0)).lt.convergence1 &
-             .or. (yh_av(0).lt.1e-12))) exit
+       if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
+             .or. (yh_av(0) < 1e-12))) exit
                   
        ! Warn about non-convergence
-       if (nit.gt.5000) then
+       if (nit > 5000) then
           write(30,*) 'Convergence failing (global)'
           write(30,*) 'xh: ',yh_av(0),yh_av0
           exit
@@ -556,18 +579,18 @@ contains
 
     ! Test for convergence on ionization fraction
     yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
-    !if ((abs((yh_av(0)-yh_av0)/yh_av(0)).gt.convergence &
+    !if ((abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence &
     ! .and. &
-    ! (yh_av(0).gt.1e-12))) then
+    ! (yh_av(0) > 1e-12))) then
     !      conv_flag=conv_flag+1
 
 
-    if (abs((yh_av(0)-yh_av0)).gt.convergence2 .and. &
-         (abs((yh_av(0)-yh_av0)/yh_av(0)).gt.convergence2 .and. &
-         (yh_av(0).gt.1e-12))) then
+    if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
+         (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
+         (yh_av(0) > 1e-12))) then
        conv_flag=conv_flag+1
        ! Report on convergence
-       ! if (conv_flag .gt. 0 .and. conv_flag .le. 10) then
+       ! if (conv_flag  >  0 .and. conv_flag  <=  10) then
        ! write(30,*) pos(1),pos(2),pos(3),yh_av(0),yh_av0, &
        ! ndens(pos(1),pos(2),pos(3))/avg_dens
        !endif
@@ -640,11 +663,11 @@ contains
     
     ! Find coordinates of points closer to source
     sgni=sign(1,idel)
-!      if (idel.eq.0) sgni=0
+!      if (idel == 0) sgni=0
     sgnj=sign(1,jdel)
-!      if (jdel.eq.0) sgnj=0
+!      if (jdel == 0) sgnj=0
     sgnk=sign(1,kdel)
-!      if (kdel.eq.0) sgnk=0
+!      if (kdel == 0) sgnk=0
     im=i-sgni
     jm=j-sgnj
     km=k-sgnk
@@ -706,8 +729,8 @@ contains
        cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4) 
 
        ! Take care of diagonals
-       ! if (kdela.eq.idela.or.kdela.eq.jdela) then
-       ! if (kdela.eq.idela.and.kdela.eq.jdela) then
+       ! if (kdela == idela.or.kdela == jdela) then
+       ! if (kdela == idela.and.kdela == jdela) then
        ! cdensi=sqrt(3.0)*cdensi
        !else
        !cdensi=sqrt(2.0)*cdensi
@@ -721,9 +744,9 @@ contains
              cdensi=sqrt(2.0)*cdensi
           endif
        endif
-       ! if (kdela.eq.1) then
-       ! if ((w3.eq.1.0).or.(w2.eq.1.0)) cdensi=sqrt(2.0)*cdensi
-       ! if (w1.eq.1.0) cdensi=sqrt(3.0)*cdensi
+       ! if (kdela == 1) then
+       ! if ((w3 == 1.0).or.(w2 == 1.0)) cdensi=sqrt(2.0)*cdensi
+       ! if (w1 == 1.0) cdensi=sqrt(3.0)*cdensi
        ! write(30,*) idela,jdela,kdela
        !endif
 
