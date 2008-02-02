@@ -17,17 +17,21 @@ module radiation
   !
   !     Author: Garrelt Mellema
   ! 
-  !     Date: 02-Jun-2004 (04-Mar-2004)
+  !     Date: 31-Jan-2008 (02-Jun-2004 (04-Mar-2004)
   
   ! Version
-  ! Simplified version from Coral, for testing
+  ! Simplified version
   ! - Only hydrogen
-  ! - Grey photo-ionization cross section
+  ! - Option for Grey photo-ionization cross section
   
-  use precision
+  use precision, only: dp
   use my_mpi
-  use romberg
-  use c2ray_parameters
+  use mathconstants, only: pi
+  use cgsconstants, only: sigmasb, hplanck, kb, tpic2
+  use cgsphotoconstants, only: frth0, frtop1, frtop2, sh0, betah0, sigh
+  use astroconstants, only: R_SOLAR, L_SOLAR
+  use romberg, only: scalar_romberg,vector_romberg,romberg_initialisation
+  use c2ray_parameters, only: teff_nominal, S_star_nominal, isothermal
 
   implicit none
 
@@ -49,15 +53,16 @@ module radiation
   real(kind=dp) :: teff,rstar,lstar,S_star
   
   real(kind=dp),dimension(NumFreqBnd) :: steph0
-  !real(kind=dp),dimension(0:NumFreq,0:NumTau,NumFreqBnd) :: h0int
-  real(kind=dp),dimension(:,:,:),allocatable :: h0int
-  !real(kind=dp),dimension(0:NumFreq,0:NumTau,NumFreqBnd) :: hh0int
-  real(kind=dp),dimension(:,:,:),allocatable :: hh0int
+  real(kind=dp),dimension(:,:,:),allocatable  :: h0int
+  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int
+  real(kind=dp),dimension(:,:,:),allocatable  :: h0int1
+  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int1
 
-  real(kind=dp),dimension(0:NumTau,NumFreqBnd) :: hphot
-  !real(kind=dp),dimension(0:NumTau,NumFreqBnd) :: hheat
-  real(kind=dp),dimension(:,:),allocatable :: hheat
-  
+  real(kind=dp),dimension(:,:),allocatable  :: hphot
+  real(kind=dp),dimension(:,:),allocatable  :: hheat
+  real(kind=dp),dimension(:,:),allocatable  :: hphot1
+  real(kind=dp),dimension(:,:),allocatable  :: hheat1
+
   real(kind=dp) :: tauHI=0.0
 
   type photrates
@@ -87,7 +92,7 @@ contains
     ! initializes constants and tables for radiation processes
     ! (heating, cooling and ionization)
 
-    use radiative_cooling
+    use radiative_cooling, only: setup_cool
 
     ! Initialize integration routines
     call romberg_initialisation(NumFreq)
@@ -125,8 +130,6 @@ contains
     ! Author: Garrelt Mellema
     ! Update: 18-Feb-2004
 
-    use cgsconstants
-    use astroconstants
     use file_admin, only: stdinput
     
     integer :: nchoice
@@ -232,10 +235,6 @@ contains
     ! http://nimbus.pa.uky.edu/plasma2000/input_for_nebular_models.htm
     ! (19 Feb 2004)
 
-    use cgsconstants
-    use cgsphotoconstants
-    use astroconstants
-
     integer :: i
     real(kind=dp) :: rfr,frmax,stepfl,flux
     real(kind=dp) :: fr(0:NumFreq),weight(0:NumFreq),bb(0:NumFreq)
@@ -299,9 +298,6 @@ contains
     ! Date: 19-Feb-2004
     ! Version: Simplified version from Coral.
 
-    use cgsconstants
-    use cgsphotoconstants
-    
     logical,parameter :: grey=.false. ! use grey opacities?
 
     integer :: i,n
@@ -312,7 +308,11 @@ contains
     
     ! Allocate the spectral integral cores
     allocate(h0int(0:NumFreq,0:NumTau,NumFreqBnd))
-    if (.not.isothermal) allocate(hh0int(0:NumFreq,0:NumTau,NumFreqBnd))
+    allocate(h0int1(0:NumFreq,0:NumTau,NumFreqBnd))
+    if (.not.isothermal) then
+       allocate(hh0int(0:NumFreq,0:NumTau,NumFreqBnd))
+       allocate(hh0int1(0:NumFreq,0:NumTau,NumFreqBnd))
+    endif
 
     ! fill the optica depth array used to fill the tables 
     ! it is filled in NumTau logarithmic steps 
@@ -357,11 +357,15 @@ contains
              if (tau(n)*h0ffr(i) .lt. 700.0) then
                 h0int(i,n,1)=tpic2*fr(i)*fr(i)* &
                      exp(-tau(n)*h0ffr(i))
+                h0int1(i,n,1)=tpic2*fr(i)*fr(i)*h0ffr(i)* &
+                     exp(-tau(n)*h0ffr(i))
              else
                 h0int(i,n,1)=0.0
              endif
-             if (.not.isothermal) hh0int(i,n,1)= &
-                  hplanck*(fr(i)-frth0)*h0int(i,n,1)
+             if (.not.isothermal) then
+                hh0int(i,n,1)=hplanck*(fr(i)-frth0)*h0int(i,n,1)
+                hh0int1(i,n,1)=hplanck*(fr(i)-frth0)*h0int1(i,n,1)
+             endif
           enddo
        enddo
     endif
@@ -381,14 +385,19 @@ contains
     ! for H + He), but the actually only the first
     ! is used.
     
-    use cgsconstants
-    use cgsphotoconstants
-    
     integer :: i,n,nfrq
     real(kind=dp) :: rstar2,rfr
     real(kind=dp) :: fr(0:NumFreq),func1(0:NumFreq,0:NumTau)
     real(kind=dp) :: func2(0:NumFreq,0:NumTau)
     real(kind=dp) :: weight(0:NumFreq,0:NumTau),phot(0:NumTau)
+
+    ! Allocate photo-ionization tables
+    allocate(hphot(0:NumTau,NumFreqBnd))
+    allocate(hphot1(0:NumTau,NumFreqBnd))
+    if (.not.isothermal) then
+       allocate(hheat(0:NumTau,NumFreqBnd))
+       allocate(hheat1(0:NumTau,NumFreqBnd))
+    endif
 
     ! This is h/kT
     rfr=hplanck/(kb*teff)
@@ -409,10 +418,31 @@ contains
     enddo
     
     if (.not.isothermal) then
-       allocate(hheat(0:NumTau,NumFreqBnd))
        call vector_romberg (func2,weight,NumFreq,NumFreq,NumTau,phot)
        do n=0,NumTau
           hheat(n,1)=phot(n)
+       enddo
+    endif
+
+    ! frequency interval 1
+    do i=0,NumFreq
+       fr(i)=frth0+steph0(1)*real(i)
+       do n=0,NumTau
+          weight(i,n)=steph0(1)
+          func1(i,n)=h0int1(i,n,1)/(exp(fr(i)*rfr)-1.0)
+          if (.not.isothermal) func2(i,n)=hh0int1(i,n,1)/(exp(fr(i)*rfr)-1.0)
+       enddo
+    enddo
+    
+    call vector_romberg (func1,weight,NumFreq,NumFreq,NumTau,phot)
+    do n=0,NumTau
+       hphot1(n,1)=phot(n)
+    enddo
+    
+    if (.not.isothermal) then
+       call vector_romberg (func2,weight,NumFreq,NumFreq,NumTau,phot)
+       do n=0,NumTau
+          hheat1(n,1)=phot(n)
        enddo
     endif
 
@@ -421,13 +451,26 @@ contains
     do nfrq=1,NumFreqBnd
        do n=0,NumTau
           hphot(n,nfrq)=4.0*pi*rstar2*hphot(n,nfrq)
-          if (.not.isothermal) hheat(n,nfrq)=4.0*pi*rstar2*hheat(n,nfrq)
-       enddo
+          hphot1(n,nfrq)=4.0*pi*rstar2*hphot1(n,nfrq)
+        enddo
     enddo
+    if (.not.isothermal) then
+       do nfrq=1,NumFreqBnd
+          do n=0,NumTau
+             hheat(n,nfrq)=4.0*pi*rstar2*hheat(n,nfrq)
+             hheat1(n,nfrq)=4.0*pi*rstar2*hheat1(n,nfrq)
+          enddo
+       enddo
+    endif
 
     ! Deallocate the cores
     deallocate(h0int)
-    if (.not.isothermal) deallocate(hh0int)
+    deallocate(h0int1)
+    if (.not.isothermal) then
+       deallocate(hh0int)
+       deallocate(hh0int1)
+    endif
+
   end subroutine spec_integr
 
   ! =======================================================================
@@ -444,10 +487,6 @@ contains
     ! photon conservation. Only hydrogen is dealt with, and
     ! one frequency band is used.
 
-    ! Notes:
-    ! Need to add optically thin limit (GM, 060919)
-
-    use cgsphotoconstants
     use sourceprops, only: NormFlux
 
     type(photrates),intent(out) :: phi
@@ -470,32 +509,54 @@ contains
     dodpo1=odpos1-real(iodpo1,dp)
     iodp11=min(NumTau,iodpo1+1)
     
-    ! Find the hydrogen photo-ionization rate (ingoing)
-    ! Since all optical depths are hydrogen, we can use
-    ! tau1 for all.
-    phi%h_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
-         (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
-    if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
-         (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
+    ! Test for optically thick/thin case
+    if (abs(tauh_out-tauh_in).gt.1e-2) then 
+       
+       ! Find the hydrogen photo-ionization rate (ingoing)
+       ! Since all optical depths are hydrogen, we can use
+       ! tau1 for all.
+       phi%h_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+            (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
+       if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
+            (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
-    ! find the table positions for the optical depth (outgoing)
-    tau1=log10(max(1.0e-20_dp,tauh_out))
-    ! odpos1=min(1.0d0*NumTau,max(0.0d0,1.0d0+(tau1-minlogtau)/
-    odpos1=min(real(NumTau,dp),max(0.0_dp,1.0+(tau1-minlogtau)/dlogtau))
-    iodpo1=int(odpos1)
-    dodpo1=odpos1-real(iodpo1,dp)
-    iodp11=min(NumTau,iodpo1+1)
-    
-    ! find the hydrogen photo-ionization rate (outgoing)
-    phi%h_out=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
-         (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
-    if (.not.isothermal) phi%hv_h_out=NormFlux(nsrc)* &
-         (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
-    
-    ! The photon conserving photo-ionization rate is the difference between
-    ! the one coming in, and the one going out.
-    phi%h=(phi%h_in-phi%h_out)/vol
-    if (.not.isothermal) phi%hv_h=(phi%hv_h_in-phi%hv_h_out)/vol
+       ! find the table positions for the optical depth (outgoing)
+       tau1=log10(max(1.0e-20_dp,tauh_out))
+       ! odpos1=min(1.0d0*NumTau,max(0.0d0,1.0d0+(tau1-minlogtau)/
+       odpos1=min(real(NumTau,dp),max(0.0_dp,1.0+(tau1-minlogtau)/dlogtau))
+       iodpo1=int(odpos1)
+       dodpo1=odpos1-real(iodpo1)
+       iodp11=min(NumTau,iodpo1+1)
+        
+       ! find the hydrogen photo-ionization rate (outgoing)
+       phi%h_out=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+            (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
+       if (.not.isothermal) phi%hv_h_out=NormFlux(nsrc)* &
+            (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
+       
+       ! The photon conserving photo-ionization rate is the difference between
+       ! the one coming in, and the one going out.
+       phi%h=(phi%h_in-phi%h_out)/vol
+       if (.not.isothermal) phi%hv_h=(phi%hv_h_in-phi%hv_h_out)/vol
+       
+    else
+       
+       ! Find the hydrogen photo-ionization rate (ingoing)
+       ! Since all optical depths are hydrogen, we can use
+       ! tau1 for all.
+       phi%h_in=NormFlux(nsrc)*( &
+            hphot1(iodpo1,1)+(hphot1(iodp11,1)-hphot1(iodpo1,1))*dodpo1)
+       phi%h=phi%h_in*sigh*(hcolum_out-hcolum_in)/vol
+       phi%h_out=phi%h_in-phi%h*vol
+
+       if (.not.isothermal) then
+          phi%hv_h_in=NormFlux(nsrc)*( &
+               hheat1(iodpo1,1)+(hheat1(iodp11,1)-hheat1(iodpo1,1))*dodpo1)
+          phi%hv_h=phi%hv_h_in*sigh*(hcolum_out-hcolum_in)/vol
+          phi%hv_h_out=phi%hv_h_in-phi%hv_h*vol
+       endif
+
+    endif
 
   end subroutine photoion
 
