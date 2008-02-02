@@ -37,7 +37,7 @@ contains
     real(kind=dp),intent(in) :: zred_now ! current redshift
     real(kind=dp),intent(in) :: lifetime2 ! time step
 
-    character(len=180) :: sourcelistfile,sourcelistfilesuppress
+    character(len=512) :: sourcelistfile,sourcelistfilesuppress
     integer :: ns,ns0
 
 #ifdef MPI
