@@ -17,7 +17,7 @@ module doric_module
 contains
   
   !=======================================================================
-  subroutine doric (dt,temp0,rhe,rhh,xfh,xfh_av,phih,finalpass)
+  subroutine doric (dt,temp0,rhe,rhh,xfh,xfh_av,phih)
     
     ! calculates time dependent ionization state for hydrogen
     
@@ -45,8 +45,6 @@ contains
     real(kind=dp),dimension(0:1),intent(out) :: xfh ! H ionization fractions
     real(kind=dp),dimension(0:1),intent(inout) :: xfh_av ! H ionization fractions (time-averaged)
     real(kind=dp),intent(in) :: phih ! photo-ionization rate
-    logical,intent(in) :: finalpass ! true if this is a final pass (do not
-    ! modify phih in this case
     
     real(kind=dp) :: brech0,sqrtt0,acolh0
     real(kind=dp) :: rhe0,xfh1old,xfh0old,aih0,delth,eqxfh0,eqxfh1
@@ -63,13 +61,7 @@ contains
     acolh0=colh0*sqrtt0*exp(-temph0/temp0)
     
     ! Find the true photo-ionization rate
-    ! (divide by (time averaged) density of neutrals)
-    if (finalpass) then
-       aphoth0=phih
-    else
-       aphoth0=phih/((xfh_av(0)+epsilon)*rhh)
-    endif
-    !aphoth0=phih/((xfh_av(0)+epsilon)*rhh)
+    aphoth0=phih
     
     ! determine the hydrogen and helium ionization states and 
     ! electron density
