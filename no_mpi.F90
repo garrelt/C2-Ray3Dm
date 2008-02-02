@@ -9,9 +9,8 @@ module my_mpi
   ! for F90.
   !
   !----------------------------------------------------------------------------
-  
 
-  !private
+  use file_admin, only: log
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
@@ -19,28 +18,26 @@ module my_mpi
 
 #ifdef IFORT
   USE IFPORT, only: hostnm, flush
-#endif
-
-#if defined IFORT && defined OPENMP 
-  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+  !$ USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 
   implicit none
 
   integer,parameter,public :: NPDIM=3 ! dimension of problem
 
-  integer,public :: rank              ! rank of the processor
-  integer,public :: npr               ! number of processors
+  integer,public :: rank            ! rank of the processor
+  integer,public :: npr             ! number of processors
   integer,public :: nthreads        ! number of threads (per processor)
-  integer,public :: MPI_COMM_NEW      ! the (new) communicator
+  integer,public :: MPI_COMM_NEW    ! the (new) communicator
+
   integer,dimension(NPDIM),public :: dims ! number of processors in 
                                              !  each dimension
   integer,dimension(NPDIM),public :: grid_struct ! coordinates of 
                                                !the processors in the grid
   
-  integer,public ::  nbrleft,nbrright ! left and right neighbours
-  integer,public ::  nbrdown,nbrup    ! up and down neighbours 
-  integer,public ::  nbrabove,nbrbelow        ! above and below neighbours 
+  integer,public ::  nbrleft,nbrright  ! left and right neighbours
+  integer,public ::  nbrdown,nbrup     ! up and down neighbours 
+  integer,public ::  nbrabove,nbrbelow ! above and below neighbours 
 
   integer,parameter,public :: MPI_PROC_NULL=-1
 
@@ -61,39 +58,33 @@ contains
     ! Open processor dependent log file
     write(unit=number,fmt="(I4)") rank
     filename=trim(adjustl("log."//trim(adjustl(number))))
-    open(unit=30,file=filename,status="unknown",action="write")
+    open(unit=log,file=filename,status="unknown",action="write")
 
-    write(unit=30,fmt=*) "Log file for rank ",rank
+    write(unit=log,fmt=*) "Log file for rank ",rank
 
-#ifdef OPENMP
-    !$omp parallel default(shared)
-    nthreads=omp_get_num_threads()
-    !$omp end parallel
-    write(30,*) ' Number of OpenMP threads is ',nthreads
-
-    ! Figure out hostname
-    ! NOTE: compiler dependent!!!
-    !$omp parallel default(shared)
-    tn=omp_get_thread_num()+1
-    ierror=hostnm(hostname)
-    if (ierror == 0) then
-       write(30,*) 'Thread number ',tn,' running on Processor ',hostname
-    else 
-       write(30,*) 'Error establishing identity of processor for thread ',tn
-    endif
-    !$omp end parallel
-#else
+    nthreads=1
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     if (ierror == 0) then
-       write(30,*) '  running on Processor ',hostname
+       write(log,*) "Running on processor named ",hostname
     else 
-       write(30,*) 'Error establishing identity of processor'
+       write(log,*) "Error establishing identity of processor."
     endif
-#endif
 
-    call flush(30)
+    ! Report number of OpenMP threads
+    !$omp parallel default(shared)
+    !$nthreads=omp_get_num_threads()
+    !$omp end parallel
+    !$write(log,*) ' Number of OpenMP threads is ',nthreads
+
+    ! Let OpenMP threads report
+    !$omp parallel default(shared)
+    !$tn=omp_get_thread_num()+1
+    !$write(log,*) 'Thread number ',tn,' reporting'
+    !$omp end parallel
+
+    call flush(log)
 
     call mpi_topology ()
 
@@ -136,7 +127,7 @@ contains
   subroutine mpi_end ( )
 
     ! Close log file
-    close(30)
+    close(log)
 
   end subroutine mpi_end
 

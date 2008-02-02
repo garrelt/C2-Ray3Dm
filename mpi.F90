@@ -18,6 +18,7 @@ module my_mpi
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
   use mpi
+  use file_admin, only:log
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
@@ -25,10 +26,7 @@ module my_mpi
 
 #ifdef IFORT
   USE IFPORT, only: hostnm, flush
-#endif
-
-#if defined IFORT && defined OPENMP 
-  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+  !$ USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 
   implicit none
@@ -42,7 +40,7 @@ module my_mpi
   integer,public :: nthreads        ! number of threads (per processor)
   integer,public :: MPI_COMM_NEW    ! the (new) communicator
 
-  integer,dimension(NPDIM),public:: dims ! number of processors in 
+  integer,dimension(NPDIM),public :: dims ! number of processors in 
                                              !  each dimension
   integer,dimension(NPDIM),public :: grid_struct ! coordinates of 
                                                !the processors in the grid
@@ -54,7 +52,8 @@ module my_mpi
 contains
 
   !----------------------------------------------------------------------------
-  subroutine mpi_setup
+
+  subroutine mpi_setup ( )
 
     character(len=10) :: filename        ! name of the log file
     character(len=4) :: number
@@ -62,46 +61,39 @@ contains
     integer :: tn
     character(len=100) :: hostname
 
-    call mpi_basic
+    call mpi_basic ()
 
     ! Open processor dependent log file
-    write(number,'(I4)') rank
-    filename=trim(adjustl('log.'//trim(adjustl(number))))
-    open(unit=30,file=filename,status='unknown')
+    write(unit=number,fmt="(I4)") rank
+    filename=trim(adjustl("log."//trim(adjustl(number))))
+    open(unit=log,file=filename,status="unknown",action="write")
 
-    write(30,*) 'Log file for rank ',rank,' of ',npr
+    write(unit=log,fmt=*) "Log file for rank ",rank," of a total of ",npr
 
-#ifdef OPENMP
-    !$omp parallel default(shared)
-    nthreads=omp_get_num_threads()
-    !$omp end parallel
-    write(30,*) ' Number of OpenMP threads is ',nthreads
-
-    ! Figure out hostname
-    ! NOTE: compiler dependent!!!
-    !$omp parallel default(shared)
-    tn=omp_get_thread_num()+1
-    ierror=hostnm(hostname)
-    if (ierror == 0) then
-       write(30,*) 'Thread number ',tn,' running on Processor ',hostname
-    else 
-       write(30,*) 'Error establishing identity of processor for thread ',tn
-    endif
-    !$omp end parallel
-#else
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     if (ierror == 0) then
-       write(30,*) '  running on Processor ',hostname
+       write(log,*) "Running on processor named ",hostname
     else 
-       write(30,*) 'Error establishing identity of processor'
+       write(log,*) "Error establishing identity of processor."
     endif
-#endif
 
-    call flush(30)
+    ! Report number of OpenMP threads
+    !$omp parallel default(shared)
+    !$nthreads=omp_get_num_threads()
+    !$omp end parallel
+    !$write(log,*) ' Number of OpenMP threads is ',nthreads
 
-    call mpi_topology
+    ! Let OpenMP threads report
+    !$omp parallel default(shared)
+    !$tn=omp_get_thread_num()+1
+    !$write(log,*) 'Thread number ',tn,' reporting'
+    !$omp end parallel
+
+    call flush(log)
+
+    call mpi_topology ()
 
   end subroutine mpi_setup
 
@@ -157,7 +149,7 @@ contains
     integer :: ierror=0
 
     ! Close log file
-    close(30)
+    close(log)
 
     ! Close MPI
     call MPI_FINALIZE(ierror)
