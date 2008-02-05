@@ -2,6 +2,7 @@ module sourceprops
 
   use precision, only: dp
   use my_mpi
+  use file_admin, only: log
   use cgsconstants, only: m_p
   use astroconstants, only: M_SOLAR
   use cosmology_parameters, only: Omega_B, Omega0
@@ -46,7 +47,7 @@ contains
 
     if (NumSrc0 /= 0) then
 
-       write(30,*) 'Deallocating source arrays'
+       write(log,*) 'Deallocating source arrays'
        deallocate(srcpos)
        deallocate(rsrcpos)
        deallocate(srcMass)
@@ -69,7 +70,7 @@ contains
        NumSrc=NumSrc0 ! no suppression
 
        ! Report
-       write(30,*) 'Number of sources: ',NumSrc0
+       write(log,*) 'Number of sources: ',NumSrc0
        close(50)
     endif
 #ifdef MPI
@@ -77,7 +78,7 @@ contains
     call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
 
-    write(30,*) 'Number of sources, with suppression: ',NumSrc
+    write(log,*) 'Number of sources, with suppression: ',NumSrc
     allocate(srcpos(3,NumSrc))
     allocate(rsrcpos(3,NumSrc))
     allocate(SrcMass(NumSrc))

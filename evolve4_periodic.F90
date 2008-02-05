@@ -17,6 +17,7 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI definitions
+  use file_admin, only: log
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
@@ -111,7 +112,7 @@ contains
        ! Source Loop - distributed for the MPI nodes
        do ns1=1+rank,NumSrc,npr
           ns=SrcSeries(ns1)
-          write(30,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
+          write(log,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
           
           ! reset column densities for new source point
           ! coldensh_out is unique for each source point
@@ -130,14 +131,14 @@ contains
              pos(3)=k
              call evolve2D(dt,pos,ns,niter)
           end do
-          write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          write(30,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(log,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        enddo ! sources loop
        
        ! End of parallelization
        
        ! Report photon losses over grid boundary
-       write(30,*) 'photon loss counter: ',photon_loss
+       write(log,*) 'photon loss counter: ',photon_loss
        
 #ifdef MPI
        ! accumulate threaded photon loss
@@ -171,7 +172,7 @@ contains
        photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
        ! Apply total photo-ionization rates from all sources (phih_grid)
-       write(30,*) 'Applying Rates'
+       write(log,*) 'Applying Rates'
        conv_flag=0 ! will be used to check for convergence
        
        ! Loop through the entire mesh
@@ -183,9 +184,9 @@ contains
              enddo
           enddo
        enddo
-       write(30,*) 'Number of non-converged points: ',conv_flag
+       write(log,*) 'Number of non-converged points: ',conv_flag
        
-       write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+       write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
 
        ! Update xh if converged and exit
        if (conv_flag <= int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
@@ -194,7 +195,7 @@ contains
        else
           if (niter > 50) then
              ! Complain about slow convergence
-             write(30,*) 'Multiple sources not converging'
+             write(log,*) 'Multiple sources not converging'
              exit
           endif
        endif
@@ -275,8 +276,9 @@ contains
     use radiation, only: photoion, photrates
     use c2ray_parameters, only: epsilon,convergence1,convergence2
     use mathconstants, only: pi
-    
-    real(kind=dp),parameter :: max_coldensh=2e19_dp ! column density for stopping chemisty
+
+    ! column density for stopping chemisty
+    real(kind=dp),parameter :: max_coldensh=2e19_dp 
     
     logical :: falsedummy ! always false, for tests
     parameter(falsedummy=.false.)
@@ -289,7 +291,7 @@ contains
     integer :: nx,nd,nit,idim ! loop counters
     integer,dimension(Ndim) :: pos
     integer,dimension(Ndim) :: srcpos1
-    real(kind=dp) :: dist,path,vol_ph
+    real(kind=dp) :: dist2,path,vol_ph
     real(kind=dp) :: xs,ys,zs
     real(kind=dp) :: coldensh_in
     real(kind=dp) :: coldensh_cell
@@ -306,7 +308,9 @@ contains
     convergence=convergence1
 
     ! Map pos to mesh pos, assuming a periodic mesh
-    pos(:)=modulo(rtpos(:)-1,mesh(:))+1
+    do idim=1,Ndim
+       pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
+    enddo
 
     ! Initialize local ionization states to the global ones
     do nx=0,1
@@ -329,26 +333,28 @@ contains
        path=0.5*dr(1)
        
        ! Find the distance to the source (average?)
-       dist=0.5*dr(1)         ! this makes vol=dx*dy*dz
+       !dist=0.5*dr(1) NOT NEEDED         ! this makes vol=dx*dy*dz
        !vol_ph=4.0/3.0*pi*dist**3
        vol_ph=dr(1)*dr(2)*dr(3)
 
     else
 
        ! For all other points call cinterp to find the column density
-       srcpos1(:)=srcpos(:,ns)
-       call cinterp(rtpos,srcpos1,coldensh_in,path)
+       !do idim=1,Ndim
+       !   srcpos1(idim)=srcpos(idim,ns)
+       !enddo
+       call cinterp(rtpos,srcpos(:,ns),coldensh_in,path)
        path=path*dr(1)
           
        ! Find the distance to the source
        xs=dr(1)*real(rtpos(1)-srcpos(1,ns))
        ys=dr(2)*real(rtpos(2)-srcpos(2,ns))
        zs=dr(3)*real(rtpos(3)-srcpos(3,ns))
-       dist=sqrt(xs*xs+ys*ys+zs*zs)
+       dist2=xs*xs+ys*ys+zs*zs
          
        ! Find the volume of the shell this cell is part of 
        ! (dilution factor).
-       vol_ph=4.0*pi*dist*dist*path
+       vol_ph=4.0*pi*dist2*path
 
     endif
 
@@ -360,8 +366,8 @@ contains
     ! should happen on later passes!
     if (niter == 1 .and. coldensh_in < max_coldensh) then
 
-       ! Iterate to get mean ionization state (column density / optical depth) 
-       ! in cell
+       ! Iterate to get mean ionization state 
+       ! (column density / optical depth) in cell
        nit=0
        do 
           nit=nit+1
@@ -377,7 +383,8 @@ contains
           coldensh_cell=coldens(path,yh_av(0),ndens_p)
 
           ! Calculate (photon-conserving) photo-ionization rate
-          call photoion(phi,coldensh_in,coldensh_in+coldensh_cell,vol_ph,ns)
+          call photoion(phi,coldensh_in,coldensh_in+coldensh_cell, &
+               vol_ph,ns)
           phi%h=phi%h/(yh_av(0)*ndens_p)
 
           ! Restore yh to initial values (for doric)
@@ -386,7 +393,8 @@ contains
           ! Calculate (mean) electron density
           de=electrondens(ndens_p,yh_av)
 
-          ! Calculate the new and mean ionization states (yh and yh_av)
+          ! Calculate the new and mean ionization states 
+          ! (yh and yh_av)
           call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phi%h)
 
           ! Test for convergence on ionization fraction
@@ -397,8 +405,8 @@ contains
 
           ! Warn about non-convergence
           if (nit > 5000) then
-             write(30,*) 'Convergence failing (source ',ns,')'
-             write(30,*) 'xh: ',yh_av(0),yh_av0
+             write(log,*) 'Convergence failing (source ',ns,')'
+             write(log,*) 'xh: ',yh_av(0),yh_av0
              exit
           endif
        enddo ! end of iteration
@@ -423,7 +431,6 @@ contains
        !endif
 
     endif
-
 
     ! For niter > 1, just ray trace and exit. Do not touch the ionization
     ! fractions. They are updated using phih_grid in evolve0d_global
@@ -475,9 +482,9 @@ contains
     ! Version: Multiple sources, Global update, no ray tracing
 
     ! Multiple sources
-    ! Final pass: the collected rates are applied and the new ionization 
+    ! Global update: the collected rates are applied and the new ionization 
     ! fractions and temperatures are calculated.
-    ! We check for convergence
+    ! We check for convergence.
     
     use tped, only: electrondens
     use doric_module, only: doric, coldens
@@ -543,8 +550,8 @@ contains
                   
        ! Warn about non-convergence
        if (nit > 5000) then
-          write(30,*) 'Convergence failing (global)'
-          write(30,*) 'xh: ',yh_av(0),yh_av0
+          write(log,*) 'Convergence failing (global)'
+          write(log,*) 'xh: ',yh_av(0),yh_av0
           exit
        endif
     enddo
@@ -591,6 +598,9 @@ contains
     real(kind=dp) :: cdensi
     real(kind=dp) :: path
 
+    real(kind=dp),parameter :: sqrt3=sqrt(3.0)
+    real(kind=dp),parameter :: sqrt2=sqrt(2.0)
+
     integer :: i,j,k,i0,j0,k0
 
     integer :: idel,jdel,kdel
@@ -605,6 +615,7 @@ contains
     real(kind=dp) :: di,dj,dk
 
 
+    !DEC$ ATTRIBUTES FORCEINLINE :: weightf
     ! map to local variables (should be pointers ;)
     i=pos(1)
     j=pos(2)
@@ -618,9 +629,9 @@ contains
     idel=i-i0
     jdel=j-j0
     kdel=k-k0
-    idela=abs(i-i0)
-    jdela=abs(j-j0)
-    kdela=abs(k-k0)
+    idela=abs(idel)
+    jdela=abs(jdel)
+    kdela=abs(kdel)
     
     ! Find coordinates of points closer to source
     sgni=sign(1,idel)
@@ -632,9 +643,9 @@ contains
     im=i-sgni
     jm=j-sgnj
     km=k-sgnk
-    di=real(i-i0)
-    dj=real(j-j0)
-    dk=real(k-k0)
+    di=real(idel)
+    dj=real(jdel)
+    dk=real(kdel)
 
     ! Z plane (bottom and top face) crossing
     ! we find the central (c) point (xc,xy) where the ray crosses 
@@ -647,13 +658,7 @@ contains
        
        ! alam is the parameter which expresses distance along the line s to d
        ! add 0.5 to get to the interface of the d cell.
-       if(kdel >= 0) then
-          ! ray crosses z plane below destination point
-          alam=(real(km-k0)+0.5)/dk
-       else
-          ! ray crosses z plane above destination point
-          alam=(real(km-k0)-0.5)/dk
-       end if
+       alam=(real(km-k0)+sgnk*0.5)/dk
               
        xc=alam*di+real(i0) ! x of crossing point on z-plane 
        yc=alam*dj+real(j0) ! y of crossing point on z-plane
@@ -666,11 +671,6 @@ contains
        s3=(1.-dx)*dy
        s4=dx*dy
        
-       !s1=((1.-dx)*(1.-dy))**2    ! interpolation weights of
-       !s2=((1.-dy)*dx)**2         ! corner points to c-point
-       !s3=((1.-dx)*dy)**2
-       !s4=(dx*dy)**2
-
        ip=modulo(i-1,mesh(1))+1
        imp=modulo(im-1,mesh(1))+1
        jp=modulo(j-1,mesh(2))+1
@@ -692,40 +692,36 @@ contains
        ! Take care of diagonals
        ! if (kdela == idela.or.kdela == jdela) then
        ! if (kdela == idela.and.kdela == jdela) then
-       ! cdensi=sqrt(3.0)*cdensi
+       ! cdensi=sqrt3*cdensi
        !else
-       !cdensi=sqrt(2.0)*cdensi
+       !cdensi=sqrt2*cdensi
        !endif
        !endif
 
        if (kdela == 1.and.(idela == 1.or.jdela == 1)) then
           if (idela == 1.and.jdela == 1) then
-             cdensi=sqrt(3.0)*cdensi
+             cdensi=sqrt3*cdensi
           else
-             cdensi=sqrt(2.0)*cdensi
+             cdensi=sqrt2*cdensi
           endif
        endif
        ! if (kdela == 1) then
        ! if ((w3 == 1.0).or.(w2 == 1.0)) cdensi=sqrt(2.0)*cdensi
        ! if (w1 == 1.0) cdensi=sqrt(3.0)*cdensi
-       ! write(30,*) idela,jdela,kdela
+       ! write(log,*) idela,jdela,kdela
        !endif
 
        ! Path length from c through d to other side cell.
-       dxp=di/dk
-       dyp=dj/dk
-       path=sqrt(dxp*dxp+dyp*dyp+1.0) ! pathlength from c to d point  
+       !dxp=di/dk
+       !dyp=dj/dk
+       path=sqrt((di*di+dj*dj)/(dk*dk)+1.0) ! pathlength from c to d point  
 
 
        ! y plane (left and right face) crossing
        ! (similar approach as for the z plane, see comments there)
     elseif (jdela >= idela.and.jdela >= kdela) then
           
-       if(jdel >= 0) then
-          alam=(real(jm-j0)+0.5)/dj
-       else
-          alam=(real(jm-j0)-0.5)/dj
-       end if
+       alam=(real(jm-j0)+sgnj*0.5)/dj
        zc=alam*dk+real(k0)
        xc=alam*di+real(i0)
        dz=2.0*abs(zc-(real(km)+0.5*sgnk))
@@ -734,10 +730,6 @@ contains
        s2=(1.-dz)*dx
        s3=(1.-dx)*dz
        s4=dx*dz
-       !s1=((1.-dx)*(1.-dz))**2
-       !s2=((1.-dz)*dx)**2
-       !s3=((1.-dx)*dz)**2
-       !s4=(dx*dz)**2
        ip=modulo(i-1,mesh(1))+1
        imp=modulo(im-1,mesh(1))+1
        jmp=modulo(jm-1,mesh(2))+1
@@ -759,17 +751,18 @@ contains
        ! Take care of diagonals
        if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
           if (idela == 1.and.kdela == 1) then
-             !write(30,*) 'error',i,j,k
-             cdensi=sqrt(3.0)*cdensi
+             !write(log,*) 'error',i,j,k
+             cdensi=sqrt3*cdensi
           else
-             !write(30,*) 'diagonal',i,j,k
-             cdensi=sqrt(2.0)*cdensi
+             !write(log,*) 'diagonal',i,j,k
+             cdensi=sqrt2*cdensi
           endif
        endif
 
-       dxp=di/dj
-       dzp=dk/dj
-       path=sqrt(dxp*dxp+1.0+dzp*dzp)
+       !dxp=di/dj
+       !dzp=dk/dj
+       !path=sqrt(dxp*dxp+1.0+dzp*dzp)
+       path=sqrt((di*di+dk*dk)/(dj*dj)+1.0)
        
 
        ! x plane (front and back face) crossing
@@ -777,11 +770,7 @@ contains
 
     elseif(idela >= jdela.and.idela >= kdela) then
        
-       if(idel >= 0) then
-          alam=(real(im-i0)+0.5)/di
-       else
-          alam=(real(im-i0)-0.5)/di
-       end if
+       alam=(real(im-i0)+sgni*0.5)/di
        zc=alam*dk+real(k0)
        yc=alam*dj+real(j0)
        dz=2.0*abs(zc-(real(km)+0.5*sgnk))
@@ -790,10 +779,6 @@ contains
        s2=(1.-dz)*dy
        s3=(1.-dy)*dz
        s4=dy*dz
-       !s1=((1.-dz)*(1.-dy))**2
-       !s2=((1.-dz)*dy)**2
-       !s3=((1.-dy)*dz)**2
-       !s4=(dz*dy)**2
 
        imp=modulo(im-1,mesh(1))+1
        jp=modulo(j-1,mesh(2))+1
@@ -814,17 +799,16 @@ contains
        
        if ( idela == 1 .and. ( jdela == 1 .or. kdela == 1 ) ) then
           if ( jdela == 1 .and. kdela == 1 ) then
-             ! WRITE(30,*) 'error',i,j,k
-             cdensi=sqrt(3.0)*cdensi
+             cdensi=sqrt3*cdensi
           else
-             ! WRITE(30,*) 'diagonal',i,j,k
-             cdensi=sqrt(2.0)*cdensi
+             cdensi=sqrt2*cdensi
           endif
        endif
        
-       dyp=dj/di
-       dzp=dk/di
-       path=sqrt(1.0+dyp*dyp+dzp*dzp)
+       !dyp=dj/di
+       !dzp=dk/di
+       !path=sqrt(1.0+dyp*dyp+dzp*dzp)
+       path=sqrt(1.0+(dj*dj+dk*dk)/(di*di))
        
     end if
     
@@ -839,10 +823,13 @@ contains
 
     real(kind=dp),intent(in) :: cd
 
-    ! weightf=1.0
+    real(kind=dp),parameter :: minweight=1.0_dp/0.6_dp
+
+    !weightf=1.0
     ! weightf=1.0/max(1.0d0,cd**0.54)
     ! weightf=exp(-min(700.0,cd*0.15*6.3d-18))
-    weightf=1.0/max(0.6d0,cd*sigh)
+    !weightf=1.0/max(0.6_dp,cd*sigh)
+    weightf=min(minweight,1.0/(cd*sigh))
 
     ! weightf=1.0/log(max(e_ln,cd))
 

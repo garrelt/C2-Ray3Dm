@@ -8,7 +8,7 @@ module material
 
   use precision, only: dp,si
   use sizes, only: mesh
-  use file_admin, only: stdinput
+  use file_admin, only: stdinput, log
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
@@ -129,7 +129,7 @@ contains
        if (id_str /= "coarse") then
           ! Allocate array needed to read in data
           allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
-          write(30,*) 'Reading ',id_str,' input'
+          write(log,*) 'Reading ',id_str,' input'
           dens_file=trim(adjustl(dir_dens))//"coarser_densities/"// &
                trim(adjustl(zred_str))// &
                "rho_"//trim(adjustl(id_str))//".dat"
@@ -155,7 +155,7 @@ contains
              dens_file=trim(adjustl(dir_dens))// &
                   trim(adjustl(zred_str))// &
                   "rho_c"//nfile_str//".dat"
-             write(30,*) dens_file
+             write(log,*) dens_file
              open(unit=20,file=dens_file,form='binary',status='old')
              read(20) ndens_real
              ndens(:,:, &
@@ -166,18 +166,18 @@ contains
           deallocate(ndens_real)
        endif
     endif
-    !write(30,*) 'Distributing the density'
+    !write(log,*) 'Distributing the density'
 #ifdef MPI       
     ! Distribute the density to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,ierror)
 #endif
-    !write(30,*) 'Density distributed'
+    !write(log,*) 'Density distributed'
        
     ! Report on data: min, max, total
-    write(30,*) 'minimum: ',minval(ndens)/8.
-    write(30,*) 'maximum: ',maxval(ndens)/8.
-    write(30,*) 'summed density: ',sum(ndens)/8.
+    write(log,*) 'minimum: ',minval(ndens)/8.
+    write(log,*) 'maximum: ',maxval(ndens)/8.
+    write(log,*) 'summed density: ',sum(ndens)/8.
 
     ! The original values in terms of the mean density
     ! Below is the conversion factor
@@ -201,11 +201,11 @@ contains
     avg_dens=sum(ndens)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
     
     ! Report average density
-    write(30,'(A,1pe10.3,A)') 'Average density = ',avg_dens,' cm^-3'
-    write(30,'(A,1pe10.3,A)') 'Theoretical value = ', &
+    write(log,'(A,1pe10.3,A)') 'Average density = ',avg_dens,' cm^-3'
+    write(log,'(A,1pe10.3,A)') 'Theoretical value = ', &
          rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
          ' cm^-3' 
-    write(30,'(A,1pe10.3,A)') '(at z=0 : ', &
+    write(log,'(A,1pe10.3,A)') '(at z=0 : ', &
          rho_crit_0/(mu*m_p)*Omega_B, &
          ' cm^-3)'
 

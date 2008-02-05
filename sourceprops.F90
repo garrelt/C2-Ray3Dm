@@ -2,6 +2,7 @@ module sourceprops
 
   use precision, only: dp
   use my_mpi
+  use file_admin, only: log
   use cgsconstants, only: m_p
   use astroconstants, only: M_SOLAR
   use cosmology_parameters, only: Omega_B, Omega0
@@ -46,7 +47,7 @@ contains
 
     if (NumSrc0 /= 0) then
 
-       write(30,*) 'Deallocating source arrays'
+       write(log,*) 'Deallocating source arrays'
        deallocate(srcpos)
        deallocate(rsrcpos)
        deallocate(srcMass)
@@ -78,7 +79,7 @@ contains
        read(50,*) NumSrc0
 
        ! Report
-       write(30,*) 'Number of sources, no suppression: ',NumSrc0
+       write(log,*) 'Number of sources, no suppression: ',NumSrc0
 
        ! Read in source positions and mass to establish number
        ! of non-suppressed sources
@@ -97,7 +98,7 @@ contains
     call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
 
-    write(30,*) 'Number of sources, with suppression: ',NumSrc
+    write(log,*) 'Number of sources, with suppression: ',NumSrc
     allocate(srcpos(3,NumSrc))
     allocate(rsrcpos(3,NumSrc))
     allocate(SrcMass(NumSrc))
@@ -142,9 +143,9 @@ contains
              SrcMass(ns)=SrcMass00*phot_per_atom1
           else
              ! Report
-             write(30,*) 'Source dropped: ', &
+             write(log,*) 'Source dropped: ', &
                   srcpos0(1),srcpos0(2),srcpos0(3)
-             write(30,*) 'mass= ',SrcMass01*(M_grid/M_SOLAR), &
+             write(log,*) 'mass= ',SrcMass01*(M_grid/M_SOLAR), &
                   xh(srcpos0(1),srcpos0(2),srcpos0(3),0)
           endif
        enddo
@@ -171,7 +172,7 @@ contains
     do ns=1,NumSrc
        NormFlux(ns)=SrcMass(ns)*M_grid*  &!note that now photons/atom are included in SrcMass
             Omega_B/(Omega0*m_p*lifetime2)/S_star_nominal
-         write(30,*) NormFlux(ns)*S_star_nominal
+         write(log,*) NormFlux(ns)*S_star_nominal
     enddo
 
     if (rank == 0) then

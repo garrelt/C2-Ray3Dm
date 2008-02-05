@@ -16,6 +16,7 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI definitions
+  use file_admin, only: log
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
@@ -111,7 +112,7 @@ contains
        ! Source Loop - distributed for the MPI nodes
        do ns1=1+rank,NumSrc,npr
           ns=SrcSeries(ns1)
-          write(30,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
+          write(log,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
           
           ! reset column densities for new source point
           ! coldensh_out is unique for each source point
@@ -150,13 +151,13 @@ contains
 
           !$omp end parallel
 
-          write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        enddo ! sources loop
        
        ! End of parallelization
        
        ! Report photon losses over grid boundary
-       write(30,*) 'photon loss counter: ',photon_loss
+       write(log,*) 'photon loss counter: ',photon_loss
        
 #ifdef MPI
        ! accumulate threaded photon loss
@@ -190,7 +191,7 @@ contains
        photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
        ! Apply total photo-ionization rates from all sources (phih_grid)
-       write(30,*) 'Applying Rates'
+       write(log,*) 'Applying Rates'
        conv_flag=0 ! will be used to check for convergence
        
        ! Loop through the entire mesh
@@ -202,9 +203,9 @@ contains
              enddo
           enddo
        enddo
-       write(30,*) 'Number of non-converged points: ',conv_flag
+       write(log,*) 'Number of non-converged points: ',conv_flag
        
-       write(30,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+       write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
 
        ! Update xh if converged and exit
        if (conv_flag <= int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
@@ -213,7 +214,7 @@ contains
        else
           if (niter > 50) then
              ! Complain about slow convergence
-             write(30,*) 'Multiple sources not converging'
+             write(log,*) 'Multiple sources not converging'
              exit
           endif
        endif
@@ -696,8 +697,8 @@ contains
 
           ! Warn about non-convergence
           if (nit > 5000) then
-             write(30,*) 'Convergence failing (source ',ns,')'
-             write(30,*) 'xh: ',yh_av(0),yh_av0
+             write(log,*) 'Convergence failing (source ',ns,')'
+             write(log,*) 'xh: ',yh_av(0),yh_av0
              exit
           endif
        enddo ! end of iteration
@@ -842,8 +843,8 @@ contains
                   
        ! Warn about non-convergence
        if (nit > 5000) then
-          write(30,*) 'Convergence failing (global)'
-          write(30,*) 'xh: ',yh_av(0),yh_av0
+          write(log,*) 'Convergence failing (global)'
+          write(log,*) 'xh: ',yh_av(0),yh_av0
           exit
        endif
     enddo
@@ -1007,7 +1008,7 @@ contains
        ! if (kdela.eq.1) then
        ! if ((w3.eq.1.0).or.(w2.eq.1.0)) cdensi=sqrt(2.0)*cdensi
        ! if (w1.eq.1.0) cdensi=sqrt(3.0)*cdensi
-       ! write(30,*) idela,jdela,kdela
+       ! write(log,*) idela,jdela,kdela
        !endif
 
        ! Path length from c through d to other side cell.
@@ -1058,10 +1059,10 @@ contains
        ! Take care of diagonals
        if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
           if (idela == 1.and.kdela == 1) then
-             !write(30,*) 'error',i,j,k
+             !write(log,*) 'error',i,j,k
              cdensi=sqrt(3.0)*cdensi
           else
-             !write(30,*) 'diagonal',i,j,k
+             !write(log,*) 'diagonal',i,j,k
              cdensi=sqrt(2.0)*cdensi
           endif
        endif
@@ -1113,10 +1114,10 @@ contains
        
        if ( idela == 1 .and. ( jdela == 1 .or. kdela == 1 ) ) then
           if ( jdela == 1 .and. kdela == 1 ) then
-             ! WRITE(30,*) 'error',i,j,k
+             ! WRITE(log,*) 'error',i,j,k
              cdensi=sqrt(3.0)*cdensi
           else
-             ! WRITE(30,*) 'diagonal',i,j,k
+             ! WRITE(log,*) 'diagonal',i,j,k
              cdensi=sqrt(2.0)*cdensi
           endif
        endif

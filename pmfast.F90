@@ -12,7 +12,7 @@ module pmfast
 
   use precision, only: dp
   use sizes, only: mesh
-  use file_admin, only: stdinput
+  use file_admin, only: stdinput, log
   use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
   use cosmology_parameters, only: rho_crit_0, Omega0, h
@@ -71,7 +71,7 @@ contains
        dir_dens=dir_dens_path
     elseif (status == -1) then
        ! Warning
-       write(30,*) 'Data file system name is truncated'
+       write(log,*) 'Data file system name is truncated'
     endif
 #else
     dir_dens=dir_dens_path
@@ -112,7 +112,7 @@ contains
     if (mesh(1) == 203) id_str="coarsest"
     if (mesh(1) == 406) id_str="coarser"
     if (mesh(1) == 812) id_str="coarse"
-    write(30,*) 'Type of resolution: ',id_str
+    write(log,*) 'Type of resolution: ',id_str
 
     return
   end subroutine pmfast_ini

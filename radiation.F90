@@ -26,6 +26,7 @@ module radiation
   
   use precision, only: dp
   use my_mpi
+  use file_admin, only: log
   use mathconstants, only: pi
   use cgsconstants, only: sigmasb, hplanck, kb, tpic2
   use cgsphotoconstants, only: frth0, frtop1, frtop2, sh0, betah0, sigh
@@ -276,13 +277,13 @@ contains
     
     ! Report back
     if (rank == 0) then
-       write(30,'(/a)')           'Using a black body with'
-       write(30,'(a,1pe10.3,a)')   ' Teff=       ',teff,' K'
-       write(30,'(a,1pe10.3,a)')   ' Radius=     ',rstar/r_solar, &
+       write(log,'(/a)')           'Using a black body with'
+       write(log,'(a,1pe10.3,a)')   ' Teff=       ',teff,' K'
+       write(log,'(a,1pe10.3,a)')   ' Radius=     ',rstar/r_solar, &
             ' R_solar'
-       write(30,'(a,1pe10.3,a)')   ' Luminosity= ',lstar/l_solar, &
+       write(log,'(a,1pe10.3,a)')   ' Luminosity= ',lstar/l_solar, &
             ' L_solar'
-       write(30,'(A,1PE10.3,A//)') ' Number of H ionizing photons: ', &
+       write(log,'(A,1PE10.3,A//)') ' Number of H ionizing photons: ', &
             S_star,' s^-1'
     endif
 
@@ -325,7 +326,7 @@ contains
     tau(0)=0.0
 
     ! Warn about grey opacities:
-    if (grey) write(30,*) 'WARNING: Using grey opacities'
+    if (grey) write(log,*) 'WARNING: Using grey opacities'
 
     ! frequency band 1
     ! (there is space for NumFreqBnd frequency bands, only

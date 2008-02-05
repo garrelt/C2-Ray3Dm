@@ -39,7 +39,7 @@ Program Ifront
   use sourceprops, only: source_properties
   use evolve, only: evolve3D
   use subgrid_clumping, only: set_clumping
-  use file_admin, only:stdinput
+  use file_admin, only: stdinput, log
 
 #ifdef XLF
   USE XLFUTILITY, only: iargc, getarg, flush => flush_
@@ -87,7 +87,7 @@ Program Ifront
 
   ! Initialize output
   call setup_output()
-  call flush(30)
+  call flush(log)
   !Initialize grid
   call grid_ini()
 
@@ -103,7 +103,7 @@ Program Ifront
   ! Initialize time step parameters
   call time_ini ()
 
-  call flush(30)
+  call flush(log)
   ! Set time to zero
   time=0.0
 
@@ -122,12 +122,12 @@ Program Ifront
   do nz=1,NumZred-1
      
      zred=zred_array(nz)
-     write(30,*) 'Doing redshift: ',zred,' to ',zred_array(nz+1)
+     write(log,*) 'Doing redshift: ',zred,' to ',zred_array(nz+1)
      
      ! Initialize time parameters
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
-     write(30,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
+     write(log,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
          
      ! Initialize source position
      call source_properties(zred,end_time-time)
@@ -150,11 +150,11 @@ Program Ifront
      ! Loop until end time is reached
      do
         ! Make sure you produce output at the correct time
-        write(30,*) next_output_time,time,dt
+        write(log,*) next_output_time,time,dt
         actual_dt=min(next_output_time-time,dt)
         
         ! Report time and time step
-        write(30,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
+        write(log,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
              time/YEAR,actual_dt/YEAR,' (years)'
 
         ! For cosmological simulations evolve proper quantities
@@ -176,7 +176,7 @@ Program Ifront
            next_output_time=next_output_time+output_time
         endif
         if (abs(time-end_time).lt.1e-6*end_time) exit
-        call flush(30)
+        call flush(log)
      enddo
 
      ! stop
@@ -198,8 +198,8 @@ Program Ifront
   call cpu_time(tend)
   call system_clock(cntr2,countspersec)
 
-  write(30,*) 'CPU time: ',tend-tstart,' s'
-  write(30,*) 'Wall clock time: ',(cntr2-cntr1)/countspersec,' s'
+  write(log,*) 'CPU time: ',tend-tstart,' s'
+  write(log,*) 'Wall clock time: ',(cntr2-cntr1)/countspersec,' s'
 
   ! End the run
   call mpi_end ()

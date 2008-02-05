@@ -7,14 +7,21 @@ module output_module
   ! close_down : close files
   ! output : write output
 
+  use precision, only: dp
   use my_mpi, only: rank
   use file_admin, only: stdinput
 
   implicit none
   
+  private
+
   integer,parameter :: max_input_streams=5
   integer,dimension(max_input_streams) :: streams
-  
+
+  real(kind=dp) :: grtotalsrc
+
+  public :: setup_output, output, close_down
+
 contains
   !----------------------------------------------------------------------------
 
@@ -63,8 +70,11 @@ contains
             form='formatted',status='unknown')
        
     endif
-    if (do_photonstatistics) call initialize_photonstatistics ()
-    
+    if (do_photonstatistics) then
+       call initialize_photonstatistics ()
+       grtotalsrc=0.0
+    endif
+
   end subroutine setup_output
   
   !-----------------------------------------------------------------------------
@@ -101,10 +111,10 @@ contains
 
     use sizes, only: mesh
     use grid, only: x, vol
-    use material
+    use material, only: xh, temper, ndens
     use evolve, only: phih_grid
-    use sourceprops
-    use photonstatistics
+    use sourceprops, only: srcpos, NormFlux, NumSrc
+    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss
     use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=dp),intent(in) :: zred_now,time,dt
@@ -112,8 +122,7 @@ contains
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=dp) :: totalsrc
-    real(kind=dp) :: totions,totphots
+    real(kind=dp) :: totions,totphots,totalsrc
     logical crossing,recording_photonstats
 
     if (rank == 0) then
@@ -224,17 +233,18 @@ contains
        if (do_photonstatistics) then
           ! Photon Statistics
           total_ion=total_ion!+photon_loss
+          totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
           grtotal_ion=grtotal_ion+total_ion-totcollisions
-          totalsrc=sum(NormFlux(1:NumSrc))
+          grtotalsrc=grtotalsrc+totalsrc
           if (time.gt.0.0) then
              write(90,'(f6.3,6(1pe10.3))') &
                   zred_now, &
-                  (total_ion-totcollisions)/(totalsrc*s_star*dt), &
+                  (total_ion-totcollisions)/totalsrc, &
                   dh0/total_ion, &
                   totrec/total_ion, &
                   photon_loss/total_ion, &
                   totcollisions/total_ion, &
-                  grtotal_ion/(totalsrc*s_star*time)
+                  grtotal_ion/grtotalsrc
           endif
        endif
     endif

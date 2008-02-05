@@ -3,6 +3,7 @@ module subgrid_clumping
   ! This module specifies the clumping behaviour of the matter
 
   use c2ray_parameters, only: type_of_clumping,clumping_factor
+  use file_admin, only: log
 
   implicit none
 
@@ -27,7 +28,7 @@ contains
        z=1.0/a-1.0
        clumping=17.57*exp(-0.101*z+0.0011*z*z)
     end select
-    write(30,*) 'Setting global clumping factor to ',clumping,'(type ', &
+    write(log,*) 'Setting global clumping factor to ',clumping,'(type ', &
          type_of_clumping,')'
     
   end subroutine set_clumping
