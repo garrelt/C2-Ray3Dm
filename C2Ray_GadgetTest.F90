@@ -39,7 +39,7 @@ Program Ifront
   use sourceprops, only: source_properties
   use evolve, only: evolve3D
   use subgrid_clumping, only: set_clumping
-  use file_admin, only:stdinput
+  use file_admin, only:stdinput,log
 
 #ifdef XLF
   USE XLFUTILITY, only: iargc, getarg, flush => flush_
@@ -80,14 +80,14 @@ Program Ifront
   if (iargc() > 0) then
      call getarg(1,inputfile)
      if (rank == 0) then
-        write(*,*) 'reading input from ',trim(adjustl(inputfile))
+        write(*,*) "reading input from ",trim(adjustl(inputfile))
         open(unit=stdinput,file=inputfile)
      endif
   endif
 
   ! Initialize output
   call setup_output()
-  call flush(30)
+  call flush(log)
   !Initialize grid
   call grid_ini()
 
@@ -103,7 +103,7 @@ Program Ifront
   ! Initialize time step parameters
   call time_ini ()
 
-  call flush(30)
+  call flush(log)
   ! Set time to zero
   time=0.0
 
@@ -122,32 +122,32 @@ Program Ifront
      
      zred=zred_array(nz)
      end_time=1e7*YEAR
-     write(30,*) 'Doing redshift: ',zred,' to ',time2zred(time+end_time)
+     write(log,*) "Doing redshift: ",zred," to ",time2zred(time+end_time)
      
      ! Initialize time parameters
-     write(30,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
+     write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
          
      ! Initialize source position
      call source_properties(zred,end_time-time)
 
-     ! print*,'zred before dens_ini=',zred
+     ! print*,"zred before dens_ini=",zred
      ! Initialize density field
      call dens_ini(zred)
 
      ! Loop until end time is reached
      !dt=end_time/real(100000)
-     do ntime=1,5
+     do ntime=1,1
         ! Make sure you produce output at the correct time
-        dt=10.0**(ntime+3)*YEAR
+        !dt=10.0**(ntime+3)*YEAR
         !dt=end_time/10.0
-        !dt=1e7*YEAR
+        dt=1e7*YEAR
         if (ntime == 4) dt=0.5*dt 
         if (ntime == 5) dt=0.1*dt 
         actual_dt=dt-time
         !actual_dt=dt
         ! Report time and time step
-        write(30,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
-             time/YEAR,actual_dt/YEAR,' (years)'
+        write(log,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+             time/YEAR,actual_dt/YEAR," (years)"
 
         ! Take one time step
         call evolve3D(actual_dt)
@@ -158,7 +158,7 @@ Program Ifront
         ! Write output
         call output(time2zred(time),time,dt)
         if (abs(time-end_time).lt.1e-6*end_time) exit
-        call flush(30)
+        call flush(log)
      enddo
   enddo
   !
@@ -168,8 +168,8 @@ Program Ifront
   call cpu_time(tend)
   call system_clock(cntr2,countspersec)
 
-  write(30,*) 'CPU time: ',tend-tstart,' s'
-  write(30,*) 'Wall clock time: ',(cntr2-cntr1)/countspersec,' s'
+  write(log,*) "CPU time: ",tend-tstart," s"
+  write(log,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
 
   ! End the run
   call mpi_end ()
