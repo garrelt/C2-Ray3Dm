@@ -122,7 +122,8 @@ contains
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=dp) :: totions,totphots,totalsrc
+    real(kind=dp) :: totalsrc
+    real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
 
     if (rank == 0) then
@@ -246,13 +247,14 @@ contains
                   totcollisions/total_ion, &
                   grtotal_ion/grtotalsrc
           endif
+          totions=sum(ndens*xh(:,:,:,1))*vol
+          volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac=sum(ndens*xh(:,:,:,1))/sum(ndens)
+          write(95,'(4(1pe10.3))') totions,grtotalsrc,volfrac,massfrac
+
        endif
     endif
     
-    totions=sum(ndens*xh(:,:,:,1))*vol
-    totphots=totalsrc*s_star*dt
-    write(95,*) totions,totphots,s_star,dt 
-
     return
   end subroutine output
 
