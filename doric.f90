@@ -71,7 +71,7 @@ contains
     ! is assumed to take place outside the doric routine.
     
     ! Save old values
-    rhe0=rhe
+    !rhe0=rhe
     xfh1old=xfh(1)
     xfh0old=xfh(0)
     
@@ -86,8 +86,11 @@ contains
     rhe=electrondens(rhh,xfh) ! should this really be used inside doric?
     
     ! determine neutral densities (take care of precision fluctuations)
-    if (xfh(0).lt.epsilon.and.abs(xfh(0)).lt.1.0e-10) xfh(0)=epsilon
-    
+    !if (xfh(0) < epsilon .and. abs(xfh(0)).lt.1.0e-10) then
+    if (xfh(0) < epsilon) then
+       xfh(0)=epsilon
+       xfh(1)=1.0_dp-epsilon
+    endif
     ! Determine average ionization fraction over the time step
     ! Mind fp fluctuations. (1.0-ee)/deltht should go to 1.0 for
     ! small deltht, but finite precision leads to values slightly
@@ -97,13 +100,14 @@ contains
     else
        avg_factor=(1.0-ee)/deltht
     endif
-    !     The question here is whether it would be better to calculate
+    ! The question here is whether it would be better to calculate
     ! xfh_av(0) first, and xfh_av(1) from it.
     xfh_av(1)=eqxfh1+(xfh1old-eqxfh1)*avg_factor
-    xfh_av(0)=1.0-xfh_av(1)
+    xfh_av(0)=1.0_dp-xfh_av(1)
     
     ! Take care of precision
-    if (xfh_av(0).lt.epsilon.and.abs(xfh_av(0)).lt.1.0e-10) xfh_av(0)=epsilon
+    !if (xfh_av(0).lt.epsilon.and.abs(xfh_av(0)).lt.1.0e-10) xfh_av(0)=epsilon
+    if (xfh_av(0) < epsilon) xfh_av(0)=epsilon
     
     return
   end subroutine doric
