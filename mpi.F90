@@ -17,7 +17,7 @@ module my_mpi
 
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
-  use mpi
+  !use mpi
   use file_admin, only:log
 
 #ifdef XLF
@@ -31,7 +31,7 @@ module my_mpi
 
   implicit none
 
-  !include 'mpif.h'
+  include 'mpif.h'
 
   integer,parameter,public :: NPDIM=3 ! dimension of problem
 
@@ -63,6 +63,7 @@ contains
 
     call mpi_basic ()
 
+#ifdef MPILOG
     ! Open processor dependent log file
     write(unit=number,fmt="(I4)") rank
     filename=trim(adjustl("log."//trim(adjustl(number))))
@@ -92,6 +93,13 @@ contains
     !$omp end parallel
 
     call flush(log)
+#else
+    if (rank == 0) then
+       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
+       open(unit=log,file=filename,status="unknown",action="write")
+       write(unit=log,fmt="(A)") "Log file for C2-Ray run"
+    endif
+#endif
 
     call mpi_topology ()
 
