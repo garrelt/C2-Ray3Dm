@@ -32,6 +32,9 @@ module evolve
 
   public :: evolve3D, phih_grid
 
+  ! Has to be true for this version
+  logical,parameter :: periodic_bc = .true.
+
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
@@ -67,17 +70,20 @@ contains
     ! The time step
     real(kind=dp),intent(in) :: dt
 
-    ! Will contains the integer position of the cell being treated
+    ! Mesh position of the cell being treated
     integer,dimension(Ndim) :: pos
       
     ! Loop variables
-    integer :: i,j,k,l,nx,ns,ns1,niter
+    integer :: i,j,k  ! mesh position
+    integer :: klast1, klast2 ! mesh positions of z-end points for RT
+    integer :: ns,ns1 ! source numbers
+    integer :: niter  ! iteration counter
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
 
 #ifdef MPI
-    integer :: ierror
+    integer :: mympierror
 #endif
 
     ! End of declarations
@@ -89,10 +95,10 @@ contains
     xh_av(:,:,:,:)=xh(:,:,:,:)
     xh_intermed(:,:,:,:)=xh(:,:,:,:)
     
-    ! Loop over sources
+    ! Iterate to reach convergence for multiple sources
     niter=0
     do
-       ! Loop counter
+       ! Iteration loop counter
        niter=niter+1
          
        ! reset global rates to zero for this iteration
@@ -101,80 +107,109 @@ contains
        ! reset photon loss counter
        photon_loss=0.0
        
-       ! Make a random order :: call in serial
+       ! Make a randomized list of sources :: call in serial
        if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
        
 #ifdef MPI
-       ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+       ! Distribute the source list to the other nodes
+       call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
        
        ! Source Loop - distributed for the MPI nodes
        do ns1=1+rank,NumSrc,npr
+
+          ! Pick up source number from the source list
           ns=SrcSeries(ns1)
+
+#ifdef MPILOG
+          ! Report
           write(log,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
-          
+#endif
           ! reset column densities for new source point
           ! coldensh_out is unique for each source point
           coldensh_out(:,:,:)=0.0
           
           ! Loop through grid in the order required by short characteristics
-          
-          ! 1. transfer in the upper part of the grid (above srcpos(3))
-          do k=srcpos(3,ns),srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+
+          ! Find the mesh position for the end points of the loop
+          if (periodic_bc) then
+             klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+             klast2=srcpos(3,ns)-mesh(3)/2
+          else
+             klast1=mesh(3)
+             klast2=1
+          endif
+
+          ! 1. transfer in the upper part of the grid (srcpos(3)-plane and 
+          !    above)
+          do k=srcpos(3,ns),klast1
              pos(3)=k
              call evolve2D(dt,pos,ns,niter)
           end do
           
           ! 2. transfer in the lower part of the grid (below srcpos(3))
-          do k=srcpos(3,ns)-1,srcpos(3,ns)-mesh(3)/2,-1
+          do k=srcpos(3,ns)-1,klast2,-1
              pos(3)=k
              call evolve2D(dt,pos,ns,niter)
           end do
+
+#ifdef MPILOG
+          ! Report ionization fractions
           write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
           write(log,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-       enddo ! sources loop
+#endif
+       enddo ! End of source loop
        
        ! End of parallelization
        
-       ! Report photon losses over grid boundary
-       write(log,*) 'photon loss counter: ',photon_loss
-       
 #ifdef MPI
-       ! accumulate threaded photon loss
+       ! accumulate (sum) the MPI distributed photon losses
        call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
-            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
        
-       ! accumulate threaded phih_grid
-       
+       ! accumulate (sum) the MPI distributed phih_grid
        call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, ierror)
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
        
+       ! Overwrite the processor local values with the accumulated value
        phih_grid(:,:,:)=buffer(:,:,:)
        
-       ! accumulate threaded xh_intermed
-       call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, ierror)
+       ! Only on the first iteration does evolve2D (evolve0D) change the
+       ! ionization fractions
+       if (niter == 1) then
+          ! accumulate (max) MPI distributed xh_av
+          call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
+               MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
+
+          ! Overwrite the processor local values with the accumulated value
+          xh_av(:,:,:,1) = buffer(:,:,:)
+          xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
+          
+          ! accumulate (max) MPI distributed xh_intermed
+          call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
+               mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
+               MPI_COMM_NEW, mympierror)
        
-       xh_av(:,:,:,1) = buffer(:,:,:)
-       xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
-       
-       ! accumulate threaded xh_intermed
-       call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
-            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
-            MPI_COMM_NEW, ierror)
-       
-       xh_intermed(:,:,:,1)=buffer(:,:,:)
-       xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
+          ! Overwrite the processor local values with the accumulated value
+          xh_intermed(:,:,:,1)=buffer(:,:,:)
+          xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
+       endif
 #else
        photon_loss_all=photon_loss
 #endif
+
+       ! Report photon losses over grid boundary 
+       if (rank == 0) write(log,*) 'photon loss counter: ',photon_loss_all
+       
+       ! Turn total photon loss into a mean per cell (used in evolve0d_global)
        photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
+       ! Report minimum value of xh_av(0) to check for zeros
+       if (rank == 0) write(log,*) "min xh_av: ",minval(xh_av(:,:,:,0))
+
        ! Apply total photo-ionization rates from all sources (phih_grid)
-       write(log,*) 'Applying Rates'
        conv_flag=0 ! will be used to check for convergence
-       
+
        ! Loop through the entire mesh
        do k=1,mesh(3)
           do j=1,mesh(2)
@@ -184,9 +219,13 @@ contains
              enddo
           enddo
        enddo
-       write(log,*) 'Number of non-converged points: ',conv_flag
-       
-       write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+
+       ! Report on convergence and intermediate result
+       if (rank == 0) then
+          write(log,*) "Number of non-converged points: ",conv_flag
+          write(log,*) "Intermediate result for mean ionization fraction: ", &
+               sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+       endif
 
        ! Update xh if converged and exit
        if (conv_flag <= int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
@@ -195,7 +234,7 @@ contains
        else
           if (niter > 50) then
              ! Complain about slow convergence
-             write(log,*) 'Multiple sources not converging'
+             if (rank == 0) write(log,*) 'Multiple sources not converging'
              exit
           endif
        endif
@@ -204,58 +243,71 @@ contains
     ! Calculate photon statistics
     call calculate_photon_statistics (dt)
 
-    return
   end subroutine evolve3D
 
   ! ===========================================================================
 
   subroutine evolve2D(dt,pos,ns,niter)
 
-    ! find column density for a z-plane srcpos(3) by sweeping in x and y
-    ! directions
+    ! Traverse a z-plane (z=pos(3)) by sweeping in the x and y
+    ! directions.
     
     real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
-    integer,dimension(Ndim),intent(inout) :: pos ! mesh position
+    integer,dimension(Ndim),intent(inout) :: pos ! mesh position, pos(3) is
+                                                 ! intent(in)
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
 
-    integer :: i,j
+    integer :: i,j ! mesh positions
+    integer :: jlast1,jlast2,ilast1,ilast2 ! end points of mesh loops
+
+    ! Find the mesh position for the end points of the loop
+    if (periodic_bc) then
+       jlast1=srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+       jlast2=srcpos(2,ns)-mesh(2)/2
+       ilast1=srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+       ilast2=srcpos(1,ns)-mesh(1)/2
+    else
+       jlast1=mesh(2)
+       jlast2=1
+       ilast1=mesh(1)
+       ilast2=1
+    endif
 
     ! sweep in `positive' j direction
-    do j=srcpos(2,ns),srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
+    do j=srcpos(2,ns),jlast1
        pos(2)=j
-       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+       do i=srcpos(1,ns),ilast1
           pos(1)=i
-          call evolve0D(dt,pos,ns,niter) !# `positive' i
+          call evolve0D(dt,pos,ns,niter) ! `positive' i
        end do
-       do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+       do i=srcpos(1,ns)-1,ilast2,-1
           pos(1)=i
-          call evolve0D(dt,pos,ns,niter) !# `negative' i
+          call evolve0D(dt,pos,ns,niter) ! `negative' i
        end do
     end do
     
     ! sweep in `negative' j direction
-    do j=srcpos(2,ns)-1,srcpos(2,ns)-mesh(2)/2,-1
+    do j=srcpos(2,ns)-1,jlast2,-1
        pos(2)=j
-       do i=srcpos(1,ns),srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+       do i=srcpos(1,ns),ilast1
           pos(1)=i
-          call evolve0D(dt,pos,ns,niter) !# `positive' i
+          call evolve0D(dt,pos,ns,niter) ! `positive' i
        end do
-       do i=srcpos(1,ns)-1,srcpos(1,ns)-mesh(1)/2,-1
+       do i=srcpos(1,ns)-1,ilast2,-1
           pos(1)=i
-          call evolve0D(dt,pos,ns,niter) !# `negative' i
+          call evolve0D(dt,pos,ns,niter) ! `negative' i
        end do
     end do
 
-    return
   end subroutine evolve2D
 
   !=======================================================================
 
   subroutine evolve0D(dt,rtpos,ns,niter)
     
-    ! Calculates the photo-ionization rate for one cell and adds it to 
-    ! the collective rate.
+    ! Calculates the photo-ionization rate for one cell due to one source
+    ! and adds this contribution to the collective rate.
     
     ! Author: Garrelt Mellema
     
@@ -268,8 +320,8 @@ contains
     ! The photo-ionization rates for each grid point are found and added
     ! to phih_grid, but the ionization fractions are not updated.
     ! For the first pass (niter = 1) it makes sense to DO update the
-    ! ionization fractions since this will increase convergence in the
-    ! case of isolated sources.
+    ! ionization fractions since this will increase convergence speed
+    ! in the case of isolated sources.
 
     use tped, only: electrondens
     use doric_module, only: doric, coldens
@@ -286,7 +338,7 @@ contains
     real(kind=dp),intent(in) :: dt ! time step
     integer,dimension(Ndim),intent(in) :: rtpos ! cell position (for RT)
     integer,intent(in)      :: ns ! source number 
-    integer,intent(in)      :: niter ! pass number
+    integer,intent(in)      :: niter ! global iteration number
     
     integer :: nx,nd,nit,idim ! loop counters
     integer,dimension(Ndim) :: pos
@@ -304,6 +356,7 @@ contains
     
     type(photrates) :: phi
 
+    !write(*,*) rtpos
     ! set convergence tolerance
     convergence=convergence1
 
@@ -318,15 +371,14 @@ contains
        yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx)
     enddo
 
-    ! Initialize local temperature and density
-    avg_temper=temper
+    ! Initialize local density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
+    avg_temper=temper
 
     ! Find the column density at the entrance point of the cell (short
     ! characteristics)
 
-    if (rtpos(1) == srcpos(1,ns).and.rtpos(2) == srcpos(2,ns).and. &
-         rtpos(3) == srcpos(3,ns)) then
+    if ( all( rtpos(:) == srcpos(:,ns) ) ) then
        ! Do not call cinterp for the source point.
        ! Set coldensh and path by hand
        coldensh_in=0.0
@@ -359,11 +411,11 @@ contains
     endif
 
     ! Only do chemistry if this is the first pass over the sources,
-    ! and if column density is below the maximum
-    ! On the first pass it may be beneficial to assume isolated sources,
-    ! but on later passes the effects of multiple sources has to be
-    ! taken into account. Therefore no changes to xh, xh_av, etc.
-    ! should happen on later passes!
+    ! and if column density is below the maximum.
+    ! On the first global iteration pass it may be beneficial to assume 
+    ! isolated sources, but on later passes the effects of multiple sources 
+    ! has to be taken into account. 
+    ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
     if (niter == 1 .and. coldensh_in < max_coldensh) then
 
        ! Iterate to get mean ionization state 
@@ -393,26 +445,26 @@ contains
           ! Calculate (mean) electron density
           de=electrondens(ndens_p,yh_av)
 
-          ! Calculate the new and mean ionization states 
-          ! (yh and yh_av)
+          ! Calculate the new and mean ionization states (yh and yh_av)
           call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phi%h)
 
-          ! Test for convergence on ionization fraction
-          ! Depending on how the multiple sources are handled this
-          ! could be convergence on yh_av or on yh
+          ! Test for convergence on the time-averaged neutral fraction
+          ! For low values of this number assume convergence
           if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence .or. &
                (yh_av(0) < 1e-12))) exit
 
-          ! Warn about non-convergence
+          ! Warn about non-convergence and terminate iteration
           if (nit > 5000) then
              write(log,*) 'Convergence failing (source ',ns,')'
              write(log,*) 'xh: ',yh_av(0),yh_av0
+             write(log,*) 'on processor rank ',rank
              exit
           endif
-       enddo ! end of iteration
 
-       ! Copy ionic abundances back if this is the first iteration
-       ! and the first source. This will speed up convergence if
+       enddo ! end of iteration loop
+
+       ! Copy ion fractions tp global arrays.
+       ! This will speed up convergence if
        ! the sources are isolated and only ionizing up.
        ! In other cases it does not make a difference.
        xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
@@ -423,16 +475,10 @@ contains
             xh_av(pos(1),pos(2),pos(3),1))
        xh_av(pos(1),pos(2),pos(3),0)=1.0- &
             xh_av(pos(1),pos(2),pos(3),1)
-       ! if (niter == 1.and.ns == 1) then
-       !do nx=0,1
-       ! xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
-       !   xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
-       !enddo
-       !endif
 
-    endif
+    endif ! end of niter == 1 and column density test
 
-    ! For niter > 1, just ray trace and exit. Do not touch the ionization
+    ! For niter > 1, only ray trace and exit. Do not touch the ionization
     ! fractions. They are updated using phih_grid in evolve0d_global
     
     ! Add the (time averaged) column density of this cell
@@ -450,36 +496,38 @@ contains
        phi%h_out=0.0
     endif
 
-    ! Save photo-ionization rates, they will be applied in evolve0D_global
+    ! Add photo-ionization rate to the global array 
+    ! (applied in evolve0D_global)
     phih_grid(pos(1),pos(2),pos(3))= &
          phih_grid(pos(1),pos(2),pos(3))+phi%h
 
     ! Photon statistics: register number of photons leaving the grid
-    if ( &
-         (rtpos(1) == srcpos(1,ns)-1-mesh(1)/2).or. &
-         (rtpos(1) == srcpos(1,ns)+mesh(1)/2).or. &
-         (rtpos(2) == srcpos(2,ns)-1-mesh(2)/2).or. &
-         (rtpos(2) == srcpos(2,ns)+mesh(2)/2).or. &
-         (rtpos(3) == srcpos(3,ns)-1-mesh(3)/2).or. &
-         (rtpos(3) == srcpos(3,ns)+mesh(3)/2)) then
-       
+    if ( (any(rtpos(:) == srcpos(:,ns)-1-mesh(:)/2)) .or. &
+         (any(rtpos(:) == srcpos(:,ns)+mesh(:)/2)) ) then
+    !if ( &
+    !     (rtpos(1) == srcpos(1,ns)-1-mesh(1)/2).or. &
+    !     (rtpos(1) == srcpos(1,ns)+mesh(1)/2).or. &
+    !     (rtpos(2) == srcpos(2,ns)-1-mesh(2)/2).or. &
+    !     (rtpos(2) == srcpos(2,ns)+mesh(2)/2).or. &
+    !     (rtpos(3) == srcpos(3,ns)-1-mesh(3)/2).or. &
+    !     (rtpos(3) == srcpos(3,ns)+mesh(3)/2)) then
        photon_loss=photon_loss + phi%h_out*vol/vol_ph
     endif
 
-    return
   end subroutine evolve0D
 
   ! =======================================================================
 
   subroutine evolve0D_global(dt,pos,conv_flag)
 
-    ! Calculates the evolution of the hydrogen ionization state.
+    ! Calculates the evolution of the hydrogen ionization state for
+    ! one cell (pos) and multiple sources.
 
     ! Author: Garrelt Mellema
 
-    ! Date: 20-May-2005 (5-Jan-2005, 02 Jun 2004)
+    ! Date: 11-Feb-2008 (20-May-2005, 5-Jan-2005, 02 Jun 2004)
     
-    ! Version: Multiple sources, Global update, no ray tracing
+    ! Version: Multiple sources (global update, no ray tracing)
 
     ! Multiple sources
     ! Global update: the collected rates are applied and the new ionization 
@@ -490,23 +538,24 @@ contains
     use doric_module, only: doric, coldens
     use c2ray_parameters, only: convergence1,convergence2
 
-    real(kind=dp),intent(in) :: dt
-    integer,dimension(Ndim),intent(in) :: pos
-    integer,intent(inout) :: conv_flag
+    real(kind=dp),intent(in) :: dt ! time step
+    integer,dimension(Ndim),intent(in) :: pos ! position on mesh
+    integer,intent(inout) :: conv_flag ! convergence counter
 
-    integer :: nx,nit ! loop counter
-    real(kind=dp) :: de
-    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0
-    real(kind=dp) :: avg_temper
-    real(kind=dp) :: ndens_p
-
-    real(kind=dp) :: phih
-
+    integer :: nx,nit ! loop counters
+    real(kind=dp) :: de ! electron density
+    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0 ! ionization fractions
     real(kind=dp) :: yh_av0
+    real(kind=dp) :: avg_temper ! temperature
+    real(kind=dp) :: ndens_p ! local number density
+
+    real(kind=dp) :: phih ! local photo-ionization rate
+    real(kind=dp) :: phih_total ! local total photo-ionization rate (including
+                                ! photon loss term)
+
     real(kind=dp) :: convergence
     
-    ! This routine does the final (whole grid) pass
-    ! Also set convergence tolerance
+    ! Set convergence tolerance
     convergence=convergence2
 
     ! Initialize local ionization states to global ones
@@ -520,43 +569,54 @@ contains
     ndens_p=ndens(pos(1),pos(2),pos(3))
     avg_temper=temper
 
-    ! Use the collected rates
+    ! Use the collected photo-ionization rates
     phih=phih_grid(pos(1),pos(2),pos(3))
     
     ! Add lost photons
     ! (if the cell is ionized, add a fraction of the lost photons)
     !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-    phih=phih + photon_loss/(vol*xh_av(pos(1),pos(2),pos(3),0)*ndens_p)
+    ! DO THIS BELOW, yh_av is changing
+    !phih=phih + photon_loss/(vol*yh_av(0)*ndens_p)
 
+    ! Iterate this one cell until convergence
     nit=0
     do 
        nit=nit+1
-       ! Save the values of yh_av found in the previous
-       ! iteration
+
+       ! Save the values of yh_av found in the previous iteration
        yh_av0=yh_av(0)
 
-       ! Copy ionic abundances back to initial values for doric
+       ! Copy ionic abundances back to initial values (doric assumes
+       ! that it contains this)
        yh(:)=yh0(:)
               
        ! Calculate (mean) electron density
        de=electrondens(ndens_p,yh_av)
 
-       ! Calculate the new and mean ionization states
-       call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih)
+       ! Find total photo-ionization rate (direct plus
+       ! photon losses)
+       phih_total=phih + photon_loss/(vol*yh_av(0)*ndens_p)
 
-       ! Test for convergence on ionization fraction
+       ! Calculate the new and mean ionization states
+       call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih_total)
+
+       ! Test for convergence on time-averaged neutral fraction
+       ! For low values of this number assume convergence
        if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
              .or. (yh_av(0) < 1e-12))) exit
                   
-       ! Warn about non-convergence
+       ! Warn about non-convergence and terminate iteration
        if (nit > 5000) then
-          write(log,*) 'Convergence failing (global)'
-          write(log,*) 'xh: ',yh_av(0),yh_av0
+          if (rank == 0) then
+             write(log,*) 'Convergence failing (global)'
+             write(log,*) 'xh: ',yh_av(0),yh_av0
+          endif
           exit
        endif
     enddo
 
-    ! Test for convergence on ionization fraction
+    ! Test for global convergence using the time-averaged neutral fraction.
+    ! For low values of this number assume convergence
     yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
     if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
          (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
@@ -564,13 +624,12 @@ contains
        conv_flag=conv_flag+1
     endif
 
-    ! Copy ionic abundances back to intermediate global arrays.
+    ! Copy ion fractions to the global arrays.
     do nx=0,1
        xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
        xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
     enddo
 
-    return
   end subroutine evolve0D_global
 
   ! ===========================================================================
@@ -593,10 +652,10 @@ contains
     ! depends on the orientation of the ray. The ray crosses either
     ! a z-plane, a y-plane or an x-plane.
     
-    integer,dimension(Ndim) :: pos
-    integer srcpos(Ndim)
-    real(kind=dp) :: cdensi
-    real(kind=dp) :: path
+    integer,dimension(Ndim),intent(in) :: pos
+    integer,dimension(Ndim),intent(in) :: srcpos
+    real(kind=dp),intent(out) :: cdensi
+    real(kind=dp),intent(out) :: path
 
     real(kind=dp),parameter :: sqrt3=sqrt(3.0)
     real(kind=dp),parameter :: sqrt2=sqrt(2.0)
@@ -769,7 +828,7 @@ contains
        ! (similar approach as with z plane, see comments there)
 
     elseif(idela >= jdela.and.idela >= kdela) then
-       
+
        alam=(real(im-i0)+sgni*0.5)/di
        zc=alam*dk+real(k0)
        yc=alam*dj+real(j0)
@@ -828,8 +887,7 @@ contains
     !weightf=1.0
     ! weightf=1.0/max(1.0d0,cd**0.54)
     ! weightf=exp(-min(700.0,cd*0.15*6.3d-18))
-    !weightf=1.0/max(0.6_dp,cd*sigh)
-    weightf=min(minweight,1.0/(cd*sigh))
+    weightf=1.0/max(0.6_dp,cd*sigh)
 
     ! weightf=1.0/log(max(e_ln,cd))
 
