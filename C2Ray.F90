@@ -80,14 +80,15 @@ Program Ifront
   if (iargc() > 0) then
      call getarg(1,inputfile)
      if (rank == 0) then
-        write(*,*) 'reading input from ',trim(adjustl(inputfile))
+        write(*,*) "reading input from ",trim(adjustl(inputfile))
         open(unit=stdinput,file=inputfile)
      endif
   endif
 
   ! Initialize output
   call setup_output()
-  call flush(log)
+  if (rank == 0) call flush(log)
+
   !Initialize grid
   call grid_ini()
 
@@ -102,8 +103,8 @@ Program Ifront
 
   ! Initialize time step parameters
   call time_ini ()
+  if (rank == 0) call flush(log)
 
-  call flush(log)
   ! Set time to zero
   time=0.0
 
@@ -111,9 +112,9 @@ Program Ifront
   call cosmology_init(zred_array(1),time)
 
   !if restarts read ionization fractions from file
-  if (restart.eq.1) call xfrac_ini(zred_array(1))
-  if (restart.eq.2)then
-     write(*,'(A,$)') 'At which redshift to restart x_frac?:'
+  if (restart == 1) call xfrac_ini(zred_array(1))
+  if (restart == 2)then
+     write(*,"(A,$)") "At which redshift to restart x_frac?:"
      read(stdinput,*) zred_interm         
      call xfrac_ini(zred_interm)
   end if
@@ -122,17 +123,18 @@ Program Ifront
   do nz=1,NumZred-1
      
      zred=zred_array(nz)
-     write(log,*) 'Doing redshift: ',zred,' to ',zred_array(nz+1)
+     if (rank == 0) write(log,*) "Doing redshift: ",zred," to ", &
+          zred_array(nz+1)
      
      ! Initialize time parameters
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
-     write(log,*) 'This is time ',time/YEAR,' to ',end_time/YEAR
+     if (rank == 0) write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
          
      ! Initialize source position
      call source_properties(zred,end_time-time)
 
-     ! print*,'zred before dens_ini=',zred
+     ! print*,"zred before dens_ini=",zred
      ! Initialize density field
      call dens_ini(zred)
 
@@ -150,12 +152,11 @@ Program Ifront
      ! Loop until end time is reached
      do
         ! Make sure you produce output at the correct time
-        write(log,*) next_output_time,time,dt
         actual_dt=min(next_output_time-time,dt)
         
         ! Report time and time step
-        write(log,'(A,2(1pe10.3,x),A)') 'Time, dt:', &
-             time/YEAR,actual_dt/YEAR,' (years)'
+        if (rank == 0) write(log,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+             time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
         if (cosmological) then
@@ -171,12 +172,12 @@ Program Ifront
         time=time+actual_dt
             
         ! Write output
-        if (abs(time-next_output_time).le.1e-6*time) then
+        if (abs(time-next_output_time) <= 1e-6*time) then
            call output(time2zred(time),time,dt)
            next_output_time=next_output_time+output_time
         endif
-        if (abs(time-end_time).lt.1e-6*end_time) exit
-        call flush(log)
+        if (abs(time-end_time) <= 1e-6*end_time) exit
+        if (rank == 0) call flush(log)
      enddo
 
      ! stop
@@ -198,8 +199,10 @@ Program Ifront
   call cpu_time(tend)
   call system_clock(cntr2,countspersec)
 
-  write(log,*) 'CPU time: ',tend-tstart,' s'
-  write(log,*) 'Wall clock time: ',(cntr2-cntr1)/countspersec,' s'
+  if (rank == 0) then
+     write(log,*) "CPU time: ",tend-tstart," s"
+     write(log,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
+  endif
 
   ! End the run
   call mpi_end ()
