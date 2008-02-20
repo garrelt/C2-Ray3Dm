@@ -326,7 +326,7 @@ contains
     tau(0)=0.0
 
     ! Warn about grey opacities:
-    if (grey) write(log,*) 'WARNING: Using grey opacities'
+    if (grey .and. rank == 0) write(log,*) 'WARNING: Using grey opacities'
 
     ! frequency band 1
     ! (there is space for NumFreqBnd frequency bands, only
