@@ -145,10 +145,10 @@ contains
        ! Stream 2
        if (streams(2).eq.1) then
           write(file1,'(f6.3)') zred_now
-          file1='Ifront3_'//trim(adjustl(file1))//'.bin'
+          file1='xfrac3d_'//trim(adjustl(file1))//'.bin'
           open(unit=52,file=file1,form='unformatted',status='unknown')
           write(52) mesh(1),mesh(2),mesh(3)
-          write(52) (((real(xh(i,j,k,1)),i=1,mesh(1)),j=1,mesh(2)), &
+          write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
           close(52)
        endif
