@@ -63,14 +63,14 @@ contains
 
     if (rank == 0) then
        ! Ask for temperature, restart. Read in values
-       write(*,'(A,$)') 'Enter initial temperature (K): '
+       write(*,"(A,$)") "Enter initial temperature (K): "
        read(stdinput,*) temper_val
-       write(*,'(A,$)') 'Restart (y/n)? : '
+       write(*,"(A,$)") "Restart (y/n)? : "
        read(stdinput,*) answer
-       if (answer.eq.'y'.or.answer.eq.'Y') restart=1
-       write(*,'(A,$)') 'Restart at midpoint (y/n)? : '
+       if (answer == "y" .or. answer == "Y") restart=1
+       write(*,"(A,$)") "Restart at midpoint (y/n)? : "
        read(stdinput,*) answer
-       if (answer.eq.'y'.or.answer.eq.'Y') restart=2
+       if (answer == "y".or.answer == "Y") restart=2
     endif
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
@@ -125,17 +125,18 @@ contains
 
     if (rank == 0) then
        ! construct filename
-       write(zred_str,'(f6.3)') zred_now
+       write(zred_str,"(f6.3)") zred_now
        if (id_str /= "coarse") then
           ! Allocate array needed to read in data
           allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
-          write(log,*) 'Reading ',id_str,' input'
           dens_file=trim(adjustl(dir_dens))//"coarser_densities/"// &
                trim(adjustl(zred_str))// &
                "rho_"//trim(adjustl(id_str))//".dat"
+          write(unit=log,fmt="(4A)") "Reading ",id_str, &
+               " density input from ",trim(dens_file)
           
-          ! Open density file: note that it is in `binary' form
-          open(unit=20,file=dens_file,form='binary',status='old')
+          ! Open density file: note that it is in `binary" form
+          open(unit=20,file=dens_file,form="binary",status="old")
           
           ! Read in data and store it in ndens
           read(20) ndens_real
@@ -151,12 +152,11 @@ contains
           ! over tot_nfiles. Otherwise the same.
           allocate(ndens_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
           do nfile=0,tot_nfiles-1
-             write(nfile_str,'(I1)') nfile
+             write(nfile_str,"(I1)") nfile
              dens_file=trim(adjustl(dir_dens))// &
                   trim(adjustl(zred_str))// &
                   "rho_c"//nfile_str//".dat"
-             write(log,*) dens_file
-             open(unit=20,file=dens_file,form='binary',status='old')
+             open(unit=20,file=dens_file,form="binary",status="old")
              read(20) ndens_real
              ndens(:,:, &
                   1+nfile*(mesh(3)/tot_nfiles): &
@@ -166,18 +166,19 @@ contains
           deallocate(ndens_real)
        endif
     endif
-    !write(log,*) 'Distributing the density'
 #ifdef MPI       
     ! Distribute the density to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,ierror)
 #endif
-    !write(log,*) 'Density distributed'
        
     ! Report on data: min, max, total
-    write(log,*) 'minimum: ',minval(ndens)/8.
-    write(log,*) 'maximum: ',maxval(ndens)/8.
-    write(log,*) 'summed density: ',sum(ndens)/8.
+    if (rank == 0) then
+       write(log,*) "Raw density diagnostics (in simulation units)"
+       write(log,*) "minimum density: ",minval(ndens)/8.
+       write(log,*) "maximum density: ",maxval(ndens)/8.
+       write(log,*) "summed density:  ",sum(ndens)/8.
+    endif
 
     ! The original values in terms of the mean density
     ! Below is the conversion factor
@@ -201,13 +202,15 @@ contains
     avg_dens=sum(ndens)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
     
     ! Report average density
-    write(log,'(A,1pe10.3,A)') 'Average density = ',avg_dens,' cm^-3'
-    write(log,'(A,1pe10.3,A)') 'Theoretical value = ', &
-         rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
-         ' cm^-3' 
-    write(log,'(A,1pe10.3,A)') '(at z=0 : ', &
-         rho_crit_0/(mu*m_p)*Omega_B, &
-         ' cm^-3)'
+    if (rank == 0) then
+       write(log,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
+       write(log,"(A,1pe10.3,A)") "Theoretical value = ", &
+            rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
+            " cm^-3" 
+       write(log,"(A,1pe10.3,A)") "(at z=0 : ", &
+            rho_crit_0/(mu*m_p)*Omega_B, &
+            " cm^-3)"
+    endif
 
     return
   end subroutine dens_ini
@@ -229,23 +232,27 @@ contains
     character(len=6) :: zred_str
     integer :: m1,m2,m3
     ! Array needed to read in 4B reals
-    real(kind=si),dimension(:,:,:),allocatable :: xh1_real
+    real(kind=dp),dimension(:,:,:),allocatable :: xh1_real
 
     if (rank == 0) then
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
-       write(zred_str,'(f6.3)') zred_now
-       xfrac_file= "./Ifront3_"//trim(adjustl(zred_str))//".bin"
-       
-       ! Open density file
-       open(unit=20,file=xfrac_file,form='unformatted',status='old')
+       write(zred_str,"(f6.3)") zred_now
+       xfrac_file= "./xfrac3d_"//trim(adjustl(zred_str))//".bin"
+
+       write(unit=log,fmt="(2A)") "Reading ionization fractions from ", &
+            trim(xfrac_file)
+       ! Open ionization fractions file
+       open(unit=20,file=xfrac_file,form="unformatted",status="old")
        
        ! Read in data
        read(20) m1,m2,m3
-       if (m1.ne.mesh(1).or.m2.ne.mesh(2).or.m3.ne.mesh(3)) then
-          write(*,*) 'Warning: file with ionization fractions unusable'
+       if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+          write(*,*) "Warning: file with ionization fractions unusable"
        else
           read(20) xh1_real
-          xh(:,:,:,1)=real(xh1_real(:,:,:),8)
+          ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
+          !xh(:,:,:,1)=real(xh1_real(:,:,:),8)
+          xh(:,:,:,1)=xh1_real(:,:,:)
           xh(:,:,:,0)=1.0-xh(:,:,:,1)
        endif
 
