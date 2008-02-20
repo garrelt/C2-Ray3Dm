@@ -50,7 +50,7 @@ contains
     character(len=180) :: redshift_file ! name of file with list of redshifts
     real(kind=dp) :: rho_crit_0_MpcM_sun,rho_matter
     integer :: nz ! loop counter
-    character(len=20) :: dataroot='DEISA_DATA'
+    character(len=20) :: dataroot="DEISA_DATA"
     character(len=256) :: value
     integer :: len, status
 
@@ -71,7 +71,7 @@ contains
        dir_dens=dir_dens_path
     elseif (status == -1) then
        ! Warning
-       write(log,*) 'Data file system name is truncated'
+       write(log,*) "Data file system name is truncated"
     endif
 #else
     dir_dens=dir_dens_path
@@ -79,15 +79,15 @@ contains
        
     ! Ask for redshift file
     if (rank == 0) then
-       write(*,'(A,$)') 'File with redshifts: '
+       write(*,"(A,$)") "File with redshifts: "
        read(stdinput,*) redshift_file
        
        ! Open and read redshift file
-       open(unit=60,file=redshift_file,form='formatted',status='old')
-       read(60,*) NumZred
+       open(unit=60,file=redshift_file,form="formatted",status="old")
+       read(unit60,fmt=*) NumZred
        allocate(zred_array(NumZred))
        do nz=1,NumZred
-          read(60,*) zred_array(nz)
+          read(unit=60,fmt=*) zred_array(nz)
        enddo
        close(20)
     endif
@@ -109,10 +109,12 @@ contains
 
     ! Set identifying string (resolution-dependent)
     ! Construct the file name
-    if (mesh(1) == 203) id_str="coarsest"
-    if (mesh(1) == 406) id_str="coarser"
-    if (mesh(1) == 812) id_str="coarse"
-    write(log,*) 'Type of resolution: ',id_str
+    select case (mesh(1))
+       case(203) id_str="coarsest"
+       case(406) id_str="coarser"
+       case(812) id_str="coarse"
+       end select
+    if (rank == 0) write(unit=log,fmt=*) "Type of resolution: ",id_str
 
     return
   end subroutine pmfast_ini
