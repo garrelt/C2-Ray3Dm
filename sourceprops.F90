@@ -42,12 +42,11 @@ contains
     integer :: ns,ns0
 
 #ifdef MPI
-    integer :: ierror
+    integer :: mympierror
 #endif
 
+    ! Deallocate source arrays
     if (NumSrc0 /= 0) then
-
-       write(log,*) 'Deallocating source arrays'
        deallocate(srcpos)
        deallocate(rsrcpos)
        deallocate(srcMass)
@@ -60,7 +59,7 @@ contains
        ! Sources are read from file
 
        ! Construct the file name
-       if (zred_now.ge.10.0) then
+       if (zred_now >= 10.0) then
           write(sourcelistfile,'(f6.3,3A)') zred_now, &
                "-",trim(adjustl(id_str)),"_sources.dat"
           write(sourcelistfilesuppress,'(f6.3,3A)') zred_now, &
@@ -79,7 +78,7 @@ contains
        read(50,*) NumSrc0
 
        ! Report
-       write(log,*) 'Number of sources, no suppression: ',NumSrc0
+       write(log,*) "Number of sources, no suppression: ", NumSrc0
 
        ! Read in source positions and mass to establish number
        ! of non-suppressed sources
@@ -88,17 +87,20 @@ contains
           read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
           ! the cell is still neutral, no suppression
           if (SrcMass00 /= 0.0 .or. &
-               xh(srcpos0(1),srcpos0(2),srcpos0(3),1).lt.0.1) NumSrc=NumSrc+1
+               xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < 0.1) NumSrc=NumSrc+1
        enddo
        close(50)
+       write(log,*) "Number of sources, with suppression: ",NumSrc
     endif
 
 #ifdef MPI
-    call MPI_BCAST(NumSrc0,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
-    call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(NumSrc0,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(NumSrc,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
 
-    write(log,*) 'Number of sources, with suppression: ',NumSrc
+#ifdef MPILOG
+    if (rank /= 0) write(log,*) "Number of sources, with suppression: ",NumSrc
+#endif
     allocate(srcpos(3,NumSrc))
     allocate(rsrcpos(3,NumSrc))
     allocate(SrcMass(NumSrc))
@@ -115,7 +117,7 @@ contains
           read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
                SrcMass00,SrcMass01
           
-          if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1).lt.0.1) then
+          if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < 0.1) then
              ! the cell is still neutral, no suppression
              ns=ns+1
              ! Source positions in file start at 1!
@@ -128,7 +130,7 @@ contains
              rsrcpos(3,ns)=z(srcpos(3,ns))
              SrcMass(ns)=SrcMass00*phot_per_atom1  & !massive sources
                   +SrcMass01*phot_per_atom2      !small sources   
-          elseif (SrcMass00.gt.0.0d0) then
+          elseif (SrcMass00 > 0.0d0) then
              !the cell is ionized but source is massive enough to survive
                                 !and is assumed Pop. II 
              ns=ns+1
@@ -163,16 +165,15 @@ contains
 
 #ifdef MPI
     ! Distribute the source parameters to the other nodes
-    call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
-    call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
-    call MPI_BCAST(SrcMass,NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(SrcMass,NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
 
     ! Turn masses into luminosities
     do ns=1,NumSrc
        NormFlux(ns)=SrcMass(ns)*M_grid*  &!note that now photons/atom are included in SrcMass
             Omega_B/(Omega0*m_p*lifetime2)/S_star_nominal
-         write(log,*) NormFlux(ns)*S_star_nominal
     enddo
 
     if (rank == 0) then
@@ -186,7 +187,7 @@ contains
     endif
 #ifdef MPI
     ! Distribute the source series to the other nodes
-    call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
 
     return
