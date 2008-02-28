@@ -35,6 +35,11 @@ module evolve
   ! Has to be true for this version
   logical,parameter :: periodic_bc = .true.
 
+  ! Minimum number of MPI processes for using the master-slave
+  ! setup 
+  integer, parameter ::  min_numproc_master_slave=10
+
+  ! Grid variables
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
@@ -51,7 +56,7 @@ contains
      
     ! Author: Garrelt Mellema
      
-    ! Date: 21-Aug-2006 (f77/OMP: 13-Jun-2005)
+    ! Date: 28-Feb-2008 (21-Aug-2006 (f77/OMP: 13-Jun-2005))
 
     ! Version: Multiple sources / Using average fractions to converge
     ! loop over sources
@@ -63,6 +68,10 @@ contains
     !  3-Jan-2005 (GM) : reintegrated with updated Ifront3D
     ! 20-May-2005 (GM) : split original eveolve0D into two routines
     ! 13-Jun-2005 (HM) : OpenMP version : Hugh Merz
+    ! 21-Aug-2006 (GM) : MPI parallelization over the sources (static model).
+    ! 28-Feb-2008 (GM) : Added master-slave model for distributing
+    !                    over the processes. The program decides which
+    !                    model to use.
 
     ! For random permutation of sources:
     use  m_ctrper, only: ctrper
@@ -70,14 +79,12 @@ contains
     ! The time step
     real(kind=dp),intent(in) :: dt
 
-    ! Mesh position of the cell being treated
-    integer,dimension(Ndim) :: pos
-      
     ! Loop variables
     integer :: i,j,k  ! mesh position
-    integer :: klast1, klast2 ! mesh positions of z-end points for RT
-    integer :: ns,ns1 ! source numbers
     integer :: niter  ! iteration counter
+
+    ! Mesh position of the cell being treated
+    integer,dimension(Ndim) :: pos
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
@@ -114,53 +121,16 @@ contains
        ! Distribute the source list to the other nodes
        call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
-       
-       ! Source Loop - distributed for the MPI nodes
-       do ns1=1+rank,NumSrc,npr
 
-          ! Pick up source number from the source list
-          ns=SrcSeries(ns1)
-
-#ifdef MPILOG
-          ! Report
-          write(log,*) 'Processor ',rank,' doing source at:',srcpos(:,ns)
-#endif
-          ! reset column densities for new source point
-          ! coldensh_out is unique for each source point
-          coldensh_out(:,:,:)=0.0
-          
-          ! Loop through grid in the order required by short characteristics
-
-          ! Find the mesh position for the end points of the loop
-          if (periodic_bc) then
-             klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-             klast2=srcpos(3,ns)-mesh(3)/2
-          else
-             klast1=mesh(3)
-             klast2=1
-          endif
-
-          ! 1. transfer in the upper part of the grid (srcpos(3)-plane and 
-          !    above)
-          do k=srcpos(3,ns),klast1
-             pos(3)=k
-             call evolve2D(dt,pos,ns,niter)
-          end do
-          
-          ! 2. transfer in the lower part of the grid (below srcpos(3))
-          do k=srcpos(3,ns)-1,klast2,-1
-             pos(3)=k
-             call evolve2D(dt,pos,ns,niter)
-          end do
-
-#ifdef MPILOG
-          ! Report ionization fractions
-          write(log,*) sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          write(log,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-#endif
-       enddo ! End of source loop
-       
-       ! End of parallelization
+       ! Ray trace the whole grid for all sources.
+       ! We can do this in two ways, depending on
+       ! the number of processors. For many processors
+       ! the master-slave setup should be more efficient.
+       if (npr > min_numproc_master_slave) then
+          call do_grid_master_slave (dt,niter)
+       else
+          call do_grid_static (dt,niter)
+       endif
        
 #ifdef MPI
        ! accumulate (sum) the MPI distributed photon losses
@@ -211,6 +181,7 @@ contains
        conv_flag=0 ! will be used to check for convergence
 
        ! Loop through the entire mesh
+       if (rank == 0) write(log,*) 'Doing global '
        do k=1,mesh(3)
           do j=1,mesh(2)
              do i=1,mesh(1)
@@ -232,7 +203,7 @@ contains
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
-          if (niter > 50) then
+          if (niter > 100) then
              ! Complain about slow convergence
              if (rank == 0) write(log,*) 'Multiple sources not converging'
              exit
@@ -244,6 +215,299 @@ contains
     call calculate_photon_statistics (dt)
 
   end subroutine evolve3D
+
+  ! ===========================================================================
+  
+  subroutine do_grid_master_slave (dt,niter)
+
+    ! Ray tracing the entire grid for all the sources using the
+    ! master-slave model for distributing the sources over the
+    ! MPI processes.
+
+    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
+    integer,intent(in) :: niter        ! passed on to evolve0D
+
+    if (rank == 0) then
+       call do_grid_master ()
+    else
+       call do_grid_slave (dt,niter)
+    endif
+
+  end subroutine do_grid_master_slave
+
+  ! ===========================================================================
+
+  subroutine do_grid_master ()
+
+    ! The master task in the master-slave setup for distributing
+    ! the ray-tracing over the sources over the MPI processes.
+
+    integer :: ns1
+    integer :: sources_done,whomax,who,answer
+    ! counter for master-slave process
+    integer,dimension(:),allocatable :: counts
+#ifdef MPI
+    integer :: mympierror
+#endif
+
+    ! Source Loop - Master Slave with rank=0 as Master
+    sources_done = 0
+          
+    ns1 = 0
+    
+    ! Allocate counter for master-slave process
+#ifdef MPI
+    if (.not.(allocated(counts))) allocate(counts(0:npr-1))
+#endif
+
+    ! send tasks to slaves 
+    
+    whomax = min(NumSrc,npr-1)
+    do who=1,whomax
+       if (ns1 <= NumSrc) then
+          ns1=ns1+1
+          call MPI_Send (ns1, 1, MPI_INTEGER, who, 1,  &
+               MPI_COMM_NEW, mympierror)
+       endif
+    enddo
+    
+    do while (sources_done < NumSrc)
+       
+       ! wait for an answer from a slave. 
+       
+       call MPI_Recv (answer,     & ! address of receive buffer
+            1,		   & ! number of items to receive
+            MPI_INTEGER,	   & ! type of data
+            MPI_ANY_SOURCE,  & ! can receive from any other
+            1,		   & ! tag
+            MPI_COMM_NEW,	   & ! communicator
+            mympi_status,	   & ! status
+            mympierror)
+       
+       who = mympi_status(MPI_SOURCE) ! find out who sent us the answer
+       sources_done=sources_done+1 ! and the number of sources done
+       
+       ! put the slave on work again,
+       ! but only if not all tasks have been sent.
+       ! we use the value of num to detect this */
+       if (ns1 < NumSrc) then
+          ns1=ns1+1
+          call MPI_Send (ns1, 1, MPI_INTEGER, &
+               who,		&	
+               1,		&	
+               MPI_COMM_NEW, &
+               mympierror)
+       endif
+    enddo
+    
+    ! Now master sends a message to the slaves to signify that they 
+    ! should end the calculations. We use a special tag for that:
+    
+    do who = 1,npr-1
+       call MPI_Send (0, 1, MPI_INTEGER, &
+            who,			  &
+            2,			  & ! tag 
+            MPI_COMM_NEW,	          &
+            mympierror)
+       
+       ! the slave will send to master the number of calculations
+       ! that have been performed. 
+       ! We put this number in the counts array.
+       
+       call MPI_Recv (counts(who), & ! address of receive buffer
+            1,                & ! number of items to receive
+            MPI_INTEGER,      & ! type of data 
+            who,              & ! receive from process who 
+            7,                & ! tag 
+            MPI_COMM_NEW,     & ! communicator 
+            mympi_status,     & ! status
+            mympierror)
+    enddo
+    
+    write(log,*) 'Mean number of sources per processor: ', &
+         real(NumSrc)/real(npr-1)
+    write(log,*) 'Counted mean number of sources per processor: ', &
+         real(sum(counts(1:npr-1)))/real(npr-1)
+    write(log,*) 'Minimum and maximum number of sources ', &
+         'per processor: ', &
+         minval(counts(1:npr-1)),maxval(counts(1:npr-1))
+    call flush(log)
+
+  end subroutine do_grid_master
+
+  ! ===========================================================================
+
+  subroutine do_grid_slave(dt,niter)
+
+    ! The slave task in the master-slave setup for distributing
+    ! the ray-tracing over the sources over the MPI processes.
+
+    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
+    integer,intent(in) :: niter        ! passed on to evolve0D
+
+    integer :: local_count
+    integer :: ns1
+#ifdef MPI
+    integer :: mympierror
+#endif
+
+    local_count=0
+    call MPI_Recv (ns1,  & ! address of receive buffer
+         1,    & ! number of items to receive
+         MPI_INTEGER,  & ! type of data
+         0,		  & ! can receive from master only
+         MPI_ANY_TAG,  & ! can expect two values, so
+         ! we use the wildcard MPI_ANY_TAG 
+         ! here
+         MPI_COMM_NEW, & ! communicator
+         mympi_status, & ! status
+         mympierror)
+    
+    ! if tag equals 2, then skip the calculations
+    
+    if (mympi_status(MPI_TAG) /= 2) then
+       do 
+#ifdef MPILOG
+          ! Report
+          write(log,*) 'Processor ',rank,' received: ',ns1
+          write(log,*) ' that is source ',SrcSeries(ns1)
+          write(log,*) ' at:',srcpos(:,ns)
+          call flush(log)
+#endif
+          ! Do the source at hand
+          call do_source(dt,ns1,niter)
+          
+          ! Update local counter
+          local_count=local_count+1
+          
+#ifdef MPILOG
+          ! Report ionization fractions
+          write(log,*) sum(xh_intermed(:,:,:,1))/ &
+               real(mesh(1)*mesh(2)*mesh(3))
+          write(log,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(log,*) local_count
+#endif
+          ! Send 'answer'
+          call MPI_Send (local_count, 1,  & ! sending one int 
+               MPI_INTEGER, 0, & ! to master
+               1,              & ! tag
+               MPI_COMM_NEW,   & ! communicator
+               mympierror)
+          
+          ! Receive new source number
+          call MPI_Recv (ns1,     & ! address of receive buffer
+               1,            & ! number of items to receive
+               MPI_INTEGER,  & ! type of data
+               0,            & ! can receive from master only
+               MPI_ANY_TAG,  & !  can expect two values, so
+               !  we use the wildcard MPI_ANY_TAG 
+               !  here
+               MPI_COMM_NEW, & ! communicator
+               mympi_status, & ! status
+               mympierror)
+          
+          ! leave this loop if tag equals 2
+          if (mympi_status(MPI_TAG) == 2) then
+#ifdef MPILOG
+             write(log,*) 'Stop received'
+             call flush(log)
+#endif
+             exit 
+          endif
+       enddo
+    endif
+    
+    ! this is the point that is reached when a task is received with
+    ! tag = 2
+    
+    ! send the number of calculations to master and return
+    
+#ifdef MPILOG
+    ! Report
+    write(log,*) 'Processor ',rank,' did ',local_count,' sources'
+    call flush(log)
+#endif
+    call MPI_Send (local_count,  &
+         1,           & 
+         MPI_INTEGER, & ! sending one int
+         0,           & ! to master
+         7,           & ! tag
+         MPI_COMM_NEW,& ! communicator
+         mympierror)
+
+  end subroutine do_grid_slave
+
+  ! ===========================================================================
+
+  subroutine do_grid_static (dt,niter)
+
+    ! Does the ray-tracing over the sources by distributing
+    ! the sources evenly over the available MPI processes-
+    
+    real(kind=dp),intent(in) :: dt ! passed on to evolve0D
+    integer,intent(in) :: niter    ! passed on to evolve0D
+
+    integer :: ns1
+
+    ! Source Loop - distributed for the MPI nodes
+    do ns1=1+rank,NumSrc,npr
+       call do_source(dt,ns1,niter)
+    enddo
+
+  end subroutine do_grid_static
+
+  ! ===========================================================================
+
+  subroutine do_source(dt,ns1,niter)
+
+    ! Does the ray-tracing over the entire 3D grid for one source.
+    ! The number of this source in the current list is ns1.
+
+    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
+    integer, intent(in) :: ns1
+    integer,intent(in) :: niter        ! passed on to evolve0D
+
+    integer :: ns
+    integer :: k
+    integer :: klast1, klast2 ! mesh positions of z-end points for RT
+
+    ! Mesh position of the cell being treated
+    integer,dimension(Ndim) :: pos
+      
+
+    ! Pick up source number from the source list
+    ns=SrcSeries(ns1)
+    
+    ! reset column densities for new source point
+    ! coldensh_out is unique for each source point
+    coldensh_out(:,:,:)=0.0
+    
+    ! Loop through grid in the order required by 
+    ! short characteristics
+    
+    ! Find the mesh position for the end points of the loop
+    if (periodic_bc) then
+       klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+       klast2=srcpos(3,ns)-mesh(3)/2
+    else
+       klast1=mesh(3)
+       klast2=1
+    endif
+    
+    ! 1. transfer in the upper part of the grid 
+    !    (srcpos(3)-plane and above)
+    do k=srcpos(3,ns),klast1
+       pos(3)=k
+       call evolve2D(dt,pos,ns,niter)
+    end do
+    
+    ! 2. transfer in the lower part of the grid (below srcpos(3))
+    do k=srcpos(3,ns)-1,klast2,-1
+       pos(3)=k
+       call evolve2D(dt,pos,ns,niter)
+    end do
+    
+  end subroutine do_source
 
   ! ===========================================================================
 
