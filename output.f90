@@ -247,9 +247,9 @@ contains
                   totcollisions/total_ion, &
                   grtotal_ion/grtotalsrc
           endif
-          totions=sum(ndens*xh(:,:,:,1))*vol
+          totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          massfrac=sum(ndens*xh(:,:,:,1))/sum(ndens)
+          massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
           write(95,'(4(1pe10.3))') totions,grtotalsrc,volfrac,massfrac
 
        endif
