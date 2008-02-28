@@ -250,15 +250,14 @@ contains
     integer :: mympierror
 #endif
 
+#ifdef MPI
     ! Source Loop - Master Slave with rank=0 as Master
     sources_done = 0
           
     ns1 = 0
     
     ! Allocate counter for master-slave process
-#ifdef MPI
     if (.not.(allocated(counts))) allocate(counts(0:npr-1))
-#endif
 
     ! send tasks to slaves 
     
@@ -333,6 +332,8 @@ contains
          minval(counts(1:npr-1)),maxval(counts(1:npr-1))
     call flush(log)
 
+#endif
+
   end subroutine do_grid_master
 
   ! ===========================================================================
@@ -351,6 +352,7 @@ contains
     integer :: mympierror
 #endif
 
+#ifdef MPI
     local_count=0
     call MPI_Recv (ns1,  & ! address of receive buffer
          1,    & ! number of items to receive
@@ -434,6 +436,7 @@ contains
          7,           & ! tag
          MPI_COMM_NEW,& ! communicator
          mympierror)
+#endif
 
   end subroutine do_grid_slave
 
