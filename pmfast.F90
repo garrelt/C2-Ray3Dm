@@ -84,7 +84,7 @@ contains
        
        ! Open and read redshift file
        open(unit=60,file=redshift_file,form="formatted",status="old")
-       read(unit60,fmt=*) NumZred
+       read(unit=60,fmt=*) NumZred
        allocate(zred_array(NumZred))
        do nz=1,NumZred
           read(unit=60,fmt=*) zred_array(nz)
@@ -110,9 +110,12 @@ contains
     ! Set identifying string (resolution-dependent)
     ! Construct the file name
     select case (mesh(1))
-       case(203) id_str="coarsest"
-       case(406) id_str="coarser"
-       case(812) id_str="coarse"
+       case(203) 
+          id_str="coarsest"
+       case(406) 
+          id_str="coarser"
+       case(812) 
+          id_str="coarse"
        end select
     if (rank == 0) write(unit=log,fmt=*) "Type of resolution: ",id_str
 
