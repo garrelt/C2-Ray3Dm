@@ -39,7 +39,7 @@ module my_mpi
   integer,public :: npr             ! number of processors
   integer,public :: nthreads        ! number of threads (per processor)
   integer,public :: MPI_COMM_NEW    ! the (new) communicator
-
+  integer,public,dimension(MPI_STATUS_SIZE) :: mympi_status ! status array
   integer,dimension(NPDIM),public :: dims ! number of processors in 
                                              !  each dimension
   integer,dimension(NPDIM),public :: grid_struct ! coordinates of 
@@ -63,11 +63,16 @@ contains
 
     call mpi_basic ()
 
+    if (rank == 0) then
+       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
+       open(unit=log,file=filename,status="unknown",action="write")
+       write(unit=log,fmt="(A)") "Log file for C2-Ray run"
+    endif
 #ifdef MPILOG
     ! Open processor dependent log file
     write(unit=number,fmt="(I4)") rank
     filename=trim(adjustl("log."//trim(adjustl(number))))
-    open(unit=log,file=filename,status="unknown",action="write")
+    if (rank /= 0) open(unit=log,file=filename,status="unknown",action="write")
 
     write(unit=log,fmt=*) "Log file for rank ",rank," of a total of ",npr
 
@@ -93,12 +98,6 @@ contains
     !$omp end parallel
 
     call flush(log)
-#else
-    if (rank == 0) then
-       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
-       open(unit=log,file=filename,status="unknown",action="write")
-       write(unit=log,fmt="(A)") "Log file for C2-Ray run"
-    endif
 #endif
 
     call mpi_topology ()
