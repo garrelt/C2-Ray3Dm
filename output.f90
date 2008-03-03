@@ -66,9 +66,14 @@ contains
        read(stdinput,*) streams(1),streams(2),streams(3),streams(4),streams(5)
        
        ! Open files
-       if (do_photonstatistics) open(unit=90,file='PhotonCounts.out', &
-            form='formatted',status='unknown')
-       
+       if (do_photonstatistics) then
+          open(unit=90,file='PhotonCounts.out', &
+               form='formatted',status='unknown')
+          write(90,*) 'redshift, photon conservation number, fraction new ionization, fraction recombinations, fraction photon losses, fraction collisional ionization, grand total photon conservation number'
+          open(unit=95,file='PhotonCounts2.out', &
+               form='formatted',status='unknown')
+          write(95,*) 'redshift, total number of ions, grand total ionizing photons, mean ionization fraction (by volume and mass)'
+       endif
     endif
     if (do_photonstatistics) then
        call initialize_photonstatistics ()
@@ -250,7 +255,7 @@ contains
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
-          write(95,'(4(1pe10.3))') totions,grtotalsrc,volfrac,massfrac
+          write(95,'(f6.3,4(1pe10.3))') zred_now,totions,grtotalsrc,volfrac,massfrac
 
        endif
     endif
