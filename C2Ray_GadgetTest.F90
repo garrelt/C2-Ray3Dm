@@ -115,7 +115,7 @@ Program Ifront
      call redshift_evol(time)
      call cosmo_evol()
   endif
-  call set_clumping(real(1.0/(1.0+zred_array(1)),4))
+  call set_clumping(zred_array(1))
 
   ! Loop over redshifts
   do nz=1,1

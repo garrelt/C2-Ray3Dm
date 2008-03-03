@@ -25,7 +25,7 @@ Program Ifront
   ! evolve : evolve grid in time
 
   use precision, only: dp
-  use c2ray_parameters, only: cosmological
+  use c2ray_parameters, only: cosmological,type_of_clumping
   use astroconstants, only: YEAR
   use my_mpi, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
@@ -137,6 +137,7 @@ Program Ifront
      ! print*,"zred before dens_ini=",zred
      ! Initialize density field
      call dens_ini(zred)
+     if (type_of_clumping == 5) call set_clumping(zred)
 
      ! Set time if restart at intermediate time
      ! Set next output time
@@ -163,7 +164,9 @@ Program Ifront
            call redshift_evol(time+0.5*actual_dt)
            call cosmo_evol()
         endif
-        call set_clumping(real(1.0/(1.0+zred),4))
+        ! Do not call in case of position dependent clumping,
+        ! the clumping grid should have been initialized above
+        if (type_of_clumping /= 5) call set_clumping(zred)
 
         ! Take one time step
         call evolve3D(actual_dt)

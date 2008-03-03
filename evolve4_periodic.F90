@@ -593,7 +593,9 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
-    use c2ray_parameters, only: epsilon,convergence1,convergence2
+    use subgrid_clumping, only: clumping_point
+    use c2ray_parameters, only: epsilon,convergence1,convergence2, &
+         type_of_clumping
     use mathconstants, only: pi
 
     ! column density for stopping chemisty
@@ -641,6 +643,9 @@ contains
     ! Initialize local density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
     avg_temper=temper
+
+    ! Initialize local clumping (if type of clumping is appropriate)
+    if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
 
     ! Find the column density at the entrance point of the cell (short
     ! characteristics)
@@ -803,7 +808,8 @@ contains
     
     use tped, only: electrondens
     use doric_module, only: doric, coldens
-    use c2ray_parameters, only: convergence1,convergence2
+    use c2ray_parameters, only: convergence1,convergence2,type_of_clumping
+    use subgrid_clumping, only: clumping_point
 
     real(kind=dp),intent(in) :: dt ! time step
     integer,dimension(Ndim),intent(in) :: pos ! position on mesh
@@ -835,6 +841,9 @@ contains
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
     avg_temper=temper
+
+    ! Initialize local clumping (if type of clumping is appropriate)
+    if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
 
     ! Use the collected photo-ionization rates
     phih=phih_grid(pos(1),pos(2),pos(3))
