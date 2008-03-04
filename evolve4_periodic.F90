@@ -47,7 +47,11 @@ module evolve
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
   real(kind=dp) :: photon_loss_all
 
+  ! mesh positions of end points for RT
+  integer :: ilast1, ilast2, jlast1, jlast2, klast1, klast2 
+
 contains
+
   ! =======================================================================
   
   subroutine evolve3D (dt)
@@ -472,7 +476,6 @@ contains
 
     integer :: ns
     integer :: k
-    integer :: klast1, klast2 ! mesh positions of z-end points for RT
 
     ! Mesh position of the cell being treated
     integer,dimension(Ndim) :: pos
@@ -485,17 +488,25 @@ contains
     ! coldensh_out is unique for each source point
     coldensh_out(:,:,:)=0.0
     
-    ! Loop through grid in the order required by 
-    ! short characteristics
-    
     ! Find the mesh position for the end points of the loop
     if (periodic_bc) then
+       ilast1=srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
+       jlast1=srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
        klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
+       ilast2=srcpos(1,ns)-mesh(1)/2
+       jlast2=srcpos(2,ns)-mesh(2)/2
        klast2=srcpos(3,ns)-mesh(3)/2
     else
+       ilast1=mesh(1)
+       jlast1=mesh(2)
        klast1=mesh(3)
+       ilast2=1
+       jlast2=1
        klast2=1
     endif
+    
+    ! Loop through grid in the order required by 
+    ! short characteristics
     
     ! 1. transfer in the upper part of the grid 
     !    (srcpos(3)-plane and above)
@@ -526,20 +537,6 @@ contains
     integer,intent(in) :: niter        ! passed on to evolve0D
 
     integer :: i,j ! mesh positions
-    integer :: jlast1,jlast2,ilast1,ilast2 ! end points of mesh loops
-
-    ! Find the mesh position for the end points of the loop
-    if (periodic_bc) then
-       jlast1=srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-       jlast2=srcpos(2,ns)-mesh(2)/2
-       ilast1=srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
-       ilast2=srcpos(1,ns)-mesh(1)/2
-    else
-       jlast1=mesh(2)
-       jlast2=1
-       ilast1=mesh(1)
-       ilast2=1
-    endif
 
     ! sweep in `positive' j direction
     do j=srcpos(2,ns),jlast1
@@ -723,7 +720,7 @@ contains
           ! Test for convergence on the time-averaged neutral fraction
           ! For low values of this number assume convergence
           if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence .or. &
-               (yh_av(0) < 1e-12))) exit
+               (yh_av(0) < 1e-8))) exit
 
           ! Warn about non-convergence and terminate iteration
           if (nit > 5000) then
@@ -879,7 +876,7 @@ contains
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence
        if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
-             .or. (yh_av(0) < 1e-12))) exit
+             .or. (yh_av(0) < 1e-8))) exit
                   
        ! Warn about non-convergence and terminate iteration
        if (nit > 5000) then
@@ -896,7 +893,7 @@ contains
     yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
     if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
          (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
-         (yh_av(0) > 1e-12))) then
+         (yh_av(0) > 1e-8))) then
        conv_flag=conv_flag+1
     endif
 
