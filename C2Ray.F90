@@ -1,8 +1,8 @@
-Program Ifront
+Program C2Ray
 
-  ! Author: Garrelt Mellema
+  ! Authors: Garrelt Mellema, Ilian Iliev
 
-  ! Date: 23-Sep-2006
+  ! Date: 06-Mar-2006 (30-Jan-2008 (23-Sep-2006))
 
   ! Goal:
   ! Cosmological reionization simulation using precomputed density fields
@@ -17,7 +17,7 @@ Program Ifront
   ! output_module : output routines
   ! grid : sets up the grid
   ! radiation : radiation tools
-  ! pmfast : interface to PMFAST output
+  ! pmfast : interface to CubeP3M output
   ! cosmology : cosmological utilities
   ! material : material properties
   ! times : time and time step utilities
@@ -51,7 +51,7 @@ Program Ifront
   real :: tstart,tend
   integer :: cntr1,cntr2,countspersec
 
-  integer :: restart,nz,flag
+  integer :: restart,nz,flag, nz0
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
@@ -62,6 +62,9 @@ Program Ifront
   real(kind=dp) :: end_time,time,output_time,next_output_time
   real(kind=dp) :: dt,actual_dt
   real(kind=dp) :: zred_interm
+#ifdef MPI
+  integer :: mympierror
+#endif
 
   ! Input file
   character(len=512) :: inputfile
@@ -96,7 +99,7 @@ Program Ifront
   call rad_ini( )
 
   ! Initialize the material properties
-  call mat_ini (restart)
+  call mat_ini (restart, nz0)
 
   ! Find the redshifts we are dealing with
   call pmfast_ini ()
@@ -109,18 +112,24 @@ Program Ifront
   time=0.0
 
   ! Initialize cosmology
-  call cosmology_init(zred_array(1),time)
+  call cosmology_init(zred_array(nz0),time)
 
   !if restarts read ionization fractions from file
-  if (restart == 1) call xfrac_ini(zred_array(1))
-  if (restart == 2)then
-     write(*,"(A,$)") "At which redshift to restart x_frac?:"
-     read(stdinput,*) zred_interm         
+  if (restart == 1) call xfrac_ini(zred_array(nz0))
+  if (restart == 2) then
+     if (rank == 0) then
+        write(*,"(A,$)") "At which redshift to restart x_frac?:"
+        read(stdinput,*) zred_interm
+     endif
+#ifdef MPI
+     call MPI_BCAST(zred_interm,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW, &
+          mympierror)
+#endif
      call xfrac_ini(zred_interm)
   end if
   
   ! Loop over redshifts
-  do nz=1,NumZred-1
+  do nz=nz0,NumZred-1
      
      zred=zred_array(nz)
      if (rank == 0) write(log,*) "Doing redshift: ",zred," to ", &
@@ -132,18 +141,18 @@ Program Ifront
      if (rank == 0) write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
          
      ! Initialize source position
-     call source_properties(zred,end_time-time)
+     call source_properties(zred,nz,end_time-time)
 
      ! print*,"zred before dens_ini=",zred
      ! Initialize density field
-     call dens_ini(zred)
+     call dens_ini(zred,nz)
      if (type_of_clumping == 5) call set_clumping(zred)
 
      ! Set time if restart at intermediate time
      ! Set next output time
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
-     if (nz == 1 .and. restart == 2) then
+     if (nz == nz0 .and. restart == 2) then
         time=zred2time(zred_interm)
         next_output_time=end_time
      else
@@ -210,4 +219,4 @@ Program Ifront
   ! End the run
   call mpi_end ()
 
-end Program Ifront
+end Program C2Ray
