@@ -165,8 +165,6 @@ contains
     ! voly(i,j,k)=voly(i,j,k)*zfactor3
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
 
-    !write(30,*) 'zfactor3=',zfactor3
-
   end subroutine cosmo_evol
 
   ! =======================================================================
