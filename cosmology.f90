@@ -32,6 +32,7 @@ contains
     real(kind=dp),intent(in) :: time
     
     ! Cosmological time corresponding to (initial) redshift zred0
+    ! NOTE: Good only for high-z!!!
     t0 = 2.*(1.+zred0)**(-1.5)/(3.*H0*sqrt(Omega0))
     
     ! Initialize redshift
@@ -62,6 +63,7 @@ contains
     real(kind=dp),intent(in) :: time
 
     ! Calculate the redshift
+    ! NOTE: Good only for high-z!!!
     time2zred = -1+(1.+zred_t0)*(t0/(t0+time))**(2./3.)
 
     return
@@ -85,6 +87,7 @@ contains
     real(kind=dp),intent(in) :: zred1
 
     ! Calculate the redshift
+    ! NOTE: Good only for high-z!!!
     zred2time = t0*( ((1.0+zred_t0)/(1.0+zred1))**1.5 - 1.0 )
 
     return
@@ -111,6 +114,7 @@ contains
     ! Calculate the change since the previous redshift.
     ! Note: the initial redshift should be ZERO since
     ! the variables are initialized as comoving!
+    ! NOTE: Good only for high-z!!!
     zred_prev=zred
     zred = -1+(1.+zred_t0)*((t0+time)/t0)**(-2./3.)
 
