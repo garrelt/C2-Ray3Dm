@@ -64,8 +64,10 @@ contains
     call mpi_basic ()
 
     if (rank == 0) then
-       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
-       open(unit=log,file=filename,status="unknown",action="write")
+       if (log /= 6) then
+          filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
+          open(unit=log,file=filename,status="unknown",action="write")
+       endif
        write(unit=log,fmt="(A)") "Log file for C2-Ray run"
     endif
 #ifdef MPILOG

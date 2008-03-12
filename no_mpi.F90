@@ -56,11 +56,11 @@ contains
     call mpi_basic ()
 
     ! Open processor dependent log file
-    write(unit=number,fmt="(I4)") rank
-    filename=trim(adjustl("log."//trim(adjustl(number))))
-    open(unit=log,file=filename,status="unknown",action="write")
-
-    write(unit=log,fmt=*) "Log file for rank ",rank
+    if (log /= 6) then
+       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
+       open(unit=log,file=filename,status="unknown",action="write")
+    endif
+    write(unit=log,fmt="(A)") "Log file for C2-Ray run"
 
     nthreads=1
     ! Figure out hostname
