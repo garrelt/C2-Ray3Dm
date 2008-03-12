@@ -10,10 +10,13 @@ module my_mpi
   ! mpi_topology: domain decomposition
   ! mpi_end:      close down the MPI interface
   ! fnd3dnbrs:    find neighbours in 3D domain decomposition
-  
-  ! Each processor has its own log file, which is called log.0, log.1,
-  ! etc. This is opened in mpi_setup, and is connected to unit 30.
-  ! The file is close in mpi_end
+
+  ! rank 0 has a log file called C2Ray.log associated with it. If
+  ! the log unit is equal to 6, no file is opened and all log output
+  ! is sent to standard output.
+  ! If the code is compiled with the option -DMPILOG the other processors get
+  ! their own log files, called log.1, log.2, etc.
+  ! All these files are opened in mpi_setup and closed in mpi_end.
 
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
@@ -156,9 +159,13 @@ contains
   subroutine mpi_end
 
     integer :: ierror=0
+    logical :: openlog
+
+    ! Find out if log file is open
+    inquire(unit=log,opened=openlog)
 
     ! Close log file
-    close(log)
+    if (openlog) close(log)
 
     ! Close MPI
     call MPI_FINALIZE(ierror)
