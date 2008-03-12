@@ -21,16 +21,17 @@ module sourceprops
   integer,private :: NumSrc0=0
   integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: srcMass00,srcMass01
+  character(len=6) :: z_str 
 
 contains
   
   ! =======================================================================
 
-  subroutine source_properties(zred_now,lifetime2)
+  subroutine source_properties(zred_now,nz,lifetime2)
 
     ! Input routine: establish the source properties
-    ! Author: Garrelt Mellema
-    ! Update: 20-Sep-2006 (3-jan-2005, 15-Apr-2004)
+    ! Authors: Garrelt Mellema, Ilian Iliev
+    ! Update: 30-Jan-2008 (20-Sep-2006 (3-jan-2005, 15-Apr-2004))
 
     ! For random permutation of sources
     use  m_ctrper
@@ -39,7 +40,7 @@ contains
     real(kind=dp),intent(in) :: lifetime2 ! time step
 
     character(len=512) :: sourcelistfile,sourcelistfilesuppress
-    integer :: ns,ns0
+    integer :: ns,ns0,nz
 
 #ifdef MPI
     integer :: mympierror
@@ -57,19 +58,26 @@ contains
     ! Ask for input
     if (rank == 0) then
        ! Sources are read from file
+       write(z_str,'(f6.3)') zred_now
 
        ! Construct the file name
-       if (zred_now >= 10.0) then
-          write(sourcelistfile,'(f6.3,3A)') zred_now, &
-               "-",trim(adjustl(id_str)),"_sources.dat"
-          write(sourcelistfilesuppress,'(f6.3,3A)') zred_now, &
-               "-",trim(adjustl(id_str)),"_sources_used_wfgamma.dat"
-       else
-          write(sourcelistfile,'(f5.3,3A)') zred_now, &
-               "-",trim(adjustl(id_str)),"_sources.dat"
-          write(sourcelistfilesuppress,'(f5.3,3A)') zred_now, &
-               "-",trim(adjustl(id_str)),"_sources_used_wfgamma.dat"
-       endif
+       sourcelistfile="../coarser_densities/"//&
+	trim(adjustl(z_str))//"-"//trim(adjustl(id_str))//"_sources.dat"
+       sourcelistfilesuppress="../coarser_densities/"//&
+	trim(adjustl(z_str))//"-"//trim(adjustl(id_str))//"_sources_used_wfgamma.dat"
+       !print*,'check',sourcelistfile,sourcelistfilesuppress
+
+!       if (zred_now >= 10.0) then
+!          write(sourcelistfile,'(f6.3,3A)') zred_now, &
+!               "-",trim(adjustl(id_str)),"_sources.dat"
+!          write(sourcelistfilesuppress,'(f6.3,3A)') zred_now, &
+!               "-",trim(adjustl(id_str)),"_sources_used_wfgamma.dat"
+!       else
+!          write(sourcelistfile,'(f5.3,3A)') zred_now, &
+!               "-",trim(adjustl(id_str)),"_sources.dat"
+!          write(sourcelistfilesuppress,'(f5.3,3A)') zred_now, &
+!               "-",trim(adjustl(id_str)),"_sources_used_wfgamma.dat"
+!       endif
       
        open(unit=50,file=sourcelistfile,status='old')
        open(unit=49,file=sourcelistfilesuppress,status='unknown')
@@ -177,6 +185,9 @@ contains
     enddo
 
     if (rank == 0) then
+
+       write(log,*) 'Source lifetime=', lifetime2/3.1536e13
+
        ! Create array of source numbers for generating random order
        do ns=1,NumSrc
           SrcSeries(ns)=ns
