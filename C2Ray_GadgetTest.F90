@@ -136,11 +136,11 @@ Program Ifront
 
      ! Loop until end time is reached
      !dt=end_time/real(100000)
-     do ntime=1,1
+     do ntime=1,5
         ! Make sure you produce output at the correct time
-        !dt=10.0**(ntime+3)*YEAR
+        dt=10.0**(ntime+3)*YEAR
         !dt=end_time/10.0
-        dt=1e7*YEAR
+        !dt=1e7*YEAR
         if (ntime == 4) dt=0.5*dt 
         if (ntime == 5) dt=0.1*dt 
         actual_dt=dt-time
@@ -156,7 +156,7 @@ Program Ifront
         time=time+actual_dt
             
         ! Write output
-        call output(time2zred(time),time,dt)
+        call output(time2zred(time),time,actual_dt)
         if (abs(time-end_time).lt.1e-6*end_time) exit
         call flush(log)
      enddo
