@@ -10,10 +10,10 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence_fraction=1.5e-5
 
   ! Set to true to let C2-Ray not change the temperature
-  logical,parameter :: isothermal=.false.
+  logical,parameter :: isothermal=.true.
 
   ! A really small number
-  real(kind=dp),parameter :: epsilon=1e-40_dp
+  real(kind=dp),parameter :: epsilon=1e-14_dp
 
   ! Convergence criterion for per source calculation (evolve0d)
   real(kind=dp),parameter :: convergence1=1.0e-3
@@ -21,15 +21,20 @@ module c2ray_parameters
   ! Convergence criterion for global calculation (evolve0d)
   real(kind=dp),parameter :: convergence2=1.0e-2
 
+  ! Convergence criterion for neutral fraction (evolve4_periodic)
+  real(kind=dp),parameter :: convergence_frac=1.0e-10
+
   ! Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
-  real(kind=dp),parameter :: s_star_nominal=1e50_dp
+  real(kind=dp),parameter :: s_star_nominal=1e48_dp
+  !real(kind=dp),parameter :: s_star_nominal=1e50_dp
   
   ! Subgrid clumping
   ! 1: constant clumping (with clumping_factor)
   ! 2: 3.5Mpc PM, WMAP1 clumping
   ! 3: 3.5Mpc PM, WMAP3 clumping
   ! 4: 1 Mpc P3M
+  ! 5: position dependent clumping
   integer,parameter :: type_of_clumping=1
   ! Clumping factor if constant
   real,parameter :: clumping_factor=1.0  
@@ -45,7 +50,7 @@ module c2ray_parameters
 
   ! Source properties
   ! Photon per atom for high mass sources
-  real,parameter :: phot_per_atom1=250.0
+  real,parameter :: phot_per_atom1=100.0
   ! Photon per atom for low mass sources
   real,parameter :: phot_per_atom2=250.0
   ! Life time of sources

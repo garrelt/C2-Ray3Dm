@@ -592,7 +592,7 @@ contains
     use radiation, only: photoion, photrates
     use subgrid_clumping, only: clumping_point
     use c2ray_parameters, only: epsilon,convergence1,convergence2, &
-         type_of_clumping
+         type_of_clumping, convergence_frac
     use mathconstants, only: pi
 
     ! column density for stopping chemisty
@@ -720,7 +720,7 @@ contains
           ! Test for convergence on the time-averaged neutral fraction
           ! For low values of this number assume convergence
           if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence .or. &
-               (yh_av(0) < 1e-8))) exit
+               (yh_av(0) < convergence_frac))) exit
 
           ! Warn about non-convergence and terminate iteration
           if (nit > 5000) then
@@ -805,7 +805,7 @@ contains
     
     use tped, only: electrondens
     use doric_module, only: doric, coldens
-    use c2ray_parameters, only: convergence1,convergence2,type_of_clumping
+    use c2ray_parameters, only: convergence1,convergence2,type_of_clumping, convergence_frac
     use subgrid_clumping, only: clumping_point
 
     real(kind=dp),intent(in) :: dt ! time step
@@ -876,7 +876,7 @@ contains
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence
        if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
-             .or. (yh_av(0) < 1e-8))) exit
+             .or. (yh_av(0) < convergence_frac))) exit
                   
        ! Warn about non-convergence and terminate iteration
        if (nit > 5000) then
@@ -893,7 +893,7 @@ contains
     yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
     if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
          (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
-         (yh_av(0) > 1e-8))) then
+         (yh_av(0) > convergence_frac))) then
        conv_flag=conv_flag+1
     endif
 
