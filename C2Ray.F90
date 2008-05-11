@@ -27,7 +27,7 @@ Program C2Ray
   use precision, only: dp
   use c2ray_parameters, only: cosmological,type_of_clumping
   use astroconstants, only: YEAR
-  use my_mpi, only: mpi_setup, mpi_end, rank
+  use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
   use grid, only: grid_ini
   use radiation, only: rad_ini
@@ -89,17 +89,18 @@ Program C2Ray
   endif
 
   ! Initialize output
-  call setup_output()
+  call setup_output ()
   if (rank == 0) call flush(log)
 
   !Initialize grid
-  call grid_ini()
+  call grid_ini ()
 
   ! Initialize photo-ionization calculation
-  call rad_ini( )
+  call rad_ini ( )
 
   ! Initialize the material properties
-  call mat_ini (restart, nz0)
+  ! call mat_ini (restart, nz0) ! new version, not fully integrated yet
+  call mat_ini (restart)
 
   ! Find the redshifts we are dealing with
   call pmfast_ini ()
@@ -112,10 +113,12 @@ Program C2Ray
   time=0.0
 
   ! Initialize cosmology
-  call cosmology_init(zred_array(nz0),time)
+  ! call cosmology_init(zred_array(nz0),time) ! new version
+  call cosmology_init(zred_array(1),time)
 
   !if restarts read ionization fractions from file
-  if (restart == 1) call xfrac_ini(zred_array(nz0))
+  !if (restart == 1) call xfrac_ini(zred_array(nz0))
+  if (restart == 1) call xfrac_ini(zred_array(1))
   if (restart == 2) then
      if (rank == 0) then
         write(*,"(A,$)") "At which redshift to restart x_frac?:"
@@ -129,7 +132,8 @@ Program C2Ray
   end if
   
   ! Loop over redshifts
-  do nz=nz0,NumZred-1
+  ! do nz=nz0,NumZred-1 ! new version
+  do nz=1,NumZred-1
      
      zred=zred_array(nz)
      if (rank == 0) write(log,*) "Doing redshift: ",zred," to ", &
@@ -141,23 +145,31 @@ Program C2Ray
      if (rank == 0) write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
          
      ! Initialize source position
-     call source_properties(zred,nz,end_time-time)
+#ifdef MPILOG     
+     write(log,*) 'Calling source_properties'
+#endif 
+     call source_properties(zred,nz,end_time-time,restart)
 
      ! print*,"zred before dens_ini=",zred
      ! Initialize density field
-     call dens_ini(zred,nz)
+     !call dens_ini(zred,nz) ! new version
+     call dens_ini(zred)
      if (type_of_clumping == 5) call set_clumping(zred)
 
      ! Set time if restart at intermediate time
      ! Set next output time
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
-     if (nz == nz0 .and. restart == 2) then
+     ! if (nz == nz0 .and. restart == 2) then ! new version
+     if (restart == 2) then
         time=zred2time(zred_interm)
         next_output_time=end_time
      else
         next_output_time=time+output_time
      endif
+
+     ! Reset restart
+     restart=0
 
      ! Loop until end time is reached
      do
@@ -198,7 +210,7 @@ Program C2Ray
         call redshift_evol(time)
         call cosmo_evol()
      endif
-     
+    
   enddo
 
   ! Write final output
