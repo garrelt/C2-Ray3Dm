@@ -85,7 +85,7 @@ contains
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     if (ierror == 0) then
-       write(log,*) "Running on processor named ",hostname
+       write(log,*) "Running on processor named ",trim(adjustl(hostname))
     else 
        write(log,*) "Error establishing identity of processor."
     endif
