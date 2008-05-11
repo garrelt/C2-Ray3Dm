@@ -6,6 +6,7 @@ module grid
   use cosmology_parameters, only: h
   use my_mpi
   use file_admin, only: stdinput
+  !use nbody_simulation, only :: boxsize
 
   implicit none
 
@@ -48,7 +49,8 @@ contains
 
     ! Ask for grid size
     if (rank == 0) then
-       write(*,'(A,$)') 'Enter physical (comoving) size of grid in x,y,z (Mpc): '
+       write(*,'(A,$)') 'Enter comoving size of grid in x,y,z (Mpc/h): '
+!       write(*,'(A,$)') 'Enter physical (comoving) size of grid in x,y,z (Mpc): '
        read(stdinput,*) xgrid,ygrid,zgrid
     endif
     
