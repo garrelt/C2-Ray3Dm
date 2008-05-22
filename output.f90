@@ -9,7 +9,7 @@ module output_module
 
   use precision, only: dp
   use my_mpi, only: rank
-  use file_admin, only: stdinput
+  use file_admin, only: stdinput, results_dir, file_input
 
   implicit none
   
@@ -36,43 +36,44 @@ contains
     
     ! Stream2: 
     ! Ionization fractions for the full data cube (unformatted)
-    ! Ifront3',f5.3,'.bin'
+    ! Ifront3",f5.3,".bin"
     
     ! Stream3: 
     ! Temperature for the full data cube (unformatted)
-    ! temper3',f5.3,'.bin'
+    ! temper3",f5.3,".bin"
     
     ! Stream 4:
     ! Ionization fractions in a plane for one time step
-    ! Ifront2_xy_',f5.3,'.bin'
-    ! Ifront2_xz_',f5.3,'.bin'
-    ! Ifront2_yz_',f5.3,'.bin'
+    ! Ifront2_xy_",f5.3,".bin"
+    ! Ifront2_xz_",f5.3,".bin"
+    ! Ifront2_yz_",f5.3,".bin"
     
     ! Stream 5:
     ! Densities in a plane for one time step
-    ! ndens_xy_',f5.3,'.bin'
-    ! ndens_xz_',f5.3,'.bin'
-    ! ndens_yz_',f5.3,'.bin'
+    ! ndens_xy_",f5.3,".bin"
+    ! ndens_xz_",f5.3,".bin"
+    ! ndens_yz_",f5.3,".bin"
     
     ! photon statistics
     use photonstatistics, only: do_photonstatistics, &
          initialize_photonstatistics
 
     if (rank == 0) then
-       write(*,*) 'Which output streams do you want?'
-       write(*,*) 'Enter a mask for streams 1 through 5'
-       write(*,*) 'E.g. 1,0,1,0,0 means streams 1 and 3, but not 2, 4, 5'
-    
+       if (.not.file_input) then
+          write(*,*) "Which output streams do you want?"
+          write(*,*) "Enter a mask for streams 1 through 5"
+          write(*,*) "E.g. 1,0,1,0,0 means streams 1 and 3, but not 2, 4, 5"
+       endif
        read(stdinput,*) streams(1),streams(2),streams(3),streams(4),streams(5)
        
        ! Open files
        if (do_photonstatistics) then
-          open(unit=90,file='PhotonCounts.out', &
-               form='formatted',status='unknown')
-          write(90,*) 'redshift, photon conservation number, fraction new ionization, fraction recombinations, fraction photon losses, fraction collisional ionization, grand total photon conservation number'
-          open(unit=95,file='PhotonCounts2.out', &
-               form='formatted',status='unknown')
-          write(95,*) 'redshift, total number of ions, grand total ionizing photons, mean ionization fraction (by volume and mass)'
+          open(unit=90,file=trim(adjustl(results_dir))//"PhotonCounts.out", &
+               form="formatted",status="unknown",access="append")
+          write(90,*) "redshift, photon conservation number, fraction new ionization, fraction recombinations, fraction photon losses, fraction collisional ionization, grand total photon conservation number"
+          open(unit=95,file=trim(adjustl(results_dir))//"PhotonCounts2.out", &
+               form="formatted",status="unknown",access="append")
+          write(95,*) "redshift, total number of ions, grand total ionizing photons, mean ionization fraction (by volume and mass)"
        endif
     endif
     if (do_photonstatistics) then
@@ -134,11 +135,11 @@ contains
     if (rank == 0) then
        ! Stream 1
        if (streams(1).eq.1) then
-          write(file1,'(f6.3)') zred_now
-          file1='Ifront1_'//trim(adjustl(file1))//'.dat'
-          open(unit=51,file=file1,form='unformatted',status='unknown')
+          write(file1,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))//"Ifront1_"//trim(adjustl(file1))//".dat"
+          open(unit=51,file=file1,form="unformatted",status="unknown")
           do i=1,mesh(1)
-             write(51,'(5(1pe10.3,1x))') x(i), &
+             write(51,"(5(1pe10.3,1x))") x(i), &
                   xh(i,srcpos(2,1),srcpos(3,1),0), &
                   xh(i,srcpos(2,1),srcpos(3,1),1), &
                   temper, &
@@ -149,9 +150,9 @@ contains
        
        ! Stream 2
        if (streams(2).eq.1) then
-          write(file1,'(f6.3)') zred_now
-          file1='xfrac3d_'//trim(adjustl(file1))//'.bin'
-          open(unit=52,file=file1,form='unformatted',status='unknown')
+          write(file1,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))//"xfrac3d_"//trim(adjustl(file1))//".bin"
+          open(unit=52,file=file1,form="unformatted",status="unknown")
           write(52) mesh(1),mesh(2),mesh(3)
           write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
@@ -160,9 +161,9 @@ contains
        
        ! Stream 3
 !       if (streams(3).eq.1) then
-!          write(file1,'(f6.3)') zred_now
-!          file1='Temper3_'//trim(adjustl(file1))//'.bin'
-!          open(unit=53,file=file1,form='unformatted',status='unknown')
+!          write(file1,"(f6.3)") zred_now
+!          file1="Temper3_"//trim(adjustl(file1))//".bin"
+!          open(unit=53,file=file1,form="unformatted",status="unknown")
 !          write(53) mesh(1),mesh(2),mesh(3)
 !          write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
 !               k=1,mesh(3))
@@ -171,9 +172,9 @@ contains
        
        ! Stream 3
        if (streams(3).eq.1) then
-          write(file1,'(f6.3)') zred_now
-          file1='IonRates3_'//trim(adjustl(file1))//'.bin'
-          open(unit=53,file=file1,form='unformatted',status='unknown')
+          write(file1,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))//"IonRates3_"//trim(adjustl(file1))//".bin"
+          open(unit=53,file=file1,form="unformatted",status="unknown")
           write(53) mesh(1),mesh(2),mesh(3)
           write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
@@ -182,13 +183,13 @@ contains
        
        ! Stream 4
        if (streams(4).eq.1) then
-          write(zred_str,'(f6.3)') zred_now
-          file1='Ifront2_xy_'//trim(adjustl(zred_str))//'.bin'
-          file2='Ifront2_xz_'//trim(adjustl(zred_str))//'.bin'
-          file3='Ifront2_yz_'//trim(adjustl(zred_str))//'.bin'
-          open(unit=54,file=file1,form='unformatted',status='unknown')
-          open(unit=55,file=file2,form='unformatted',status='unknown')
-          open(unit=56,file=file3,form='unformatted',status='unknown')
+          write(zred_str,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))//"Ifront2_xy_"//trim(adjustl(zred_str))//".bin"
+          file2=trim(adjustl(results_dir))//"Ifront2_xz_"//trim(adjustl(zred_str))//".bin"
+          file3=trim(adjustl(results_dir))//"Ifront2_yz_"//trim(adjustl(zred_str))//".bin"
+          open(unit=54,file=file1,form="unformatted",status="unknown")
+          open(unit=55,file=file2,form="unformatted",status="unknown")
+          open(unit=56,file=file3,form="unformatted",status="unknown")
           ! xy cut through source 
           write(54) mesh(1),mesh(2)
           !        write(54) ((real(xh(i,j,srcpos(3,1),1)),i=1,mesh(1)),
@@ -211,13 +212,13 @@ contains
        
        ! Stream 5
        if (streams(5).eq.1) then
-          write(zred_str,'(f6.3)') zred_now
-          file4='ndens_xy_'//trim(adjustl(zred_str))//'.bin'
-          file5='ndens_xz_'//trim(adjustl(zred_str))//'.bin'
-          file6='ndens_yz_'//trim(adjustl(zred_str))//'.bin'
-          open(unit=57,file=file4,form='unformatted',status='unknown')
-          open(unit=58,file=file5,form='unformatted',status='unknown')
-          open(unit=59,file=file6,form='unformatted',status='unknown')
+          write(zred_str,"(f6.3)") zred_now
+          file4=trim(adjustl(results_dir))//"ndens_xy_"//trim(adjustl(zred_str))//".bin"
+          file5=trim(adjustl(results_dir))//"ndens_xz_"//trim(adjustl(zred_str))//".bin"
+          file6=trim(adjustl(results_dir))//"ndens_yz_"//trim(adjustl(zred_str))//".bin"
+          open(unit=57,file=file4,form="unformatted",status="unknown")
+          open(unit=58,file=file5,form="unformatted",status="unknown")
+          open(unit=59,file=file6,form="unformatted",status="unknown")
           ! xy cut through source 
           write(57) mesh(1),mesh(2)
           !        write(57) ((real(ndens(i,j,srcpos(3,1))),i=1,mesh(1)),
@@ -243,7 +244,7 @@ contains
           grtotal_ion=grtotal_ion+total_ion-totcollisions
           grtotalsrc=grtotalsrc+totalsrc
           if (time.gt.0.0) then
-             write(90,'(f6.3,6(1pe10.3))') &
+             write(90,"(f6.3,6(1pe10.3))") &
                   zred_now, &
                   (total_ion-totcollisions)/totalsrc, &
                   dh0/total_ion, &
@@ -255,7 +256,7 @@ contains
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
-          write(95,'(f6.3,4(1pe10.3))') zred_now,totions,grtotalsrc,volfrac,massfrac
+          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc,volfrac,massfrac
 
        endif
     endif

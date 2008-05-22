@@ -2,7 +2,7 @@ Program C2Ray
 
   ! Authors: Garrelt Mellema, Ilian Iliev
 
-  ! Date: 06-Mar-2006 (30-Jan-2008 (23-Sep-2006))
+  ! Date: 22-May-2008 (06-Mar-2008 (30-Jan-2008 (8-Dec-2007 (23-Sep-2006))
 
   ! Goal:
   ! Cosmological reionization simulation using precomputed density fields
@@ -17,7 +17,7 @@ Program C2Ray
   ! output_module : output routines
   ! grid : sets up the grid
   ! radiation : radiation tools
-  ! pmfast : interface to CubeP3M output
+  ! nbody : interface to N-body output
   ! cosmology : cosmological utilities
   ! material : material properties
   ! times : time and time step utilities
@@ -25,21 +25,20 @@ Program C2Ray
   ! evolve : evolve grid in time
 
   use precision, only: dp
-  use c2ray_parameters, only: cosmological,type_of_clumping
+  use file_admin, only: stdinput, logf, file_input, flag_for_file_input
+  use c2ray_parameters, only: cosmological, type_of_clumping
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
   use grid, only: grid_ini
   use radiation, only: rad_ini
-  use pmfast, only: pmfast_ini, NumZred, zred_array
+  use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini, xfrac_ini, dens_ini
+  use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping
   use times, only: time_ini, set_timesteps
-  use sourceprops, only: source_properties
+  use sourceprops, only: source_properties, NumSrc
   use evolve, only: evolve3D
-  use subgrid_clumping, only: set_clumping
-  use file_admin, only: stdinput, log
 
 #ifdef XLF
   USE XLFUTILITY, only: iargc, getarg, flush => flush_
@@ -51,7 +50,7 @@ Program C2Ray
   real :: tstart,tend
   integer :: cntr1,cntr2,countspersec
 
-  integer :: restart,nz,flag, nz0
+  integer :: restart,nz,flag, nz0, ierror
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
@@ -62,6 +61,7 @@ Program C2Ray
   real(kind=dp) :: end_time,time,output_time,next_output_time
   real(kind=dp) :: dt,actual_dt
   real(kind=dp) :: zred_interm
+
 #ifdef MPI
   integer :: mympierror
 #endif
@@ -83,45 +83,44 @@ Program C2Ray
   if (iargc() > 0) then
      call getarg(1,inputfile)
      if (rank == 0) then
-        write(*,*) "reading input from ",trim(adjustl(inputfile))
+        write(logf,*) "reading input from ",trim(adjustl(inputfile))
         open(unit=stdinput,file=inputfile)
+        call flag_for_file_input(.true.)
      endif
   endif
 
   ! Initialize output
   call setup_output ()
-  if (rank == 0) call flush(log)
+  if (rank == 0) call flush(logf)
 
-  !Initialize grid
+  ! Initialize grid
   call grid_ini ()
 
   ! Initialize photo-ionization calculation
   call rad_ini ( )
 
   ! Initialize the material properties
-  ! call mat_ini (restart, nz0) ! new version, not fully integrated yet
-  call mat_ini (restart)
+  call mat_ini (restart, nz0, ierror)
 
   ! Find the redshifts we are dealing with
-  call pmfast_ini ()
+  call nbody_ini ()
 
   ! Initialize time step parameters
   call time_ini ()
-  if (rank == 0) call flush(log)
+  if (rank == 0) call flush(logf)
 
   ! Set time to zero
   time=0.0
 
   ! Initialize cosmology
-  ! call cosmology_init(zred_array(nz0),time) ! new version
-  call cosmology_init(zred_array(1),time)
+  call cosmology_init(zred_array(nz0),time)
 
-  !if restarts read ionization fractions from file
-  !if (restart == 1) call xfrac_ini(zred_array(nz0))
-  if (restart == 1) call xfrac_ini(zred_array(1))
+  ! If a restart, read ionization fractions from file
+  if (restart == 1) call xfrac_ini(zred_array(nz0))
   if (restart == 2) then
      if (rank == 0) then
-        write(*,"(A,$)") "At which redshift to restart x_frac?:"
+        if (.not.file_input) &
+             write(*,"(A,$)") "At which redshift to restart x_frac?:"
         read(stdinput,*) zred_interm
      endif
 #ifdef MPI
@@ -132,35 +131,34 @@ Program C2Ray
   end if
   
   ! Loop over redshifts
-  ! do nz=nz0,NumZred-1 ! new version
-  do nz=1,NumZred-1
-     
+  do nz=nz0,NumZred-1
+
      zred=zred_array(nz)
-     if (rank == 0) write(log,*) "Doing redshift: ",zred," to ", &
+     if (rank == 0) write(logf,*) "Doing redshift: ",zred," to ", &
           zred_array(nz+1)
      
      ! Initialize time parameters
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
-     if (rank == 0) write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
+     if (rank == 0) write(logf,*) &
+          "This is time ",time/YEAR," to ",end_time/YEAR
+     if (rank == 0 .and. nbody_type == "LG") &
+          write(logf,*) "This is snapshot ", snap(nz)
          
      ! Initialize source position
 #ifdef MPILOG     
-     write(log,*) 'Calling source_properties'
+     write(logf,*) 'Calling source_properties'
 #endif 
      call source_properties(zred,nz,end_time-time,restart)
 
-     ! print*,"zred before dens_ini=",zred
      ! Initialize density field
-     !call dens_ini(zred,nz) ! new version
-     call dens_ini(zred)
+     call dens_ini(zred,nz)
      if (type_of_clumping == 5) call set_clumping(zred)
 
      ! Set time if restart at intermediate time
      ! Set next output time
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
-     ! if (nz == nz0 .and. restart == 2) then ! new version
      if (restart == 2) then
         time=zred2time(zred_interm)
         next_output_time=end_time
@@ -177,7 +175,7 @@ Program C2Ray
         actual_dt=min(next_output_time-time,dt)
         
         ! Report time and time step
-        if (rank == 0) write(log,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+        if (rank == 0) write(logf,"(A,2(1pe10.3,x),A)") "Time, dt:", &
              time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
@@ -190,7 +188,7 @@ Program C2Ray
         if (type_of_clumping /= 5) call set_clumping(zred)
 
         ! Take one time step
-        call evolve3D(actual_dt)
+        if (NumSrc > 0) call evolve3D(actual_dt)
 
         ! Update time
         time=time+actual_dt
@@ -201,7 +199,7 @@ Program C2Ray
            next_output_time=next_output_time+output_time
         endif
         if (abs(time-end_time) <= 1e-6*end_time) exit
-        if (rank == 0) call flush(log)
+        if (rank == 0) call flush(logf)
      enddo
 
      ! stop
@@ -210,7 +208,7 @@ Program C2Ray
         call redshift_evol(time)
         call cosmo_evol()
      endif
-    
+
   enddo
 
   ! Write final output
@@ -224,8 +222,8 @@ Program C2Ray
   call system_clock(cntr2,countspersec)
 
   if (rank == 0) then
-     write(log,*) "CPU time: ",tend-tstart," s"
-     write(log,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
+     write(logf,*) "CPU time: ",tend-tstart," s"
+     write(logf,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
   endif
 
   ! End the run

@@ -4,7 +4,7 @@ module times
 
   use precision, only: dp
   use my_mpi
-  use file_admin, only: stdinput
+  use file_admin, only: stdinput, file_input
   use astroconstants, only: YEAR
   use cosmology, only: t0, zred_t0, zred2time
 
@@ -31,11 +31,13 @@ contains
 
     if (rank == 0) then
        ! Ask for number of time steps
-       write(*,'(A,$)') 'Enter number of time steps between slices: '
+       if (.not.file_input) &
+            write(*,'(A,$)') 'Enter number of time steps between slices: '
        read(stdinput,*) number_timesteps
 
        ! Ask for interval between outputs
-       write(*,'(A,$)') 'Enter number of outputs between slices: '
+       if (.not.file_input) &
+            write(*,'(A,$)') 'Enter number of outputs between slices: '
        read(stdinput,*) number_outputs
     endif
 

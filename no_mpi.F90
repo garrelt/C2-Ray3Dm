@@ -10,7 +10,7 @@ module my_mpi
   !
   !----------------------------------------------------------------------------
 
-  use file_admin, only: log
+  use file_admin, only: logf, results_dir
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
@@ -47,7 +47,7 @@ contains
 
   subroutine mpi_setup ( )
 
-    character(len=10) :: filename        ! name of the log file
+    character(len=512) :: filename        ! name of the log file
     character(len=4) :: number
     integer :: ierror
     integer :: tn
@@ -56,35 +56,36 @@ contains
     call mpi_basic ()
 
     ! Open processor dependent log file
-    if (log /= 6) then
-       filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
-       open(unit=log,file=filename,status="unknown",action="write")
+    if (logf /= 6) then
+       filename=trim(adjustl(trim(adjustl(results_dir))//"C2Ray.log"))
+       open(unit=logf,file=filename,status="unknown",action="write", &
+            access="append")
     endif
-    write(unit=log,fmt="(A)") "Log file for C2-Ray run"
+    write(unit=logf,fmt="(A)") "Log file for C2-Ray run"
 
     nthreads=1
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     if (ierror == 0) then
-       write(log,*) "Running on processor named ",hostname
+       write(logf,*) "Running on processor named ",hostname
     else 
-       write(log,*) "Error establishing identity of processor."
+       write(logf,*) "Error establishing identity of processor."
     endif
 
     ! Report number of OpenMP threads
     !$omp parallel default(shared)
     !$nthreads=omp_get_num_threads()
     !$omp end parallel
-    !$write(log,*) ' Number of OpenMP threads is ',nthreads
+    !$write(logf,*) ' Number of OpenMP threads is ',nthreads
 
     ! Let OpenMP threads report
     !$omp parallel default(shared)
     !$tn=omp_get_thread_num()+1
-    !$write(log,*) 'Thread number ',tn,' reporting'
+    !$write(logf,*) 'Thread number ',tn,' reporting'
     !$omp end parallel
 
-    call flush(log)
+    call flush(logf)
 
     call mpi_topology ()
 
@@ -127,7 +128,7 @@ contains
   subroutine mpi_end ( )
 
     ! Close log file
-    close(log)
+    close(logf)
 
   end subroutine mpi_end
 

@@ -1,4 +1,4 @@
-Program Ifront
+Program C2Ray
 
   ! Author: Garrelt Mellema
 
@@ -17,7 +17,7 @@ Program Ifront
   ! output_module : output routines
   ! grid : sets up the grid
   ! radiation : radiation tools
-  ! pmfast : interface to PMFAST output
+  ! nbody : interface to N-body output
   ! cosmology : cosmological utilities
   ! material : material properties
   ! times : time and time step utilities
@@ -25,21 +25,20 @@ Program Ifront
   ! evolve : evolve grid in time
 
   use precision, only: dp
-  use c2ray_parameters, only: cosmological
+  use c2ray_parameters, only: cosmological, type_of_clumping
   use astroconstants, only: YEAR
   use my_mpi, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
   use grid, only: grid_ini
   use radiation, only: rad_ini
-  use gadget, only: gadget_ini, NumZred, zred_array
+  use nbody, only: nbody_ini, NumZred, zred_array
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini, xfrac_ini, dens_ini
+  use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties
   use evolve, only: evolve3D
-  use subgrid_clumping, only: set_clumping
-  use file_admin, only:stdinput,log
+  use file_admin, only:stdinput,logf
 
 #ifdef XLF
   USE XLFUTILITY, only: iargc, getarg, flush => flush_
@@ -51,7 +50,7 @@ Program Ifront
   real :: tstart,tend
   integer :: cntr1,cntr2,countspersec
 
-  integer :: restart,nz,flag
+  integer :: restart,nz,flag, ierror
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
@@ -86,24 +85,25 @@ Program Ifront
   endif
 
   ! Initialize output
-  call setup_output()
-  call flush(log)
+  call setup_output ()
+  if (rank == 0) call flush(logf)
+
   !Initialize grid
-  call grid_ini()
+  call grid_ini ()
 
   ! Initialize photo-ionization calculation
-  call rad_ini( )
+  call rad_ini ( )
 
   ! Initialize the material properties
-  call mat_ini (restart)
+  call mat_ini (restart,ierror)
 
   ! Find the redshifts we are dealing with
-  call gadget_ini ()
+  call nbody_ini ()
 
   ! Initialize time step parameters
   call time_ini ()
+  if (rank == 0) call flush(logf)
 
-  call flush(log)
   ! Set time to zero
   time=0.0
 
@@ -122,10 +122,11 @@ Program Ifront
      
      zred=zred_array(nz)
      end_time=1e7*YEAR
-     write(log,*) "Doing redshift: ",zred," to ",time2zred(time+end_time)
+     if (rank == 0) &
+          write(logf,*) "Doing redshift: ",zred," to ",time2zred(time+end_time)
      
      ! Initialize time parameters
-     write(log,*) "This is time ",time/YEAR," to ",end_time/YEAR
+     if (rank == 0) write(logf,*) "This is time ",time/YEAR," to ",end_time/YEAR
          
      ! Initialize source position
      call source_properties(zred,end_time-time)
@@ -146,7 +147,7 @@ Program Ifront
         actual_dt=dt-time
         !actual_dt=dt
         ! Report time and time step
-        write(log,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+        if (rank == 0) write(logf,"(A,2(1pe10.3,x),A)") "Time, dt:", &
              time/YEAR,actual_dt/YEAR," (years)"
 
         ! Take one time step
@@ -157,8 +158,8 @@ Program Ifront
             
         ! Write output
         call output(time2zred(time),time,actual_dt)
-        if (abs(time-end_time).lt.1e-6*end_time) exit
-        call flush(log)
+        if (abs(time-end_time) <= 1e-6*end_time) exit
+        if (rank == 0) call flush(logf)
      enddo
   enddo
   !
@@ -168,10 +169,12 @@ Program Ifront
   call cpu_time(tend)
   call system_clock(cntr2,countspersec)
 
-  write(log,*) "CPU time: ",tend-tstart," s"
-  write(log,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
+  if (rank == 0) then
+     write(logf,*) "CPU time: ",tend-tstart," s"
+     write(logf,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
+  endif
 
   ! End the run
   call mpi_end ()
 
-end Program Ifront
+end Program C2Ray

@@ -1,26 +1,40 @@
-module pmfast
+module nbody
 
   ! This file contains routine having to do with the PMFAST N-body
   ! simulation.
+
   ! The routine in here is
-  ! - pmfast_ini (called by main program)
+  ! - nbody_ini (called by main program)
   ! It reads the list of redshifts for which source lists and
   ! density fields are available.
   ! It calculates the mass (in particles) of the simulation box
   ! It sets an identifier (id_str) for the resolution (used when
   ! reading in source list files and density fields.
 
+  ! Authors: Ilian Iliev, Garrelt Mellema
+
+  ! Date: 22-May-2008 (previous version was not dated)
+
   use precision, only: dp
   use sizes, only: mesh
-  use file_admin, only: stdinput, log
+  use file_admin, only: stdinput, logf, file_input
   use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
   use cosmology_parameters, only: rho_crit_0, Omega0, h
 
   implicit none
 
+  character(len=10),parameter :: nbody_type="pmfast"
+
+  ! Boxsize: change here
+  real(kind=dp),parameter :: boxsize=100.0  ! Box size in Mpc/h comoving
   integer,parameter,private :: n_box=3248    ! cells/side (in N-body)
-  real(kind=dp),parameter,private :: boxsize=100.0  ! Box size in Mpc/h comoving
+
+  ! Paths to directories with density and source files: change here
+  character(len=180),parameter,private :: dir_dens_path = "../" 
+  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  character(len=180),parameter,private :: dir_src_path = "../" 
+  character(len=180),parameter,private :: dir_src_name= "sources/"
 
   ! properties of the box:
   ! M_box      - mass in box
@@ -32,20 +46,22 @@ module pmfast
   ! redshift sequence information
   integer, public :: NumZred               ! number of redshifts
   real(kind=dp),dimension(:),allocatable,public :: zred_array ! array of redshifts
+  integer,dimension(:),allocatable,public :: snap ! array of snapshot numbers
+                                                  ! (for compatibility)
   character(len=8),public :: id_str       ! resolution dependent string
 
-  character(len=180),public :: dir_dens
-  character(len=180),parameter,private :: dir_dens_path = &
-       "/disk/sn-12/garrelt/Simulations/Reionization/100Mpc_WMAP3/203/"
+  character(len=180),public :: dir_dens, dir_src
   integer,parameter,public :: tot_nfiles=7 ! number of files at 812^3
 
 #ifdef MPI
-  integer,private :: ierror
+  integer,private :: mympierror
 #endif
 
 contains
 
-  subroutine pmfast_ini ()
+  ! ===========================================================================
+
+  subroutine nbody_ini ()
     
     character(len=180) :: redshift_file ! name of file with list of redshifts
     real(kind=dp) :: rho_crit_0_MpcM_sun,rho_matter
@@ -62,24 +78,30 @@ contains
        ! The directory with density files is located in the dataroot
        ! plus the dir_dens_path parameter
        if (len > 0) then
-          dir_dens=value(1:len)//dir_dens_path
+          dir_dens=value(1:len)//trim(adjustl(dir_dens_path)) &
+               //trim(adjustl(dir_dens_name))
+          dir_src=value(1:len)//trim(adjustl(dir_src_path)) &
+               //trim(adjustl(dir_src_name))
        else
-          dir_dens=dir_dens_path
+          dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+          dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
        endif
     elseif (status == 1) then
        ! Assume that the whole path is set in the parameter
-       dir_dens=dir_dens_path
+       dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+       dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
     elseif (status == -1) then
        ! Warning
-       write(log,*) "Data file system name is truncated"
+       write(logf,*) "Data file system name is truncated"
     endif
 #else
-    dir_dens=dir_dens_path
+    dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+    dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
 #endif
-       
+
     ! Ask for redshift file
     if (rank == 0) then
-       write(*,"(A,$)") "File with redshifts: "
+       if (.not.file_input) write(*,"(A,$)") "File with redshifts: "
        read(stdinput,*) redshift_file
        
        ! Open and read redshift file
@@ -94,10 +116,10 @@ contains
 
 #ifdef MPI
     ! Distribute the input parameters to the other nodes
-    call MPI_BCAST(NumZred,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+    call MPI_BCAST(NumZred,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
     if (rank /= 0) allocate(zred_array(NumZred))
     call MPI_BCAST(zred_array,NumZred,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,&
-         ierror)
+         mympierror)
 #endif
 
     ! Parameters of simulations boxes
@@ -117,9 +139,8 @@ contains
        case(812) 
           id_str="coarse"
        end select
-    if (rank == 0) write(unit=log,fmt=*) "Type of resolution: ",id_str
+    if (rank == 0) write(unit=logf,fmt=*) "Type of resolution: ",id_str
 
-    return
-  end subroutine pmfast_ini
+  end subroutine nbody_ini
 
-end module pmfast
+end module nbody

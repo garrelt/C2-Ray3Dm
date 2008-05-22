@@ -5,8 +5,8 @@ module grid
   use astroconstants, only: Mpc
   use cosmology_parameters, only: h
   use my_mpi
-  use file_admin, only: stdinput
-  !use nbody_simulation, only :: boxsize
+  use file_admin, only: stdinput,logf
+  use nbody, only : boxsize
 
   implicit none
 
@@ -47,11 +47,18 @@ contains
     integer :: ierror
 #endif
 
-    ! Ask for grid size
+    ! Ask for grid size (if rank 0 and not set in nbody module)
     if (rank == 0) then
-       write(*,'(A,$)') 'Enter comoving size of grid in x,y,z (Mpc/h): '
-!       write(*,'(A,$)') 'Enter physical (comoving) size of grid in x,y,z (Mpc): '
-       read(stdinput,*) xgrid,ygrid,zgrid
+       if (boxsize == 0.0) then
+          write(*,'(A,$)') 'Enter comoving size of grid in x,y,z (Mpc/h): '
+          read(stdinput,*) xgrid,ygrid,zgrid
+       else
+          xgrid=boxsize
+          ygrid=boxsize
+          zgrid=boxsize
+       endif
+       ! Report
+       write(logf,*) "Box size is ",xgrid," Mpc/h (comoving)"
     endif
     
 #ifdef MPI

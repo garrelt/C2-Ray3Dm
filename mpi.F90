@@ -21,7 +21,7 @@ module my_mpi
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
   !use mpi
-  use file_admin, only:log
+  use file_admin, only: logf
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
@@ -58,7 +58,7 @@ contains
 
   subroutine mpi_setup ( )
 
-    character(len=10) :: filename        ! name of the log file
+    character(len=512) :: filename        ! name of the log file
     character(len=4) :: number
     integer :: ierror
     integer :: tn
@@ -67,42 +67,43 @@ contains
     call mpi_basic ()
 
     if (rank == 0) then
-       if (log /= 6) then
-          filename=trim(adjustl("C2Ray.log"//trim(adjustl(number))))
-          open(unit=log,file=filename,status="unknown",action="write")
+       if (logf /= 6) then
+          filename=trim(adjustl(trim(adjustl(results_dir))//"C2Ray.log"))
+          open(unit=logf,file=filename,status="unknown",action="write",&
+               access="append")
        endif
-       write(unit=log,fmt="(A)") "Log file for C2-Ray run"
+       write(unit=logf,fmt="(A)") "Log file for C2-Ray run"
     endif
 #ifdef MPILOG
     ! Open processor dependent log file
     write(unit=number,fmt="(I4)") rank
     filename=trim(adjustl("log."//trim(adjustl(number))))
-    if (rank /= 0) open(unit=log,file=filename,status="unknown",action="write")
+    if (rank /= 0) open(unit=logf,file=filename,status="unknown",action="write")
 
-    write(unit=log,fmt=*) "Log file for rank ",rank," of a total of ",npr
+    write(unit=logf,fmt=*) "Log file for rank ",rank," of a total of ",npr
 
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
     ierror=hostnm(hostname)
     if (ierror == 0) then
-       write(log,*) "Running on processor named ",trim(adjustl(hostname))
+       write(logf,*) "Running on processor named ",trim(adjustl(hostname))
     else 
-       write(log,*) "Error establishing identity of processor."
+       write(logf,*) "Error establishing identity of processor."
     endif
 
     ! Report number of OpenMP threads
     !$omp parallel default(shared)
     !$nthreads=omp_get_num_threads()
     !$omp end parallel
-    !$write(log,*) ' Number of OpenMP threads is ',nthreads
+    !$write(logf,*) ' Number of OpenMP threads is ',nthreads
 
     ! Let OpenMP threads report
     !$omp parallel default(shared)
     !$tn=omp_get_thread_num()+1
-    !$write(log,*) 'Thread number ',tn,' reporting'
+    !$write(logf,*) 'Thread number ',tn,' reporting'
     !$omp end parallel
 
-    call flush(log)
+    call flush(logf)
 #endif
 
     call mpi_topology ()
@@ -162,10 +163,10 @@ contains
     logical :: openlog
 
     ! Find out if log file is open
-    inquire(unit=log,opened=openlog)
+    inquire(unit=logf,opened=openlog)
 
     ! Close log file
-    if (openlog) close(log)
+    if (openlog) close(logf)
 
     ! Close MPI
     call MPI_FINALIZE(ierror)

@@ -8,12 +8,14 @@ module material
 
   use precision, only: dp,si
   use sizes, only: mesh
-  use file_admin, only: stdinput, log
+  use file_admin, only: stdinput, logf
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
   use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
+  use nbody, only: nbody_type
   use abundances, only: mu, abu_he
+  use c2ray_parameters, only: type_of_clumping,clumping_factor
 
   implicit none
 
@@ -23,15 +25,18 @@ module material
   real(kind=dp) :: ndens(mesh(1),mesh(2),mesh(3))
   real(kind=dp) :: temper
   real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1)
+  real,public :: clumping
+  real,dimension(:,:,:),allocatable :: clumping_grid
+  public :: set_clumping, clumping_point
   logical isothermal
 
 #ifdef MPI
-  integer,private :: ierror
+  integer,private :: mympierror
 #endif
 
 contains
   ! ============================================================================
-  subroutine mat_ini (restart)
+  subroutine mat_ini (restart, ierror)
 
     ! Initializes material properties on grid
 
@@ -52,49 +57,55 @@ contains
     ! - f90 version with MPI
 
     integer,intent(out) :: restart ! will be /= 0 if a restart is intended
+    integer,intent(out) :: ierror
 
     integer :: i,j,k,n ! loop counters
     real(kind=dp) :: temper_val
     character(len=1) :: answer
 
-    ! restart
-    restart=0 ! no restart by default
-
-    if (rank == 0) then
-       ! Ask for temperature, restart. Read in values
-       write(*,"(A,$)") "Enter initial temperature (K): "
-       read(stdinput,*) temper_val
-       write(*,"(A,$)") "Restart (y/n)? : "
-       read(stdinput,*) answer
-       if (answer.eq."y".or.answer.eq."Y") restart=1
-       write(*,"(A,$)") "Restart at midpoint (y/n)? : "
-       read(stdinput,*) answer
-       if (answer.eq."y".or.answer.eq."Y") restart=2
-    endif
+    ierror=0
+    if (nbody_type /= "gadget") then
+       write(logf,*) "Error: wrong material module was compiled."
+       ierror=1
+    else
+       ! restart
+       restart=0 ! no restart by default
+       
+       if (rank == 0) then
+          ! Ask for temperature, restart. Read in values
+          write(*,"(A,$)") "Enter initial temperature (K): "
+          read(stdinput,*) temper_val
+          write(*,"(A,$)") "Restart (y/n)? : "
+          read(stdinput,*) answer
+          if (answer.eq."y".or.answer.eq."Y") restart=1
+          write(*,"(A,$)") "Restart at midpoint (y/n)? : "
+          read(stdinput,*) answer
+          if (answer.eq."y".or.answer.eq."Y") restart=2
+       endif
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(temper_val,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
-       call MPI_BCAST(restart,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
+       call MPI_BCAST(temper_val,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(restart,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
+       
+       ! Scalar version for constant temperature
+       isothermal=.true.
+       temper=temper_val
+       
+       ! Assign dummy density to the grid
+       ! This should be overwritten later (in dens_ini)
+       ndens(:,:,:)=1.0
+       
+       ! Assign ionization fractions (completely neutral)
+       ! In case of a restart this will be overwritten in xfrac_ini
+       xh(:,:,:,0)=1.0
+       xh(:,:,:,1)=0.0
+    endif
 
-    ! Scalar version for constant temperature
-    isothermal=.true.
-    temper=temper_val
-
-    ! Assign dummy density to the grid
-    ! This should be overwritten later (in dens_ini)
-    ndens(:,:,:)=1.0
-
-    ! Assign ionization fractions (completely neutral)
-    ! In case of a restart this will be overwritten in xfrac_ini
-    xh(:,:,:,0)=1.0
-    xh(:,:,:,1)=0.0
-
-    return
   end subroutine mat_ini
 
   ! ===========================================================================
-  subroutine dens_ini (zred_now)
+  subroutine dens_ini (zred_now,nz)
 
     ! Initializes density on the grid (at redshift zred_now)
 
@@ -110,6 +121,8 @@ contains
     ! - MPI
 
     real(kind=dp),intent(in) :: zred_now
+    integer,intent(in) :: nz ! number in the list of redshifts (for
+                             ! compatibility reasons)
     
     integer :: i,j,k,n,nfile ! loop counters
     character(len=512):: dens_file
@@ -127,7 +140,7 @@ contains
        write(zred_str,"(f6.3)") zred_now
        ! Allocate array needed to read in data
        allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
-       write(log,*) "Reading Gadget input"
+       write(logf,*) "Reading Gadget input"
        dens_file=trim(adjustl(zred_str))// &
                "rho_gadget.dat"
           
@@ -143,18 +156,18 @@ contains
        ! Deallocate array needed for reading in the data.
        deallocate(ndens_real)
     endif
-    !write(log,*) "Distributing the density"
+    !write(logf,*) "Distributing the density"
 #ifdef MPI       
     ! Distribute the density to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
-         MPI_COMM_NEW,ierror)
+         MPI_COMM_NEW,mympierror)
 #endif
-    !write(log,*) "Density distributed"
+    !write(logf,*) "Density distributed"
        
     ! Report on data: min, max, total
-    write(log,*) "minimum: ",minval(ndens)
-    write(log,*) "maximum: ",maxval(ndens)
-    write(log,*) "summed density: ",sum(ndens)
+    write(logf,*) "minimum: ",minval(ndens)
+    write(logf,*) "maximum: ",maxval(ndens)
+    write(logf,*) "summed density: ",sum(ndens)
 
     ! The original values are in terms of mass density
     ! Below is the conversion factor to number density.
@@ -176,18 +189,17 @@ contains
     avg_dens=sum(ndens)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
     
     ! Report average density
-    write(log,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
-    write(log,"(A,1pe10.3,A)") "Theoretical value = ", &
+    write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
+    write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
          rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
          " cm^-3" 
-    write(log,"(A,1pe10.3,A)") "(at z=0 : ", &
+    write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
          rho_crit_0/(mu*m_p)*Omega_B, &
          " cm^-3)"
 
     ! Take only the H part of the particle density
     ndens=ndens*(1.0-abu_he)
 
-    return
   end subroutine dens_ini
 
   ! ===========================================================================
@@ -235,10 +247,68 @@ contains
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3)*2,MPI_DOUBLE_PRECISION,0,&
-         MPI_COMM_NEW,ierror)
+         MPI_COMM_NEW,mympierror)
 #endif
     
-    return
   end subroutine xfrac_ini
+
+  ! ===========================================================================
+
+  subroutine set_clumping(z)
+
+    ! This routine initializes the clumping factor.
+    ! It used position dependent clumping derived from PMFAST simulations
+    ! since no Gadget clumping data is available
+
+    real(kind=dp),intent(in) :: z
+
+    select case (type_of_clumping)
+    case(1)
+       clumping = clumping_factor
+    case(2) 
+       clumping = 27.466*exp(-0.114*z+0.001328*z*z)
+    case(3)
+       clumping = 26.2917*exp(-0.1822*z+0.003505*z*z)
+    case(4)
+       clumping = 17.57*exp(-0.101*z+0.0011*z*z)
+    case(5)
+       ! This one should not be called!!
+       call clumping_init (z)
+    end select
+
+    if (rank == 0) write(logf,*) "Setting (mean) global clumping factor to ", &
+         clumping,"(type ", type_of_clumping,")"
+    
+  end subroutine set_clumping
+
+  ! ===========================================================================
+
+  subroutine clumping_point (i,j,k)
+
+    integer,intent(in) :: i,j,k
+
+    if (type_of_clumping /= 5) then
+       write(logf,*) "Error: using position dependent clumping, "
+       write(logf,*) "       but array is not initialized."
+    else
+       clumping = clumping_grid(i,j,k)
+    endif
+
+  end subroutine clumping_point
+
+  ! ===========================================================================
+
+  subroutine clumping_init (zred_now)
+
+    ! Initializes position dependent clumping (at redshift zred_now)
+
+    real(kind=dp),intent(in) :: zred_now
+    
+    if (rank == 0) then
+       write(logf,*) "Position dependent clumping is not available for"
+       write(logf,*) " this Gadget material module."
+    endif
+
+  end subroutine clumping_init
 
 end module material
