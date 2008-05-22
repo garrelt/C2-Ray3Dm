@@ -34,7 +34,7 @@ module nbody
   character(len=180),parameter,private :: dir_dens_path = "../" 
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
   character(len=180),parameter,private :: dir_src_path = "../" 
-  character(len=180),parameter,private :: dir_src_name= "sources/"
+  character(len=180),parameter,private :: dir_src_name= "coarser_densities/"
 
   ! properties of the box:
   ! M_box      - mass in box
