@@ -1,20 +1,23 @@
 # F90 compiler
+#F90 = ifort
 F90 = mpif77
 #F90 = mpif90
-#F90 = ifort
 #F90 = f90
 #F90 = pf90
 #LDR     = $(F90)
 
 # F90 options
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT
-#IFORTFLAGS = -g -fpe0 -DIFORT
-F90FLAGS1 = -xO $(IFORTFLAGS) 
+F90FLAGS1 = $(IFORTFLAGS) 
+F90FLAGS1 = -xW $(IFORTFLAGS) 
+#F90FLAGS1 = -xO $(IFORTFLAGS) 
+#F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS) 
-#F90FLAGS = $(F90FLAGS1) -openmp -DMPI
-F90FLAGS = $(F90FLAGS1) -I/usr/include/lam -DMPI
+
+#F90FLAGS = $(F90FLAGS1) -I/usr/include/lam -openmp -DMPI
+#F90FLAGS = $(F90FLAGS1) -I/usr/include/lam -DMPI #-DMPILOG
 #F90FLAGS = $(F90FLAGS1) -openmp
-#F90FLAGS = $(F90FLAGS1)
+F90FLAGS = $(F90FLAGS1)
 
 #F90FLAGS = -O3 -u -fpe0 -vec_report -ipo #Lobster 6
 #F90FLAGS = -O4 -omp -fpe1# -fpe4 Compaq
@@ -39,23 +42,47 @@ UTILS=mrgrnk.o ctrper.o romberg.o
 
 CONSTANTS = mathconstants.o cgsconstants.o  cgsphotoconstants.o  cgsastroconstants.o c2ray_parameters.o cosmoparms.o abundances.o
 
-C2Ray_3D_BigBox_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
 
-C2Ray_3D_BigBox_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
 
-C2Ray_3D_BigBox_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
 
-C2Ray_3D_BigBox_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_BigBox.o sourceprops.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
 
-C2Ray_3D_Gadget_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray_GadgetTest.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray_GadgetTest.o
+C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
 
-C2Ray_3D_Gadget_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o clumping.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray_GadgetTest.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o clumping.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray_GadgetTest.o
+C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+
+C2Ray_3D_cubep3m_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+
+C2Ray_3D_cubep3m_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+
+C2Ray_3D_LG_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+
+C2Ray_3D_LG_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+
+C2Ray_3D_LG_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+
+C2Ray_3D_LG_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o LG.o grid.o tped.o mat_ini_LG.o sourceprops_LG.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray.o
+
+C2Ray_3D_Gadget_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray_GadgetTest.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray_GadgetTest.o
+
+C2Ray_3D_Gadget_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray_GadgetTest.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o gadget.o grid.o tped.o mat_ini_Gadget.o sourceprops_gadget.o cooling.o radiation.o cosmology.o cooling.o time_ini.o doric.o photonstatistics.o evolve4_omp_periodic.o output.o C2Ray_GadgetTest.o
 
 clean : 
 	rm -f *.o *.mod *.l *.il
