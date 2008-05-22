@@ -15,9 +15,8 @@ module photonstatistics
   use cgsconstants, only: albpow,bh00,colh0,temph0
   use sizes, only: mesh
   use grid, only: vol
-  use material, only: ndens, xh, temper
+  use material, only: ndens, xh, temper, clumping
   use tped, only: electrondens
-  use subgrid_clumping, only: clumping
 
   logical,parameter :: do_photonstatistics=.true.
   real(kind=dp) :: totrec

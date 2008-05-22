@@ -16,7 +16,7 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI definitions
-  use file_admin, only: log
+  use file_admin, only: logf
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
@@ -172,19 +172,19 @@ contains
 #endif
 
        ! Report photon losses over grid boundary 
-       if (rank == 0) write(log,*) 'photon loss counter: ',photon_loss_all
+       if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all
        
        ! Turn total photon loss into a mean per cell (used in evolve0d_global)
        photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
        ! Report minimum value of xh_av(0) to check for zeros
-       if (rank == 0) write(log,*) "min xh_av: ",minval(xh_av(:,:,:,0))
+       if (rank == 0) write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
 
        ! Apply total photo-ionization rates from all sources (phih_grid)
        conv_flag=0 ! will be used to check for convergence
 
        ! Loop through the entire mesh
-       if (rank == 0) write(log,*) 'Doing global '
+       if (rank == 0) write(logf,*) 'Doing global '
        do k=1,mesh(3)
           do j=1,mesh(2)
              do i=1,mesh(1)
@@ -196,8 +196,8 @@ contains
 
        ! Report on convergence and intermediate result
        if (rank == 0) then
-          write(log,*) "Number of non-converged points: ",conv_flag
-          write(log,*) "Intermediate result for mean ionization fraction: ", &
+          write(logf,*) "Number of non-converged points: ",conv_flag
+          write(logf,*) "Intermediate result for mean ionization fraction: ", &
                sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        endif
 
@@ -208,7 +208,7 @@ contains
        else
           if (niter > 100) then
              ! Complain about slow convergence
-             if (rank == 0) write(log,*) 'Multiple sources not converging'
+             if (rank == 0) write(logf,*) 'Multiple sources not converging'
              exit
           endif
        endif
@@ -326,14 +326,14 @@ contains
             mympierror)
     enddo
     
-    write(log,*) 'Mean number of sources per processor: ', &
+    write(logf,*) 'Mean number of sources per processor: ', &
          real(NumSrc)/real(npr-1)
-    write(log,*) 'Counted mean number of sources per processor: ', &
+    write(logf,*) 'Counted mean number of sources per processor: ', &
          real(sum(counts(1:npr-1)))/real(npr-1)
-    write(log,*) 'Minimum and maximum number of sources ', &
+    write(logf,*) 'Minimum and maximum number of sources ', &
          'per processor: ', &
          minval(counts(1:npr-1)),maxval(counts(1:npr-1))
-    call flush(log)
+    call flush(logf)
 
 #endif
 
@@ -374,10 +374,10 @@ contains
        do 
 #ifdef MPILOG
           ! Report
-          write(log,*) 'Processor ',rank,' received: ',ns1
-          write(log,*) ' that is source ',SrcSeries(ns1)
-          write(log,*) ' at:',srcpos(:,ns)
-          call flush(log)
+          write(logf,*) 'Processor ',rank,' received: ',ns1
+          write(logf,*) ' that is source ',SrcSeries(ns1)
+          write(logf,*) ' at:',srcpos(:,ns)
+          call flush(logf)
 #endif
           ! Do the source at hand
           call do_source(dt,ns1,niter)
@@ -387,10 +387,10 @@ contains
           
 #ifdef MPILOG
           ! Report ionization fractions
-          write(log,*) sum(xh_intermed(:,:,:,1))/ &
+          write(logf,*) sum(xh_intermed(:,:,:,1))/ &
                real(mesh(1)*mesh(2)*mesh(3))
-          write(log,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          write(log,*) local_count
+          write(logf,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          write(logf,*) local_count
 #endif
           ! Send 'answer'
           call MPI_Send (local_count, 1,  & ! sending one int 
@@ -414,8 +414,8 @@ contains
           ! leave this loop if tag equals 2
           if (mympi_status(MPI_TAG) == 2) then
 #ifdef MPILOG
-             write(log,*) 'Stop received'
-             call flush(log)
+             write(logf,*) 'Stop received'
+             call flush(logf)
 #endif
              exit 
           endif
@@ -429,8 +429,8 @@ contains
     
 #ifdef MPILOG
     ! Report
-    write(log,*) 'Processor ',rank,' did ',local_count,' sources'
-    call flush(log)
+    write(logf,*) 'Processor ',rank,' did ',local_count,' sources'
+    call flush(logf)
 #endif
     call MPI_Send (local_count,  &
          1,           & 
@@ -886,7 +886,7 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
-    use subgrid_clumping, only: clumping_point
+    use material, only: clumping_point
     use c2ray_parameters, only: epsilon,convergence1,convergence2, &
          type_of_clumping,convergence_frac
     use mathconstants, only: pi
@@ -1020,9 +1020,9 @@ contains
 
           ! Warn about non-convergence and terminate iteration
           if (nit > 5000) then
-             write(log,*) 'Convergence failing (source ',ns,')'
-             write(log,*) 'xh: ',yh_av(0),yh_av0
-             write(log,*) 'on processor rank ',rank
+             write(logf,*) 'Convergence failing (source ',ns,')'
+             write(logf,*) 'xh: ',yh_av(0),yh_av0
+             write(logf,*) 'on processor rank ',rank
              exit
           endif
 
@@ -1102,7 +1102,7 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use c2ray_parameters, only: convergence1,convergence2,type_of_clumping,convergence_frac
-    use subgrid_clumping, only: clumping_point
+    use material, only: clumping_point
 
     real(kind=dp),intent(in) :: dt ! time step
     integer,dimension(Ndim),intent(in) :: pos ! position on mesh
@@ -1177,8 +1177,8 @@ contains
        ! Warn about non-convergence and terminate iteration
        if (nit > 5000) then
           if (rank == 0) then
-             write(log,*) 'Convergence failing (global)'
-             write(log,*) 'xh: ',yh_av(0),yh_av0
+             write(logf,*) 'Convergence failing (global)'
+             write(logf,*) 'xh: ',yh_av(0),yh_av0
           endif
           exit
        endif
@@ -1336,7 +1336,7 @@ contains
        ! if (kdela == 1) then
        ! if ((w3 == 1.0).or.(w2 == 1.0)) cdensi=sqrt(2.0)*cdensi
        ! if (w1 == 1.0) cdensi=sqrt(3.0)*cdensi
-       ! write(log,*) idela,jdela,kdela
+       ! write(logf,*) idela,jdela,kdela
        !endif
 
        ! Path length from c through d to other side cell.
@@ -1379,10 +1379,10 @@ contains
        ! Take care of diagonals
        if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
           if (idela == 1.and.kdela == 1) then
-             !write(log,*) 'error',i,j,k
+             !write(logf,*) 'error',i,j,k
              cdensi=sqrt3*cdensi
           else
-             !write(log,*) 'diagonal',i,j,k
+             !write(logf,*) 'diagonal',i,j,k
              cdensi=sqrt2*cdensi
           endif
        endif

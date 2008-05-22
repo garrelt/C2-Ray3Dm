@@ -33,7 +33,7 @@ contains
     ! 11-May-2005 (GM): f90
     
     use cgsconstants, only: bh00,albpow,colh0,temph0
-    use subgrid_clumping, only: clumping
+    use material, only: clumping
     !use radiation
     use tped, only: electrondens ! should this really be used inside doric?
     use c2ray_parameters, only: epsilon
