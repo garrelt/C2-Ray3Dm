@@ -21,7 +21,7 @@ module my_mpi
   ! This is the system module:
   !!include '/beosoft/mpich/include/mpif.h'        ! necessary for MPI
   !use mpi
-  use file_admin, only: logf
+  use file_admin, only: logf, results_dir
 
 #ifdef XLF
   USE XLFUTILITY, only: hostnm => hostnm_ , flush => flush_
