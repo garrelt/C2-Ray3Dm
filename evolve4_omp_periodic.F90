@@ -376,7 +376,7 @@ contains
           ! Report
           write(logf,*) 'Processor ',rank,' received: ',ns1
           write(logf,*) ' that is source ',SrcSeries(ns1)
-          write(logf,*) ' at:',srcpos(:,ns)
+          write(logf,*) ' at:',srcpos(:,ns1)
           call flush(logf)
 #endif
           ! Do the source at hand

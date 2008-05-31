@@ -8,7 +8,7 @@ module material
 
   use precision, only: dp,si
   use sizes, only: mesh
-  use file_admin, only: stdinput, logf, results_dir
+  use file_admin, only: stdinput, logf, results_dir, file_input
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
@@ -35,7 +35,9 @@ module material
 #endif
 
 contains
+
   ! ============================================================================
+
   subroutine mat_ini (restart, nz0, ierror)
 
     ! Initializes material properties on grid
@@ -65,6 +67,7 @@ contains
     character(len=1) :: answer
 
     ierror=0
+    ! Check consistency with nbody module
     if (nbody_type /= "cubep3m") then
        write(logf,*) "Error: wrong material module was compiled."
        ierror=1
@@ -74,17 +77,21 @@ contains
 
        if (rank == 0) then
           ! Ask for temperature, restart. Read in values
-          write(*,"(A,$)") "Enter initial temperature (K): "
+          if (.not.file_input) &
+               write(*,"(A,$)") "Enter initial temperature (K): "
           read(stdinput,*) temper_val
-          write(*,"(A,$)") "Restart (y/n)? : "
+          if (.not.file_input) write(*,"(A,$)") "Restart (y/n)? : "
           read(stdinput,*) answer
-          if (answer == "y" .or. answer == "Y") restart=1
-          write(*,"(A,$)") "Restart at midpoint (y/n)? : "
-          read(stdinput,*) answer
-          if (answer == "y".or.answer == "Y") restart=2
-          write(*,'(A,$)') 'Number of starting slice: '
+          if (answer == "y" .or. answer == "Y") then
+             restart=1
+             if (.not.file_input) &
+                  write(*,"(A,$)") "Restart at midpoint (y/n)? : "
+             read(stdinput,*) answer
+             if (answer == "y" .or. answer == "Y") restart=2
+          endif
+          if (.not.file_input) write(*,"(A,$)") "Number of starting slice: "
           read(stdinput,*) nz0
-          !print*,'Number of starting slice: ',nz0
+          !print*,"Number of starting slice: ",nz0
        endif
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
@@ -105,6 +112,7 @@ contains
        ! In case of a restart this will be overwritten in xfrac_ini
        xh(:,:,:,0)=1.0
        xh(:,:,:,1)=0.0
+
     endif
 
   end subroutine mat_ini
@@ -197,8 +205,8 @@ contains
        enddo
     enddo
     
-    ! Find summed_and average density
-    avg_dens=sum(ndens)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
+    ! Find summed and average density
+    avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
     
     ! Report average density
     if (rank == 0) then
@@ -214,10 +222,11 @@ contains
   end subroutine dens_ini
 
   ! ===========================================================================
+
   subroutine xfrac_ini (zred_now)
 
     ! Initializes ionization fractions on the grid (at redshift zred_now).
-    ! They are read from an 'Ifront3' file which should have been created
+    ! They are read from an "Ifront3" file which should have been created
     ! by an earlier run. This file is read in restart mode.
 
     ! Author: Garrelt Mellema
@@ -248,13 +257,14 @@ contains
        ! Read in data
        read(20) m1,m2,m3
        if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-          write(*,*) "Warning: file with ionization fractions unusable"
+          write(logf,*) "Warning: file with ionization fractions unusable"
+          write(logf,*) "mesh found in file: ",m1,m2,m3
        else
           read(20) xh1_real
           ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
-          !xh(:,:,:,1)=real(xh1_real(:,:,:),8)
+          !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
 !          xh(:,:,:,1)=xh1_real(:,:,:)
-          xh(:,:,:,1)=real(xh1_real(:,:,:),8)
+          xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
           xh(:,:,:,0)=1.0-xh(:,:,:,1)
        endif
 
@@ -303,7 +313,7 @@ contains
 
     if (type_of_clumping /= 5) then
        write(logf,*) &
-         'Error: calling position dependent, but array is not initialized.'
+         "Error: calling position dependent, but array is not initialized."
     else
        clumping = clumping_grid(i,j,k)
     endif
@@ -344,16 +354,16 @@ contains
 
     if (rank == 0) then
        ! construct filename
-       write(zred_str,'(f6.3)') zred_now
+       write(zred_str,"(f6.3)") zred_now
        ! Allocate array needed to read in data
        allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
-       write(30,*) 'Reading ',id_str,' input'
+       write(30,*) "Reading ",id_str," input"
        clump_file=trim(adjustl(dir_dens))// &
             trim(adjustl(zred_str))// &
             "clump_"//trim(adjustl(id_str))//".dat"
        
-       ! Open clumping file: note that it is in `binary' form
-       open(unit=20,file=clump_file,form='binary',status='old')
+       ! Open clumping file: note that it is in `binary" form
+       open(unit=20,file=clump_file,form="binary",status="old")
        
        ! Read in data and store it in clumping_grid
        read(20) clumping_real
@@ -376,9 +386,9 @@ contains
     ! assign mean to clumping for reporting in set_clumping
     clumping=sum(clumping_grid)/(mesh(1)*mesh(2)*mesh(3))
     if (rank == 0) then
-       write(logf,*) 'minimum: ',minval(clumping_grid)
-       write(logf,*) 'maximum: ',maxval(clumping_grid)
-       write(logf,*) 'mean clumping: ',clumping
+       write(logf,*) "minimum: ",minval(clumping_grid)
+       write(logf,*) "maximum: ",maxval(clumping_grid)
+       write(logf,*) "mean clumping: ",clumping
     endif
 
   end subroutine clumping_init
