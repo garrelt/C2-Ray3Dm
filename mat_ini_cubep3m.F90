@@ -145,6 +145,7 @@ contains
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
     real(kind=dp) :: avg_dens
+    integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
     real(kind=si),dimension(:,:,:),allocatable :: ndens_real
@@ -163,10 +164,17 @@ contains
        ! Open density file: note that it is in `binary" form
        open(unit=20,file=dens_file,form="binary",status="old")
        
-       ! Read in data and store it in ndens
-       read(20) ndens_real
-       ndens(:,:,:)=ndens_real(:,:,:)
-       
+       ! Read in data
+       read(20) m1,m2,m3
+       if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+          write(logf,*) "Warning: file with ionization fractions unusable"
+          write(logf,*) "mesh found in file: ",m1,m2,m3
+       else
+          ! Read in data and store it in ndens
+          read(20) ndens_real
+          ndens(:,:,:)=ndens_real(:,:,:)
+       endif
+
        ! close file
        close(20)
        
@@ -239,15 +247,16 @@ contains
     character(len=6) :: zred_str
     integer :: m1,m2,m3
     ! Array needed to read in 4B reals
-!    real(kind=dp),dimension(:,:,:),allocatable :: xh1_real
-    real(kind=si),dimension(:,:,:),allocatable :: xh1_real
+    real(kind=dp),dimension(:,:,:),allocatable :: xh1_real
+    !real(kind=si),dimension(:,:,:),allocatable :: xh1_real
 
     if (rank == 0) then
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
        write(zred_str,"(f6.3)") zred_now
 !       xfrac_file= "./xfrac3d_"//trim(adjustl(zred_str))//".bin"
        xfrac_file= trim(adjustl(results_dir))// &
-            "Ifront3_"//trim(adjustl(zred_str))//".bin"
+            !"Ifront3_"//trim(adjustl(zred_str))//".bin"
+            "xfrac3d_"//trim(adjustl(zred_str))//".bin"
 
        write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
             trim(xfrac_file)
@@ -262,9 +271,8 @@ contains
        else
           read(20) xh1_real
           ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
+          xh(:,:,:,1)=xh1_real(:,:,:)
           !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
-!          xh(:,:,:,1)=xh1_real(:,:,:)
-          xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
           xh(:,:,:,0)=1.0-xh(:,:,:,1)
        endif
 
