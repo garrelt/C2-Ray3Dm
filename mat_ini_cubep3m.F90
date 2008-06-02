@@ -70,6 +70,8 @@ contains
     ! Check consistency with nbody module
     if (nbody_type /= "cubep3m") then
        write(logf,*) "Error: wrong material module was compiled."
+       write(logf,*) "       Expected cubep3m, but got", &
+            trim(adjustl(nbody_type))
        ierror=1
     else
        ! restart
