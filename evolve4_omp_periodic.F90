@@ -1226,9 +1226,10 @@ contains
     real(kind=dp),intent(out) :: cdensi
     real(kind=dp),intent(out) :: path
 
+#ifndef PGI    
     real(kind=dp),parameter :: sqrt3=sqrt(3.0)
     real(kind=dp),parameter :: sqrt2=sqrt(2.0)
-
+#endif
     integer :: i,j,k,i0,j0,k0
 
     integer :: idel,jdel,kdel
@@ -1328,9 +1329,15 @@ contains
 
        if (kdela == 1.and.(idela == 1.or.jdela == 1)) then
           if (idela == 1.and.jdela == 1) then
+#ifdef PGI
+             cdensi=sqrt(3.0)*cdensi
+          else
+             cdensi=sqrt(2.0)*cdensi
+#else
              cdensi=sqrt3*cdensi
           else
              cdensi=sqrt2*cdensi
+#endif
           endif
        endif
        ! if (kdela == 1) then
@@ -1379,11 +1386,15 @@ contains
        ! Take care of diagonals
        if (jdela == 1.and.(idela == 1.or.kdela == 1)) then
           if (idela == 1.and.kdela == 1) then
-             !write(logf,*) 'error',i,j,k
+#ifdef PGI
+             cdensi=sqrt(3.0)*cdensi
+          else
+             cdensi=sqrt(2.0)*cdensi
+#else
              cdensi=sqrt3*cdensi
           else
-             !write(logf,*) 'diagonal',i,j,k
              cdensi=sqrt2*cdensi
+#endif
           endif
        endif
 
@@ -1427,9 +1438,15 @@ contains
        
        if ( idela == 1 .and. ( jdela == 1 .or. kdela == 1 ) ) then
           if ( jdela == 1 .and. kdela == 1 ) then
+#ifdef PGI
+             cdensi=sqrt(3.0)*cdensi
+          else
+             cdensi=sqrt(2.0)*cdensi
+#else
              cdensi=sqrt3*cdensi
           else
              cdensi=sqrt2*cdensi
+#endif
           endif
        endif
        

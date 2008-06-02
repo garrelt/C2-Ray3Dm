@@ -46,6 +46,10 @@ Program C2Ray
 
   implicit none
 
+#ifdef PGI
+  include 'lib3f.h' ! for iargc, getargc
+#endif
+
   ! Start and end time for CPU report
   real :: tstart,tend
   integer :: cntr1,cntr2,countspersec
@@ -54,11 +58,11 @@ Program C2Ray
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
-  ! time - actual time (s)
+  ! sim_time - actual time (s)
   ! end_time - end time of calculation (s)
   ! output_time - time interval between outputs (s)
   ! next_output_time - time of next output (s)
-  real(kind=dp) :: end_time,time,output_time,next_output_time
+  real(kind=dp) :: end_time,sim_time,output_time,next_output_time
   real(kind=dp) :: dt,actual_dt
   real(kind=dp) :: zred_interm
 
@@ -110,10 +114,10 @@ Program C2Ray
   if (rank == 0) call flush(logf)
 
   ! Set time to zero
-  time=0.0
+  sim_time=0.0
 
   ! Initialize cosmology
-  call cosmology_init(zred_array(nz0),time)
+  call cosmology_init(zred_array(nz0),sim_time)
 
   ! If a restart, read ionization fractions from file
   if (restart == 1) call xfrac_ini(zred_array(nz0))
@@ -141,7 +145,7 @@ Program C2Ray
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
      if (rank == 0) write(logf,*) &
-          "This is time ",time/YEAR," to ",end_time/YEAR
+          "This is time ",sim_time/YEAR," to ",end_time/YEAR
      if (rank == 0 .and. nbody_type == "LG") &
           write(logf,*) "This is snapshot ", snap(nz)
          
@@ -149,7 +153,7 @@ Program C2Ray
 #ifdef MPILOG     
      write(logf,*) 'Calling source_properties'
 #endif 
-     call source_properties(zred,nz,end_time-time,restart)
+     call source_properties(zred,nz,end_time-sim_time,restart)
 
      ! Initialize density field
      call dens_ini(zred,nz)
@@ -160,10 +164,10 @@ Program C2Ray
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
      if (restart == 2) then
-        time=zred2time(zred_interm)
+        sim_time=zred2time(zred_interm)
         next_output_time=end_time
      else
-        next_output_time=time+output_time
+        next_output_time=sim_time+output_time
      endif
 
      ! Reset restart
@@ -172,15 +176,15 @@ Program C2Ray
      ! Loop until end time is reached
      do
         ! Make sure you produce output at the correct time
-        actual_dt=min(next_output_time-time,dt)
+        actual_dt=min(next_output_time-sim_time,dt)
         
         ! Report time and time step
         if (rank == 0) write(logf,"(A,2(1pe10.3,x),A)") "Time, dt:", &
-             time/YEAR,actual_dt/YEAR," (years)"
+             sim_time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
         if (cosmological) then
-           call redshift_evol(time+0.5*actual_dt)
+           call redshift_evol(sim_time+0.5*actual_dt)
            call cosmo_evol()
         endif
         ! Do not call in case of position dependent clumping,
@@ -191,21 +195,21 @@ Program C2Ray
         if (NumSrc > 0) call evolve3D(actual_dt)
 
         ! Update time
-        time=time+actual_dt
+        sim_time=sim_time+actual_dt
             
         ! Write output
-        if (abs(time-next_output_time) <= 1e-6*time) then
-           call output(time2zred(time),time,dt)
+        if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
+           call output(time2zred(sim_time),sim_time,dt)
            next_output_time=next_output_time+output_time
         endif
-        if (abs(time-end_time) <= 1e-6*end_time) exit
+        if (abs(sim_time-end_time) <= 1e-6*end_time) exit
         if (rank == 0) call flush(logf)
      enddo
 
      ! stop
      ! Scale to the current redshift
      if (cosmological) then
-        call redshift_evol(time)
+        call redshift_evol(sim_time)
         call cosmo_evol()
      endif
 
@@ -213,7 +217,7 @@ Program C2Ray
 
   ! Write final output
 
-  call output(zred,time,dt)
+  call output(zred,sim_time,dt)
 
   call close_down ()
   
