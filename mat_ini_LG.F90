@@ -85,11 +85,17 @@ contains
           read(stdinput,*) answer
           if (answer == "y" .or. answer == "Y") then
              restart=1
-             if (.not.file_input) &
-                  write(*,"(A,$)") "Restart at midpoint (y/n)? : "
-             read(stdinput,*) answer
-             if (answer == "y" .or. answer == "Y") restart=2
+             ! Apparently confusing if this question is only asked
+             ! conditionally
+             !if (.not.file_input) &
+             !     write(*,"(A,$)") "Restart at midpoint (y/n)? : "
+             !read(stdinput,*) answer
+             !if (answer == "y" .or. answer == "Y") restart=2
           endif
+          if (.not.file_input) &
+               write(*,"(A,$)") "Restart at midpoint (y/n)? : "
+          read(stdinput,*) answer
+          if (answer == "y" .or. answer == "Y") restart=2
           if (.not.file_input) write(*,"(A,$)") "Number of starting slice: "
           read(stdinput,*) nz0
           !print*,"Number of starting slice: ",nz0
