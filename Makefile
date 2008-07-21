@@ -1,9 +1,52 @@
+# Makefile for C2Ray_3D.
+#
+# Author: Garrelt Mellema
+
+# This Makefile can make different versions of C2Ray_3D.
+# These versions differ in their parallelization and/or
+# in their connection to specific N-body results.
+#
+# Note 1: Parallelization
+# The parallelization intended is specified in the name
+# of the executable: _omp means OpenMP (shared memory), 
+# _mpi means MPI (distributed memory). Both can also be
+# used at the same time (if your architecture supports
+# it.
+# The Makefile does NOT automatically set the right flags
+# for the executable you want to make. 
+# If you want to compile for OpenMP, you have to add the
+# the OpenMP flags (OPENMP_FLAGS) to F90FLAGS manually 
+# before running make.
+# If you want to compile for MPI you have to add the MPI
+# flags (MPI_FLAGS) to F90FLAGS, and change the compiler (F90) 
+# manually before running make.
+#
+# Note 2: N-body module
+# Different versions exist with different Nbody interfaces:
+# pmfast - interface to older pmfast simulations
+# cubep3m - interface to cubep3m simulations
+# LG - interface to Local Group simulations (GADGET)
+# Gadget - interface to LOFAR EoR GADGET simulations (not working)
+#
+# Note 3: Compiler & Flags
+# The compiler is specified by the F90 variable. We have only
+# extensively used the Intel F90 compiler. Support for other
+# compilers will have to added.
+# Parts of the code need to know about the compiler, this is
+# done through preprocessor statements. So when compiling with
+# intel compiler, -DIFORT needs to be specified. Support for
+# new compilers thus needs to be added in the code too.
+#
+# Note 4: Recompiling
+# Some dependencies are through module parameters, and thus
+# not recognized by make. Best practise is to run "make clean"
+# before running "make".
 #-------------------------------------------------------
 
-# Intel compiler
-F90 = ifort
-#F90 = mpif77
-#F90 = mpif90
+# Compiler
+F90 = ifort # Intel compiler
+#F90 = mpif77 # MPI compiler
+#F90 = mpif90 # MPI compiler
 
 # F90 options (ifort)
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -check all -traceback
@@ -11,12 +54,16 @@ F90FLAGS1 = $(IFORTFLAGS)
 F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xO $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
-#F90FLAGS1 = -xB $(IFORTFLAGS) 
+#F90FLAGS1 = -xB $(IFORTFLAGS)
 
-#F90FLAGS = $(F90FLAGS1) -I/usr/include/lam -openmp -DMPI
-#F90FLAGS = $(F90FLAGS1) -I/usr/include/lam -DMPI #-DMPILOG
-F90FLAGS = $(F90FLAGS1) -openmp
-#F90FLAGS = $(F90FLAGS1)
+MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
+#MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
+OPENMP_FLAGS = -openmp # For Intel compiler
+
+#F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) $(MPI_FLAGS) # OpenMP + MPI
+#F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)                 # MPI only
+F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS)               # OpenMP only
+#F90FLAGS = $(F90FLAGS1)                              # No parallelization
 
 #-------------------------------------------------------
 
