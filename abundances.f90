@@ -1,13 +1,32 @@
+!>
+!! \brief This module sets elemental abundances
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 2008-05-27
+!!
+!! This module is also accepted by the F compiler (Dec 9, 2003)
+!<
 module abundances
 
   ! This module sets elemental abundances
 
   use precision, only: dp
 
-  real(kind=dp),parameter :: abu_he=0.074
-  real(kind=dp),parameter :: abu_c=7.1e-7
+  implicit none
 
-  real(kind=dp),parameter :: mu=(1.0-abu_he)+4.0*abu_he
+  private
+
+  !> Helium abundance (by number) 
+  real(kind=dp),public,parameter :: abu_he=0.074
+  !real(kind=dp),parameter :: abu_he=0.08 ! for EoR KP sims
+  !> Carbon abundance (by number) 
+  real(kind=dp),public,parameter :: abu_c=7.1e-7
+
+  !> Mean molecular weight 
+  real(kind=dp),public,parameter :: mu=(1.0-abu_he)+4.0*abu_he
 
   !-----------------------------------------------------------------------
   !     set heavy element abundances
