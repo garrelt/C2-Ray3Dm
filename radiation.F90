@@ -1,3 +1,21 @@
+!>
+!! \brief This module data and routines which deal with radiative
+!!     effects. 
+!!
+!!  Its main part deal with photo-ionizing radiation, but it
+!!     also initializes other radiative properties, such as cooling (which
+!!     are contained in different modules).
+!!     It can be used in hydrodynamic or stand-alone radiative transfer 
+!!     calculations.
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date:
+!!
+!! \b Version: 1D version similar to the 3D version.
+
 module radiation
   
   !     This file contains routines having to do with the initialization
@@ -10,7 +28,6 @@ module radiation
   !     - spec_integr_cores: Calculates spectral integration cores
   !     - spec_integr : Calculates photo ionization integrals
   !     - rad_boundary : Set the radiative boundary condition
-  !     - source_position : Input routine: establish the source position
   !
   !     Needs following `modules':
   !     romberg : romberg integrators
@@ -23,6 +40,14 @@ module radiation
   ! Simplified version
   ! - Only hydrogen
   ! - Option for Grey photo-ionization cross section
+  ! - MPI enabled (broadcasts of radiative parameters to all nodes).
+
+  ! Notes:
+  ! - the initialization of the radiative cooling does not really belong
+  !   here.
+  ! - isothermal is sometimes an input parameter, and sometimes a compile
+  !   time parameter. This needs to be streamlined. Probably along similar
+  !   lines as the stellar parameters are dealt with.
   
   use precision, only: dp
   use my_mpi
@@ -40,42 +65,73 @@ module radiation
   !     NumFreq - Number of integration points in one of the three 
   !               frequency interval.
   !     NumTau -  Number of table points for the optical depth.
+  !     NumFreqBnd - Number of frequency bands (1 for hydrogen only)
   !-----------------------------------------------------------------------
 
+  !> Number of integration points in one of the three frequency interval.
   integer,parameter :: NumFreq=128
+  !> Number of table points for the optical depth.
   integer,parameter :: NumTau=2000
+  !> Number of frequency bands (1 for hydrogen only)
   integer,parameter :: NumFreqBnd=1
   
-  real(kind=dp),parameter :: minlogtau=-20.0
-  real(kind=dp),parameter :: maxlogtau=4.0
-  real(kind=dp),parameter :: dlogtau=(maxlogtau-minlogtau)/real(NumTau)
-
-  ! stellar properties
-  real(kind=dp) :: teff,rstar,lstar,S_star
-  
-  real(kind=dp),dimension(NumFreqBnd) :: steph0
-  real(kind=dp),dimension(:,:,:),allocatable  :: h0int
-  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int
-  real(kind=dp),dimension(:,:,:),allocatable  :: h0int1
-  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int1
-
-  real(kind=dp),dimension(:,:),allocatable  :: hphot
-  real(kind=dp),dimension(:,:),allocatable  :: hheat
-  real(kind=dp),dimension(:,:),allocatable  :: hphot1
-  real(kind=dp),dimension(:,:),allocatable  :: hheat1
-
+  !> This parameter sets the optical depth at the entrance of the grid.
+  !> It can be used if radiation enters the simulation volume from the
+  !> outside.
   real(kind=dp) :: tauHI=0.0
 
+  ! Parameters defining the optical depth entries in the table.
+  ! minlogtau is log10(lowest optical depth) (table position 1)
+  ! maxlogtau is log10(highest optical depth) (table position NumTau)
+  ! dlogtau is the step size in log10(tau) between table entries
+  real(kind=dp),parameter :: minlogtau=-20.0 !< log10(lowest optical depth) 
+  real(kind=dp),parameter :: maxlogtau=4.0 !< log10(highest optical depth)
+  !> step size in log10(tau) between table entries
+  real(kind=dp),parameter :: dlogtau=(maxlogtau-minlogtau)/real(NumTau)
+
+  !> Logical that determines the use of grey opacities
+  logical,parameter :: grey=.false. ! use grey opacities?
+
+  ! stellar properties
+  real(kind=dp) :: teff !< Black body effective temperature
+  real(kind=dp) :: rstar !< Black body radius
+  real(kind=dp) :: lstar !< Black body luminosity
+  real(kind=dp) :: S_star !< Black body ionizing photons rate
+  
+  ! Photo-ionization integral cores
+  real(kind=dp),dimension(NumFreqBnd) :: steph0 !< frequency steps in table 
+  !> photo-ionization integral core for H0 (optically thick case)
+  real(kind=dp),dimension(:,:,:),allocatable  :: h0int 
+  !> photo-ionization heating integral core for H0 (optically thick case)
+  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int
+  !> photo-ionization integral core for H0 (optically thin case)
+  real(kind=dp),dimension(:,:,:),allocatable  :: h0int1
+  !> photo-ionization heating integral core for H0 (optically thin case)
+  real(kind=dp),dimension(:,:,:),allocatable  :: hh0int1
+
+  ! Photo-ionization integrals (rates)
+  !> photo-ionization integral for H0 (optically thick case)
+  real(kind=dp),dimension(:,:),allocatable  :: hphot
+  !> photo-ionization heating integral for H0 (optically thick case)
+  real(kind=dp),dimension(:,:),allocatable  :: hheat
+  !> photo-ionization integral for H0 (optically thin case)
+  real(kind=dp),dimension(:,:),allocatable  :: hphot1
+  !> photo-ionization heating integral for H0 (optically thin case)
+  real(kind=dp),dimension(:,:),allocatable  :: hheat1
+
+  !> This type contains all the photo-ionization rates
+  !> The in and out rates are used to ensure photon-conservation.
+  !> See the C2-Ray paper.
   type photrates
-     real(kind=dp) :: h
-     real(kind=dp) :: hv_h
-     real(kind=dp) :: h_in
-     real(kind=dp) :: hv_h_in
-     real(kind=dp) :: h_out
-     real(kind=dp) :: hv_h_out
+     real(kind=dp) :: h        !< total H ionizing rate
+     real(kind=dp) :: hv_h     !< total H heating rate
+     real(kind=dp) :: h_in     !< in-rate
+     real(kind=dp) :: hv_h_in  !< in-heating rate
+     real(kind=dp) :: h_out    !< out-rate
+     real(kind=dp) :: hv_h_out !< out-heating rate
   end type photrates
 
-  ! photo-ionization rates
+  ! photo-ionization rates (disabled as they are passed as arguments)
   !real(kind=dp),public :: phih,hvphih
   !real(kind=dp),public :: phih_in,phih_out
   !real(kind=dp),public :: hvphih_in,hvphih_out
@@ -88,6 +144,7 @@ contains
 
 !=======================================================================
 
+  !> initializes constants and tables for radiation processes (heating, cooling and ionization)
   subroutine rad_ini ()
 
     ! initializes constants and tables for radiation processes
@@ -124,6 +181,7 @@ contains
 
   !=======================================================================
 
+  !> Input routine: establish the ionizing spectrum
   subroutine spectrum_parms
 
     ! Input routine: establish the ionizing spectrum
@@ -142,6 +200,8 @@ contains
 
     ! Ask for the input if you are processor 0 and the
     ! spectral parameters are not set in the c2ray_parameters
+    ! Note that it is assumed that if teff_nominal is set, 
+    ! S_star_nominal is ALSO set.
     if (rank == 0 .and. teff_nominal == 0.0) then
        write(*,'(A)') ' '
        teff=0.0
@@ -197,7 +257,8 @@ contains
           lstar=rstar*rstar*(4.0d0*pi*totflux)
        endif
     else
-       ! teff and S_star were set in the parameter module
+       ! teff and S_star are assumed to have been set in the c2ray_parameter 
+       ! module
        teff=teff_nominal
        S_star=S_star_nominal
        totflux=sigmasb*teff**4
@@ -223,11 +284,12 @@ contains
 
   !=======================================================================
   
+  !> Calculates properties of the black body spectrum
   subroutine spec_diag ()
 
     ! Calculates properties of spectrum
     ! This version: number of ionizing photons, S*, which can be
-    ! used to calculate the Stromgren radius.
+    ! used to calculate the Stromgren radius and other photon-statistics
 
     ! Author: Garrelt Mellema
     ! Update: 18-Feb-2004
@@ -291,6 +353,7 @@ contains
   
   !=======================================================================
 
+  !> Calculates spectral integration cores
   subroutine spec_integr_cores ()
 
     ! Calculates spectral integration cores
@@ -299,7 +362,19 @@ contains
     ! Date: 19-Feb-2004
     ! Version: Simplified version from Coral.
 
-    logical,parameter :: grey=.false. ! use grey opacities?
+    ! Note: the calculation of the photo-ionization integrals is split
+    ! into two parts. The cores (calculated in this routine) are the parts 
+    ! that do not change if the effective temperature and luminosity evolve.
+    ! For evolving sources, these parts do not need to be recalculated.
+    ! In spec_integr the effective temperature part is added, and the
+    ! integration over frequency is performed.
+
+    ! Note 2: the cpu time gain of not recalculating these cores should
+    !  really be tested.
+
+    ! Note 3: we calculate two integrals over each rate: one for optically
+    ! thick cells (ensuring photon-conservation for those cells), and one 
+    ! for optically thin cells. The latter are marked with 1.
 
     integer :: i,n
     real(kind=dp) :: frmax
@@ -315,10 +390,9 @@ contains
        allocate(hh0int1(0:NumFreq,0:NumTau,NumFreqBnd))
     endif
 
-    ! fill the optica depth array used to fill the tables 
+    ! fill the optical depth array used to fill the tables 
     ! it is filled in NumTau logarithmic steps 
     ! from minlogtau to maxlogtau
-    !dlogtau=(maxlogtau-minlogtau)/real(NumTau)
     do n=1,NumTau
        tau(n)=10.0**(minlogtau+dlogtau*real(n-1))
     enddo
@@ -336,6 +410,7 @@ contains
        ! Upper limit of frequency integration
        frmax=min(frtop1,10.0*frtop2)
        
+       ! Step size in frequency 
        steph0(1)=(frmax-frth0)/real(NumFreq)
 
        do i=0,NumFreq
@@ -355,7 +430,7 @@ contains
              ! This needs to be checked. I remember that
              ! -700 is the minimum exponent allowed for
              ! doubleprecision...
-             if (tau(n)*h0ffr(i) .lt. 700.0) then
+             if (tau(n)*h0ffr(i) < 700.0) then
                 h0int(i,n,1)=tpic2*fr(i)*fr(i)* &
                      exp(-tau(n)*h0ffr(i))
                 h0int1(i,n,1)=tpic2*fr(i)*fr(i)*h0ffr(i)* &
@@ -375,6 +450,7 @@ contains
   
   ! =======================================================================
   
+  !> Calculates photo ionization integrals
   subroutine spec_integr ()
 
     ! Calculates photo ionization integrals
@@ -382,9 +458,10 @@ contains
     ! Author: Garrelt Mellema
     ! Date: 19-Feb-2004
     ! Version: Simplified from Coral
-    ! It still uses THREE frequency intervals (needed
-    ! for H + He), but the actually only the first
-    ! is used.
+
+    ! Two types of integrals are evaluated: one for optically thick cells
+    ! (hphot, hheat) and one for optically thin cells (hphot1, hheat1).
+
     
     integer :: i,n,nfrq
     real(kind=dp) :: rstar2,rfr
@@ -476,6 +553,7 @@ contains
 
   ! =======================================================================
   
+  ! Calculates photo-ionization rates
   subroutine photoion (phi,hcolum_in,hcolum_out,vol,nsrc)
     
     ! Calculates photo-ionization rates
@@ -490,9 +568,11 @@ contains
 
     use sourceprops, only: NormFlux
 
-    type(photrates),intent(out) :: phi
-    real(kind=dp),intent(in) :: hcolum_in,hcolum_out,vol
-    integer,intent(in) :: nsrc
+    type(photrates),intent(out) :: phi !< result of the routine
+    real(kind=dp),intent(in) :: hcolum_in !< H0 column density at front side
+    real(kind=dp),intent(in) :: hcolum_out !< H0 column density at back side
+    real(kind=dp),intent(in) :: vol !< volume of shell cell is part of
+    integer,intent(in) :: nsrc !< number of the source
 
     real(kind=dp) :: tauh_in,tauh_out
     real(kind=dp) ::  tau1,odpos1,dodpo1
@@ -510,17 +590,17 @@ contains
     dodpo1=odpos1-real(iodpo1,dp)
     iodp11=min(NumTau,iodpo1+1)
     
-    ! Test for optically thick/thin case
-    if (abs(tauh_out-tauh_in).gt.1e-2) then 
-       
-       ! Find the hydrogen photo-ionization rate (ingoing)
-       ! Since all optical depths are hydrogen, we can use
-       ! tau1 for all.
-       phi%h_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
-            (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
-       if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
-            (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
+    ! Find the hydrogen photo-ionization rate (ingoing)
+    ! Since all optical depths are hydrogen, we can use
+    ! tau1 for all.
+    phi%h_in=NormFlux(nsrc)*(hphot(iodpo1,1)+ &
+         (hphot(iodp11,1)-hphot(iodpo1,1))*dodpo1)
+    if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
+         (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
+    ! Test for optically thick/thin case
+    if (abs(tauh_out-tauh_in) > 1e-2) then 
+       
        ! find the table positions for the optical depth (outgoing)
        tau1=log10(max(1.0e-20_dp,tauh_out))
        ! odpos1=min(1.0d0*NumTau,max(0.0d0,1.0d0+(tau1-minlogtau)/
@@ -542,18 +622,17 @@ contains
        
     else
        
-       ! Find the hydrogen photo-ionization rate (ingoing)
+       ! Find the hydrogen photo-ionization rate for the optically thin
+       ! case, and from this derive the outgoing rate.
        ! Since all optical depths are hydrogen, we can use
        ! tau1 for all.
-       phi%h_in=NormFlux(nsrc)*( &
-            hphot1(iodpo1,1)+(hphot1(iodp11,1)-hphot1(iodpo1,1))*dodpo1)
-       phi%h=phi%h_in*sigh*(hcolum_out-hcolum_in)/vol
+       phi%h=NormFlux(nsrc)*(tauh_out-tauh_in)*( &
+            hphot1(iodpo1,1)+(hphot1(iodp11,1)-hphot1(iodpo1,1))*dodpo1)/vol
        phi%h_out=phi%h_in-phi%h*vol
 
        if (.not.isothermal) then
-          phi%hv_h_in=NormFlux(nsrc)*( &
-               hheat1(iodpo1,1)+(hheat1(iodp11,1)-hheat1(iodpo1,1))*dodpo1)
-          phi%hv_h=phi%hv_h_in*sigh*(hcolum_out-hcolum_in)/vol
+          phi%hv_h=NormFlux(nsrc)*(tauh_out-tauh_in)*( &
+               hheat1(iodpo1,1)+(hheat1(iodp11,1)-hheat1(iodpo1,1))*dodpo1)/vol
           phi%hv_h_out=phi%hv_h_in-phi%hv_h*vol
        endif
 
