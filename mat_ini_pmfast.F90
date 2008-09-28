@@ -423,8 +423,8 @@ contains
 
 #ifdef MPI       
     ! Distribute the density to the other nodes
-    call MPI_BCAST(clumping,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
-         MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(clumping_grid,mesh(1)*mesh(2)*mesh(3), &
+         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
        
     ! Report on data: min, max, total
