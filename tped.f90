@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains routines having to do with the calculation of
+!!  temperature and electron density.
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 
+!!
+!!
 module tped
 
   ! This file contains routines having to do with the calculation of
@@ -7,9 +18,9 @@ module tped
   ! - pressr2temper : find pressure from temperature
   ! - electrondens:   find electron density
 
-  use precision
-  use cgsconstants
-  use abundances
+  use precision, only: dp
+  use cgsconstants, only: kb, m_p
+  use abundances, only: abu_c, mu
 
   implicit none
 
@@ -17,13 +28,14 @@ contains
 
   !=======================================================================
 
+  !> find temperature from pressure
   function temper2pressr (temper,ndens,eldens) result(pressr)
     
-    real(kind=dp),intent(in) :: ndens
-    real(kind=dp),intent(in) :: temper
-    real(kind=dp),intent(in) :: eldens
+    real(kind=dp),intent(in) :: ndens !< number density
+    real(kind=dp),intent(in) :: temper !< temperature
+    real(kind=dp),intent(in) :: eldens !< electron density
     
-    real(kind=dp) :: pressr
+    real(kind=dp) :: pressr !< pressure
 
     pressr=(ndens+eldens)*kb*temper
 
@@ -33,13 +45,14 @@ contains
 
   ! =======================================================================
 
+  !> find pressure from temperature
   function pressr2temper (pressr,ndens,eldens) result(temper)
 
-    real(kind=dp),intent(in) :: pressr
-    real(kind=dp),intent(in) :: ndens
-    real(kind=dp),intent(in) :: eldens
+    real(kind=dp),intent(in) :: pressr !< pressure
+    real(kind=dp),intent(in) :: ndens !< number density
+    real(kind=dp),intent(in) :: eldens !< electron density
     
-    real(kind=dp) :: temper
+    real(kind=dp) :: temper !< temperature
 
     temper=pressr/(kb*(ndens+eldens))
     
@@ -49,11 +62,12 @@ contains
       
   ! =======================================================================
 
+  !> find electron density
   function electrondens(ndens,xh)
       
-    real(kind=dp) :: electrondens
-    real(kind=dp),intent(in) :: ndens
-    real(kind=dp),intent(in) :: xh(0:1)
+    real(kind=dp) :: electrondens 
+    real(kind=dp),intent(in) :: ndens !< number density
+    real(kind=dp),intent(in) :: xh(0:1) !< H ionization fractions
 
     electrondens=ndens*(xh(1)+abu_c)
 
@@ -61,12 +75,13 @@ contains
 
   ! =======================================================================
 
+  !> Find number density from mass density
   function rho2n(rho)
       
     ! Calculates number density from mass density
     
     real(kind=dp) :: rho2n
-    real(kind=dp),intent(in) :: rho
+    real(kind=dp),intent(in) :: rho !< mass density
 
     rho2n=rho/(mu*m_p)
 
@@ -74,12 +89,13 @@ contains
 
   ! =======================================================================
 
+  !> Find mass density from number density
   function n2rho(ndens)
       
     ! Calculates number density from mass density
 
     real(kind=dp) :: n2rho
-    real(kind=dp),intent(in) :: ndens
+    real(kind=dp),intent(in) :: ndens !< number density
     
     n2rho=ndens*m_p*mu
 

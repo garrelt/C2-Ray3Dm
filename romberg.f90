@@ -1,50 +1,25 @@
+!>
+!! \brief This module contains Romberg integration routines.
+!!
+!! \b Author: Frank Robijn / Garrelt Mellema
+!!
+!! \b Date: August 17, 1989	
+!!
+
 module romberg
 
   use precision
   implicit none
 
-  integer,parameter :: maxpow=14
-  real(kind=dp),dimension(0:2**maxpow, -1:maxpow) :: romw
+  integer,parameter :: maxpow=14 !< maximum number of integration points is 2^maxpow
+  real(kind=dp),dimension(0:2**maxpow, -1:maxpow) :: romw !< Romberg weights
   
 contains
   
-  !=============================================================================
-  
-  SUBROUTINE Vector_Romberg (f, w, nc, nx, ny, itg)		
-    
-    !=============================================================================
-    
-    !	This subroutin performs an one-dimensional integration in	
-    !	the x-direction for every y and stores the results in itg.	
-    !	In principle it works the same as the function Romberg.		
-    !_______________________________________________________________________
-    !	Extra argument : itg	the results of the integrations		
-    !_______________________________________________________________________
-    
-    integer,intent(in) ::  nc, nx, ny
-    real(kind=dp),dimension(0:nc, 0:ny),intent(in) :: f
-    real(kind=dp),dimension(0:nc, 0:ny),intent(in) :: w
-    real(kind=dp),dimension(0:ny),intent(out) :: itg 
-
-    integer :: px, x, y
-    
-    ! nx = 2^px
-    px = nint(log (real(nx,dp)) / log (2.0))
-    
-    do y = 0, ny
-       ! One dimensional integration
-       itg (y) = 0.0
-       do x = 0, nx
-          itg (y) = itg(y)+f(x, y)*w(x, y)*romw(x, px)
-       enddo
-    enddo
-  end SUBROUTINE Vector_Romberg
-  
   !========================================================================
 
+  !> Romberg initialisation procedure (r and index are calculated)
   SUBROUTINE romberg_initialisation (nmax)
-    
-    !========================================================================
     
     !	In the initialisation procedure r and index are calculated	
     !____________________________________________________________________
@@ -52,6 +27,7 @@ contains
     !	nmax	The maximum number of grid points in any direction	
     !_______________________________________________________________________
 
+    !> The maximum number of grid points in any direction
     integer,intent(in) :: nmax
 
     integer :: pmax
@@ -115,10 +91,13 @@ contains
   
   !===========================================================================
 
+  !>	The following procedure performs a two-dimensional integral     
+  !>	using first a trapezoidal rule integral and then applying the	
+  !>	Romberg integration technique.					
+  !>	nx and ny have to be powers of two. For a one dimensional	
+  !>	integral, ny = 0. First call Romberg_Initialisation before	
+  !>	using the Romberg function					
   FUNCTION Scalar_Romberg (f, w, nc, nx, ny) result(scalar_romberg_result)
-    
-    
-    !=========================================================================
     
     !	The following procedure performs a two-dimensional integral     
     !	using first a trapezoidal rule integral and then applying the	
@@ -134,17 +113,17 @@ contains
     !									
     !	f	Integrand values					
     !	w	Relative weights of grid points				
-    !	nc	Leading dimension of f a w arrays			
+    !	nc	Leading dimension of f and w arrays			
     !	nx	Number of points - 1 in x direction			
     !	ny	Number of points - 1 in y direction			
     !_______________________________________________________________________
     
-    real(kind=dp) :: scalar_romberg_result
-    integer,intent(in) :: nc
-    integer,intent(in) :: nx
-    integer,intent(in) :: ny
-    real(kind=dp),dimension(0:nc,0:ny),intent(in) :: f
-    real(kind=dp),dimension(0:nc,0:ny),intent(in) :: w
+    real(kind=dp) :: scalar_romberg_result !< result of integral
+    integer,intent(in) :: nc !< Leading dimension of f and w arrays
+    integer,intent(in) :: nx !< Number of points - 1 in x direction
+    integer,intent(in) :: ny !< Number of points - 1 in y direction
+    real(kind=dp),dimension(0:nc,0:ny),intent(in) :: f !< integrand values
+    real(kind=dp),dimension(0:nc,0:ny),intent(in) :: w !< relative weights of grid points
 
     integer :: px, py, x, y
     real(kind=dp) :: integral
@@ -168,6 +147,44 @@ contains
     scalar_romberg_result = integral
     
   end FUNCTION Scalar_Romberg
+  
+  !=============================================================================
+  
+    
+  !>	This subroutin performs an one-dimensional integration in	
+  !>	the x-direction for every y and stores the results in itg.	
+  !>	In principle it works the same as the function Romberg.		
+  !>	Extra argument : itg	the results of the integrations		
+  SUBROUTINE Vector_Romberg (f, w, nc, nx, ny, itg)		
+    
+    
+    !	This subroutin performs an one-dimensional integration in	
+    !	the x-direction for every y and stores the results in itg.	
+    !	In principle it works the same as the function Romberg.		
+    !_______________________________________________________________________
+    !	Extra argument : itg	the results of the integrations		
+    !_______________________________________________________________________
+    
+    integer,intent(in) ::  nc !< Leading dimension of f and w arrays
+    integer,intent(in) ::  nx !< number of x points -1 
+    integer,intent(in) ::  ny !< number of y points -1
+    real(kind=dp),dimension(0:nc, 0:ny),intent(in) :: f !< integrand values
+    real(kind=dp),dimension(0:nc, 0:ny),intent(in) :: w !< relative weights of grid points
+    real(kind=dp),dimension(0:ny),intent(out) :: itg !< results of the integrations
+
+    integer :: px, x, y
+    
+    ! nx = 2^px
+    px = nint(log (real(nx,dp)) / log (2.0))
+    
+    do y = 0, ny
+       ! One dimensional integration
+       itg (y) = 0.0
+       do x = 0, nx
+          itg (y) = itg(y)+f(x, y)*w(x, y)*romw(x, px)
+       enddo
+    enddo
+  end SUBROUTINE Vector_Romberg
   
 end module romberg
 
