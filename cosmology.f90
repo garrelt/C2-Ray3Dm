@@ -155,8 +155,8 @@ contains
     vol=vol*zfactor3
 
     ! Source positions (multiple source version)
-    if (allocated(rsrcpos)) rsrcpos(:,:)=rsrcpos(:,:)*zfactor
-    
+    if (allocated(rsrcpos)) rsrcpos(:,:)=rsrcpos(:,:)*zfactor    
+
     ! Change the densities
     ndens(:,:,:)=ndens(:,:,:)/zfactor3
 
