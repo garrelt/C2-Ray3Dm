@@ -43,7 +43,8 @@ module evolve
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  real(kind=dp),dimension(mesh(1),mesh(2)) :: buffer2
   real(kind=dp) :: photon_loss_all
 
   ! mesh positions of end points for RT
@@ -123,6 +124,14 @@ contains
 #ifdef MPI
        ! Distribute the source list to the other nodes
        call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+#ifdef MPILOG
+       ! Report
+       if (mympierror /= 0) then 
+          write(logf,*) 'Processor ',rank,' reported MPI error when bcasting SrcSeries'
+          write(logf,*) MPI_COMM_NEW,mympierror
+          call flush(logf)
+       endif
+#endif
 #endif
 
        ! Ray trace the whole grid for all sources.
@@ -136,41 +145,100 @@ contains
        endif
        
 #ifdef MPI
+#ifdef MPILOG
+       ! Report
+       write(logf,*) 'Processor ',rank,' finished with sources',MPI_COMM_NEW, mympierror
+       call flush(logf)
+#endif
        ! accumulate (sum) the MPI distributed photon losses
        call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
             MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
        
-       ! accumulate (sum) the MPI distributed phih_grid
-       call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
-       
+#ifdef MPILOG
+       ! Report
+       write(logf,*) 'Processor ',rank,' summed photon losses',MPI_COMM_NEW, mympierror
+       write(logf,*) photon_loss, photon_loss_all
+       call flush(logf)
+#endif
+
+       do k=1,mesh(3)
+#ifdef MPILOG
+          write(logf,*) k
+#endif
+          ! accumulate (sum) the MPI distributed phih_grid
+          call MPI_ALLREDUCE(phih_grid(:,:,k), buffer2, mesh(1)*mesh(2), &
+               MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
+          phih_grid(:,:,k)=buffer2(:,:)
+#ifdef MPILOG
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when allreducing phih_grid'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
+       enddo
+#ifdef MPILOG
+       ! Report
+       write(logf,*) 'Processor ',rank,' summed photon ionization rates'
+       call flush(logf)
+#endif
        ! Overwrite the processor local values with the accumulated value
-       phih_grid(:,:,:)=buffer(:,:,:)
+       !phih_grid(:,:,:)=buffer(:,:,:)
        
        ! Only on the first iteration does evolve2D (evolve0D) change the
        ! ionization fractions
        if (niter == 1) then
-          ! accumulate (max) MPI distributed xh_av
-          call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
-               MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
-
-          ! Overwrite the processor local values with the accumulated value
-          xh_av(:,:,:,1) = buffer(:,:,:)
-          xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
+          do k=1,mesh(3)
+             ! accumulate (max) MPI distributed xh_av
+             call MPI_ALLREDUCE(xh_av(:,:,k,1), buffer2, mesh(1)*mesh(2), &
+                  MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
+             
+#ifdef MPILOG
+             ! Report
+             if (mympierror /= 0) then 
+                write(logf,*) 'Processor ',rank,' reported MPI error when allreducing xh_av'
+                write(logf,*) MPI_COMM_NEW,mympierror
+                call flush(logf)
+             endif
+#endif
+             ! Overwrite the processor local values with the accumulated value
+             xh_av(:,:,k,1) = buffer2(:,:)
+             xh_av(:,:,k,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,k,1)))
+          enddo
+#ifdef MPILOG
+          ! Report
+          write(logf,*) 'Processor ',rank,' maxed average ion fractions'
+          call flush(logf)
+#endif
           
-          ! accumulate (max) MPI distributed xh_intermed
-          call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
-               mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
-               MPI_COMM_NEW, mympierror)
-       
-          ! Overwrite the processor local values with the accumulated value
-          xh_intermed(:,:,:,1)=buffer(:,:,:)
-          xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
+          do k=1,mesh(3)
+             ! accumulate (max) MPI distributed xh_intermed
+             call MPI_ALLREDUCE(xh_intermed(:,:,k,1), buffer2, &
+                  mesh(1)*mesh(2), MPI_DOUBLE_PRECISION, MPI_MAX, &
+                  MPI_COMM_NEW, mympierror)
+#ifdef MPILOG
+             ! Report
+             if (mympierror /= 0) then 
+                write(logf,*) 'Processor ',rank,' reported MPI error when allreducing xh_intermed'
+                write(logf,*) MPI_COMM_NEW,mympierror
+                call flush(logf)
+             endif
+#endif
+             
+             ! Overwrite the processor local values with the accumulated value
+             xh_intermed(:,:,k,1)=buffer2(:,:)
+             xh_intermed(:,:,k,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,k,1)))
+          enddo
+#ifdef MPILOG
+          ! Report
+          write(logf,*) 'Processor ',rank,' maxed intermed ion fractions'
+          call flush(logf)
+#endif
        endif
 #else
        photon_loss_all=photon_loss
 #endif
-
+       
        ! Report photon losses over grid boundary 
        if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all
        
@@ -270,6 +338,13 @@ contains
           ns1=ns1+1
           call MPI_Send (ns1, 1, MPI_INTEGER, who, 1,  &
                MPI_COMM_NEW, mympierror)
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when sending ns1'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
        endif
     enddo
     
@@ -285,6 +360,13 @@ contains
             MPI_COMM_NEW,	   & ! communicator
             mympi_status,	   & ! status
             mympierror)
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when receivinging answer'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
        
        who = mympi_status(MPI_SOURCE) ! find out who sent us the answer
        sources_done=sources_done+1 ! and the number of sources done
@@ -299,6 +381,13 @@ contains
                1,		&	
                MPI_COMM_NEW, &
                mympierror)
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when sending ns1 (2)'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
        endif
     enddo
     
@@ -311,6 +400,13 @@ contains
             2,			  & ! tag 
             MPI_COMM_NEW,	          &
             mympierror)
+#ifdef MPILOG          
+       if (mympierror /= 0) then 
+          write(logf,*) 'Processor ',rank,' reported MPI error when sending 0'
+          write(logf,*) MPI_COMM_NEW,mympierror
+          call flush(logf)
+       endif
+#endif
        
        ! the slave will send to master the number of calculations
        ! that have been performed. 
@@ -324,6 +420,14 @@ contains
             MPI_COMM_NEW,     & ! communicator 
             mympi_status,     & ! status
             mympierror)
+#ifdef MPILOG          
+       if (mympierror /= 0) then 
+          write(logf,*) 'Processor ',rank,' reported MPI error when receiving counts'
+          write(logf,*) MPI_COMM_NEW,mympierror
+          call flush(logf)
+       endif
+#endif
+
     enddo
     
     write(logf,*) 'Mean number of sources per processor: ', &
@@ -368,6 +472,13 @@ contains
          mympi_status, & ! status
          mympierror)
     
+#ifdef MPILOG          
+    if (mympierror /= 0) then 
+       write(logf,*) 'Processor ',rank,' reported MPI error when receivinf ns1'
+       write(logf,*) MPI_COMM_NEW,mympierror
+       call flush(logf)
+    endif
+#endif
     ! if tag equals 2, then skip the calculations
     
     if (mympi_status(MPI_TAG) /= 2) then
@@ -399,6 +510,13 @@ contains
                MPI_COMM_NEW,   & ! communicator
                mympierror)
           
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when sending localcount'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
           ! Receive new source number
           call MPI_Recv (ns1,     & ! address of receive buffer
                1,            & ! number of items to receive
@@ -410,6 +528,13 @@ contains
                MPI_COMM_NEW, & ! communicator
                mympi_status, & ! status
                mympierror)
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when receiving ns1 (2)'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
           
           ! leave this loop if tag equals 2
           if (mympi_status(MPI_TAG) == 2) then
@@ -439,6 +564,13 @@ contains
          7,           & ! tag
          MPI_COMM_NEW,& ! communicator
          mympierror)
+#ifdef MPILOG          
+          if (mympierror /= 0) then 
+             write(logf,*) 'Processor ',rank,' reported MPI error when sending localcount (2)'
+             write(logf,*) MPI_COMM_NEW,mympierror
+             call flush(logf)
+          endif
+#endif
 #endif
 
   end subroutine do_grid_slave
