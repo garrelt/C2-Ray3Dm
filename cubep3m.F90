@@ -25,13 +25,15 @@ module nbody
 
   character(len=10),parameter :: nbody_type="cubep3m"
 
-  real(kind=dp),parameter :: boxsize=114.0  ! Box size in Mpc/h comoving
-  integer,parameter,private :: n_box=6144    ! cells/side (in N-body,fine grid)
+  real(kind=dp),parameter :: boxsize=64.0  ! Box size in Mpc/h comoving
+  integer,parameter,private :: n_box=3456   ! cells/side (in N-body,fine grid)
+  !real(kind=dp),parameter :: boxsize=114.0  ! Box size in Mpc/h comoving
+  !integer,parameter,private :: n_box=6144   ! cells/side (in N-body,fine grid)
 
   character(len=180),parameter,private :: dir_dens_path = "../" 
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  character(len=180),parameter,private :: dir_src_path = "../" 
-  character(len=180),parameter,private :: dir_src_name= "coarser_densities/"
+  character(len=180),parameter,private :: dir_src_path = "./" 
+  character(len=180),parameter,private :: dir_src_name= "sources/"
 
   ! properties of the box:
   ! M_box      - mass in box
@@ -128,11 +130,11 @@ contains
     ! Set identifying string (resolution-dependent)
     ! Construct the file name
     select case (mesh(1))
-       case(256)	
+       case(216,256)	
           id_str="coarsest"
-       case(384) 
+       case(432,384) 
           id_str="coarser"
-       case(512) 
+       case(864,512) 
           id_str="coarse"
        end select
     if (rank == 0) write(unit=logf,fmt=*) "Type of resolution: ",id_str
