@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for handling the data from
+!! the Nbody simulations which provide the basis for C2Ray simulations
+!! of Reionization.
+!! 
+!! \b Author: Garrelt Mellema, Ilian Iliev
+!!
+!! \b Date: 22-May-2008 (previous version was not dated)
+!!
+!! \b Version: PMFAST simulations
+
 module nbody
 
   ! This file contains routine having to do with the PMFAST N-body
@@ -24,37 +35,41 @@ module nbody
 
   implicit none
 
-  character(len=10),parameter :: nbody_type="pmfast"
+  character(len=10),parameter :: nbody_type="pmfast" !< ID of Nbody type
 
   ! Boxsize: change here
-  real(kind=dp),parameter :: boxsize=100.0  ! Box size in Mpc/h comoving
-  integer,parameter,private :: n_box=3248    ! cells/side (in N-body)
+  real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
+  integer,parameter,private :: n_box=3248    !< cells/side (in N-body)
 
-  ! Paths to directories with density and source files: change here
+  !> Path to directory containing directory with density files:
   character(len=180),parameter,private :: dir_dens_path = "../" 
+  !> Name of directory with density files
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  !> Path to directory containing directory with source files:
   character(len=180),parameter,private :: dir_src_path = "../" 
+  !> Name of directory with source files
   character(len=180),parameter,private :: dir_src_name= "coarser_densities/"
 
   ! properties of the box:
   ! M_box      - mass in box
   ! M_particle - mass per particle
-  ! M_grid - mean mass per pmfast cell
-  real(kind=dp),private :: M_box,M_particle
-  real(kind=dp),public :: M_grid
+  ! M_grid - mean mass per grid cell
+  real(kind=dp),private :: M_box !< mass in box
+  real(kind=dp),private :: M_particle !< mass per particle
+  real(kind=dp),public :: M_grid !< mean mass per grid cell
   
   ! redshift sequence information
-  integer, public :: NumZred               ! number of redshifts
-  real(kind=dp),dimension(:),allocatable,public :: zred_array ! array of redshifts
-  integer,dimension(:),allocatable,public :: snap ! array of snapshot numbers
-                                                  ! (for compatibility)
-  character(len=8),public :: id_str       ! resolution dependent string
+  integer, public :: NumZred               !< number of redshifts
+  real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts
+  integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
+  character(len=8),public :: id_str       !< resolution dependent string
 
-  character(len=180),public :: dir_dens, dir_src
-  integer,parameter,public :: tot_nfiles=7 ! number of files at 812^3
+  character(len=180),public :: dir_dens !< Path to directory with density files
+  character(len=180),public :: dir_src !< Path to directory with source files
+  integer,parameter,public :: tot_nfiles=7 !< number of files at 812^3
 
 #ifdef MPI
-  integer,private :: mympierror
+  integer,private :: mympierror !< MPI error flag variable
 #endif
 
 contains

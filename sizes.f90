@@ -1,3 +1,11 @@
+!>
+!! \brief This module contains basic size parameter definitions
+!!
+!! Module for C2-Ray
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 2006-08-20
 module sizes
 
   ! Module for C2-Ray
@@ -12,9 +20,10 @@ module sizes
   implicit none
 
   private
+  !> Number of spatial dimensions
   integer,parameter,public :: Ndim=3
 
-  !Size of the mesh for spatial coordinate.
+  !> Size of the mesh for spatial coordinate.
   !for 3072^3 particles, 6144^3 grid, 114/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 256, 256, 256 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 384, 384, 384 /)
