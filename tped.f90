@@ -29,7 +29,7 @@ contains
   !=======================================================================
 
   !> find temperature from pressure
-  function temper2pressr (temper,ndens,eldens) result(pressr)
+  elemental function temper2pressr (temper,ndens,eldens) result(pressr)
     
     real(kind=dp),intent(in) :: ndens !< number density
     real(kind=dp),intent(in) :: temper !< temperature
@@ -46,7 +46,7 @@ contains
   ! =======================================================================
 
   !> find pressure from temperature
-  function pressr2temper (pressr,ndens,eldens) result(temper)
+  elemental function pressr2temper (pressr,ndens,eldens) result(temper)
 
     real(kind=dp),intent(in) :: pressr !< pressure
     real(kind=dp),intent(in) :: ndens !< number density
@@ -76,7 +76,7 @@ contains
   ! =======================================================================
 
   !> Find number density from mass density
-  function rho2n(rho)
+  elemental function rho2n(rho)
       
     ! Calculates number density from mass density
     
@@ -90,7 +90,7 @@ contains
   ! =======================================================================
 
   !> Find mass density from number density
-  function n2rho(ndens)
+  elemental function n2rho(ndens)
       
     ! Calculates number density from mass density
 
@@ -100,5 +100,6 @@ contains
     n2rho=ndens*m_p*mu
 
   end function n2rho
+
 
 end module tped
