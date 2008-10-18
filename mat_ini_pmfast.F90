@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for handling the material properties on the grid (3D)
+!!
+!! These properties are; density, temperature, clumping, ionization fractions
+!! 
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!!
+!! \b Version: PMFAST simulations
+
 module material
 
   ! This module contains the grid data and routines for initializing them.
@@ -22,12 +33,12 @@ module material
   ! ndens - number density (cm^-3) of a cell
   ! temper - temperature (K) of a cell
   ! xh - ionization fractions for one cell
-  real(kind=dp) :: ndens(mesh(1),mesh(2),mesh(3))
-  real(kind=dp) :: temper
-  real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1)
-  logical isothermal
-  real,public :: clumping
-  real,dimension(:,:,:),allocatable :: clumping_grid
+  real(kind=si) :: ndens(mesh(1),mesh(2),mesh(3)) !< number density (cm^-3) of a cell
+  real(kind=dp) :: temper !< temperature (K) of a cell 
+  real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1) !< ionization fractions for one cell
+  logical isothermal !< isothermal?
+  real,public :: clumping !< clumping factor of cell
+  real,dimension(:,:,:),allocatable :: clumping_grid !< grid of clumping factors
   public :: set_clumping, clumping_point
 
 #ifdef MPI
@@ -38,6 +49,7 @@ contains
 
   ! ============================================================================
 
+  !> Initializes material properties on grid
   subroutine mat_ini (restart, nz0, ierror)
 
     ! Initializes material properties on grid
@@ -125,6 +137,7 @@ contains
 
   ! ===========================================================================
 
+  !> Initializes density on the grid (at redshift zred_now)
   subroutine dens_ini (zred_now,nz)
 
     ! Initializes density on the grid (at redshift zred_now)
@@ -200,7 +213,8 @@ contains
     endif
 #ifdef MPI       
     ! Distribute the density to the other nodes
-    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+    !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
          MPI_COMM_NEW,mympierror)
 #endif
        
@@ -248,6 +262,7 @@ contains
 
   ! ===========================================================================
 
+  !> Initializes ionization fractions on the grid (at redshift zred_now).
   subroutine xfrac_ini (zred_now)
 
     ! Initializes ionization fractions on the grid (at redshift zred_now).
@@ -305,6 +320,7 @@ contains
 
   ! ===========================================================================
 
+  !> Initialize clumping factor
   subroutine set_clumping(z)
 
     real(kind=dp),intent(in) :: z
@@ -329,6 +345,7 @@ contains
 
   ! ===========================================================================
 
+  !> set clumping factor for current cell
   subroutine clumping_point (i,j,k)
 
     integer,intent(in) :: i,j,k
@@ -344,6 +361,7 @@ contains
 
   ! ===========================================================================
 
+  !> Initializes position dependent clumping (at redshift zred_now)
   subroutine clumping_init (zred_now)
 
     ! Initializes position dependent clumping (at redshift zred_now)
