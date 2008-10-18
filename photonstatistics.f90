@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for calculating the photon statistics
+!!
+!! Module for C2-Ray
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date:  26-Feb-2008
+!!
+!! \b Version: 
+
 module photonstatistics
   
   ! This module handles the calculation of the photon statistics
@@ -18,18 +29,35 @@ module photonstatistics
   use material, only: ndens, xh, temper, clumping
   use tped, only: electrondens
 
-  logical,parameter :: do_photonstatistics=.true.
+  !> true if checking photonstatistics
+  logical,parameter :: do_photonstatistics=.true. 
+  !> Total number of recombinations
   real(kind=dp) :: totrec
+  !> Total number of collisional ionizations
   real(kind=dp) :: totcollisions
+  !> Change in number of neutral H atoms
   real(kind=dp) :: dh0
+  !> Total number of ionizing photons used
   real(kind=dp) :: total_ion
+  !> Grand total number of ionizing photons used
   real(kind=dp) :: grtotal_ion
+  !> Number of photons leaving the grid
   real(kind=dp) :: photon_loss
 
-  real(kind=dp),private :: h0_before,h0_after,h1_before,h1_after
-  integer,private :: i,j,k
+  real(kind=dp),private :: h0_before !< number of H atoms at start of time step
+  real(kind=dp),private :: h0_after !< number of H atoms at end of time step
+  real(kind=dp),private :: h1_before !< number of H ions at start of time step
+  real(kind=dp),private :: h1_after !< number of H ions at end of time step
+
+  integer,private :: i !< mesh loop index (x)
+  integer,private :: j !< mesh loop index (y)
+  integer,private :: k !< mesh loop index (z)
 
 contains
+  
+  !----------------------------------------------------------------------------
+
+  !> Initialize the photon statistics
   subroutine initialize_photonstatistics ()
 
     ! set total number of ionizing photons used to zero
@@ -37,6 +65,9 @@ contains
 
   end subroutine initialize_photonstatistics
 
+  !----------------------------------------------------------------------------
+
+  !> Call the individual routines needed for photon statistics calculation
   subroutine calculate_photon_statistics (dt)
 
     real(kind=dp),intent(in) :: dt
@@ -49,6 +80,9 @@ contains
     
   end subroutine calculate_photon_statistics
 
+  !----------------------------------------------------------------------------
+
+  !> Calculate the state at the start of the time step
   subroutine state_before ()
 
     ! Photon statistics: calculate the number of neutrals before integration
@@ -68,12 +102,16 @@ contains
 
   end subroutine state_before
 
+  !----------------------------------------------------------------------------
+
+  !> Calculate (sum) all the rates
   subroutine total_rates(dt)
 
     real(kind=dp),intent(in) :: dt
 
     real(kind=dp),dimension(0:1) :: yh
- 
+    real(kind=dp) :: ndens_p ! needed because ndens may be single precision
+
     ! Photon statistics: Determine total number of recombinations/collisions
     ! Should match the code in doric_module
 
@@ -84,11 +122,12 @@ contains
           do i=1,mesh(1)
              yh(0)=xh(i,j,k,0)
              yh(1)=xh(i,j,k,1)
-             totrec=totrec+ndens(i,j,k)*xh(i,j,k,1)*    &
-                  electrondens(ndens(i,j,k),yh)*  &
+             ndens_p=ndens(i,j,k)
+             totrec=totrec+ndens_p*xh(i,j,k,1)*    &
+                  electrondens(ndens_p,yh)*  &
                   clumping*bh00*(temper/1e4)**albpow
-             totcollisions=totcollisions+ndens(i,j,k)*   &
-                  xh(i,j,k,0)*electrondens(ndens(i,j,k),yh)* &
+             totcollisions=totcollisions+ndens_p*   &
+                  xh(i,j,k,0)*electrondens(ndens_p,yh)* &
                   colh0*sqrt(temper)*exp(-temph0/temper)
           enddo
        enddo
@@ -99,6 +138,9 @@ contains
 
   end subroutine total_rates
   
+  !----------------------------------------------------------------------------
+
+  !> Calculate the state at the end of the time step
   subroutine state_after()
     
     ! Photon statistics: Calculate the number of neutrals after the integration
@@ -117,6 +159,9 @@ contains
     
   end subroutine state_after
   
+  !----------------------------------------------------------------------------
+
+  !> Calculate the total number of ionizing photons used
   subroutine total_ionizations ()
     
     ! Photon statistics: Total number of new ionizations
