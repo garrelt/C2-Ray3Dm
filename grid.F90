@@ -1,3 +1,11 @@
+!>
+!! \brief This module contains data and routines for handling the physical grid (3D)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 20-Aug-2006 (f77 version: 15-Apr-2004)
+!!
+!!
 module grid
 
   use precision, only: dp
@@ -14,16 +22,17 @@ module grid
   ! dr - cell size
   ! x,y,z - x,y,z coordinates
   ! vol - volume of one cell
-  real(kind=dp),dimension(Ndim) :: dr
-  real(kind=dp),dimension(mesh(1)) :: x
-  real(kind=dp),dimension(mesh(2)) :: y
-  real(kind=dp),dimension(mesh(3)) :: z
-  real(kind=dp) :: vol
+  real(kind=dp),dimension(Ndim) :: dr !< cell size
+  real(kind=dp),dimension(mesh(1)) :: x !< spatial coordinate x
+  real(kind=dp),dimension(mesh(2)) :: y !< spatial coordinate y
+  real(kind=dp),dimension(mesh(3)) :: z !< spatial coordinate z
+  real(kind=dp) :: vol !< volume of grid cell
   
 contains
 
   ! =======================================================================
 
+  !> Initializes grid properties
   subroutine grid_ini()
     
     ! Initializes grid properties

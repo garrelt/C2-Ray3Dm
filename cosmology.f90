@@ -1,3 +1,15 @@
+!>
+!! \brief This module contains data and routines for cosmological problems
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 
+!!
+!! This module keeps track of the current redshift
+!!
+
 module cosmology
 
   ! This file contains routines having to do with the cosmological 
@@ -14,22 +26,24 @@ module cosmology
   ! - compton_cool: Compton cooling wrt the CMB.
 
   use precision, only: dp
-  use cosmology_parameters
+  use cosmology_parameters, only: H0,Omega0,cmbtemp
 
   implicit none
 
-  real(kind=dp) :: zred_t0 ! initial redshift
-  real(kind=dp) :: t0      ! time of initial redshift
-  real(kind=dp) :: zred    ! current redshift
-  real(kind=dp),private :: zfactor ! scaling factor between two redshifts
+  real(kind=dp) :: zred_t0 !< initial redshift
+  real(kind=dp) :: t0      !< time of initial redshift
+  real(kind=dp) :: zred    !< current redshift
+  real(kind=dp),private :: zfactor !< scaling factor between two redshifts
 
 contains
   ! =======================================================================
 
+  !> initializes cosmological time and sets lengths and volumes from 
+  !! comoving to proper scaling.
   subroutine cosmology_init (zred0,time)
     
-    real(kind=dp),intent(in) :: zred0
-    real(kind=dp),intent(in) :: time
+    real(kind=dp),intent(in) :: zred0 !< initial redshift
+    real(kind=dp),intent(in) :: time  !< initial time
     
     ! Cosmological time corresponding to (initial) redshift zred0
     ! NOTE: Good only for high-z!!!
@@ -47,7 +61,8 @@ contains
 
   ! =======================================================================
 
-  function time2zred (time)
+  !> Calculates the cosmological redshift for a given time
+  real(kind=dp) function time2zred (time)
 
     ! Calculates the cosmological redshift for a given time
 
@@ -59,7 +74,6 @@ contains
 
     ! History: - 20-Aug-2006, conversion to f90
 
-    real(kind=dp) :: time2zred
     real(kind=dp),intent(in) :: time
 
     ! Calculate the redshift
@@ -71,7 +85,8 @@ contains
 
   ! =======================================================================
 
-  function zred2time (zred1)
+  !> Calculates the time for a given cosmological redshift
+  real(kind=dp) function zred2time (zred1)
 
     ! Calculates the time for a given cosmological redshift
 
@@ -83,7 +98,6 @@ contains
 
     ! History: 
 
-    real(kind=dp) :: zred2time
     real(kind=dp),intent(in) :: zred1
 
     ! Calculate the redshift
@@ -95,6 +109,8 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the cosmological redshift from time
+  !! and the scale factor zfactor for use in cosmo_evol
   subroutine redshift_evol (time)
 
     ! Calculates the cosmological redshift from time
@@ -125,6 +141,8 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the cosmological evolution of space and densities\n
+  !! Changes variables: ndens, r, dr, vol
   subroutine cosmo_evol ()
 
     ! Calculates the cosmological evolution of space and densities
@@ -136,10 +154,10 @@ contains
     ! History:
     ! - 19-Nov-2004: first version f77
 
-    use sizes
-    use grid
+    !use sizes
+    use grid, only: x,y,z,dr,vol
     use sourceprops, only: rsrcpos
-    use material
+    use material, only: ndens
     
     real(kind=dp) :: zfactor3
 
@@ -169,6 +187,7 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the cosmological adiabatic cooling
   real(kind=dp) function cosmo_cool (e_int)
 
     ! Calculates the cosmological adiabatic cooling
@@ -200,6 +219,7 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the (cosmological) Compton cooling rate (against the CMB)
   real(kind=dp) function compton_cool (temper,eldens)
     
     ! Calculates the (cosmological) Compton cooling rate

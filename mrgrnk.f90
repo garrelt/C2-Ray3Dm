@@ -1,3 +1,13 @@
+!>
+!! \brief This module contains data and routines for Merge-sort ranking of an array
+!!
+!! \b Author: ?
+!!
+!! \b Date: 
+!!
+!! \b Version: 
+!!
+
 Module m_mrgrnk
 Integer, Parameter :: kdp = selected_real_kind(15)
 public :: mrgrnk

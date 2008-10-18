@@ -1,3 +1,15 @@
+!>
+!! \brief This module contains data and routines for MPI parallelization
+!!
+!! Module for C2Ray / Capreole (3D)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 2003-06-01
+!!
+!! \b Version: This is a dummy module for systems where there is no MPI for F90.
+!! This module is also accepted by the F compiler (Dec 9, 2003)\n
+
 module my_mpi
 
   ! Module for Capreole (3D)

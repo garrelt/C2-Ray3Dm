@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains routines for calculating the ionization and temperature evolution of the entire grid (3D).
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date:
+!!
+!! \b Version: 3D, OpenMP
+
 module evolve
 
   ! This module contains routines having to do with the calculation of
@@ -31,29 +42,41 @@ module evolve
 
   public :: evolve3D, phih_grid
 
-  ! Has to be true for this version
+  !> Has to be true for this version
   logical,parameter :: periodic_bc = .true.
 
-  ! Minimum number of MPI processes for using the master-slave
-  ! setup 
+  !> Minimum number of MPI processes for using the master-slave setup 
   integer, parameter ::  min_numproc_master_slave=10
 
   ! Grid variables
+  !> Photo-ionization rate on the entire grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
+  !> Time-averaged ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
+  !> Intermediate result for ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
+  !> Column density (outgoing)
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
+  !> Buffer for MPI communication
   !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  !> Buffer for MPI communication
   real(kind=dp),dimension(mesh(1),mesh(2)) :: buffer2
+  !> Photon loss from the grid
   real(kind=dp) :: photon_loss_all
 
   ! mesh positions of end points for RT
-  integer :: ilast1, ilast2, jlast1, jlast2, klast1, klast2 
+  integer :: ilast1 !< mesh position of left x end point for RT
+  integer :: ilast2 !< mesh position of right x end point for RT
+  integer :: jlast1 !< mesh position of left y end point for RT
+  integer :: jlast2 !< mesh position of right y end point for RT
+  integer :: klast1 !< mesh position of left z end point for RT
+  integer :: klast2 !< mesh position of rightz end point for RT
 
 contains
 
   ! =======================================================================
   
+  !> Evolve the entire grid over a time step dt
   subroutine evolve3D (dt)
 
     ! Calculates the evolution of the hydrogen ionization state
@@ -81,7 +104,7 @@ contains
     use  m_ctrper, only: ctrper
 
     ! The time step
-    real(kind=dp),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt  !< time step
 
     ! Loop variables
     integer :: i,j,k  ! mesh position
@@ -577,13 +600,15 @@ contains
 
   ! ===========================================================================
 
+  !> Does the ray-tracing over the sources by distributing
+  !! the sources evenly over the available MPI processes-
   subroutine do_grid_static (dt,niter)
 
     ! Does the ray-tracing over the sources by distributing
     ! the sources evenly over the available MPI processes-
     
-    real(kind=dp),intent(in) :: dt ! passed on to evolve0D
-    integer,intent(in) :: niter    ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer,intent(in) :: niter !< interation counter, passed on to evolve0D
 
     integer :: ns1
 
@@ -596,14 +621,16 @@ contains
 
   ! ===========================================================================
 
+  !> Does the ray-tracing over the entire 3D grid for one source.
+  !! The number of this source in the current list is ns1.
   subroutine do_source(dt,ns1,niter)
 
     ! Does the ray-tracing over the entire 3D grid for one source.
     ! The number of this source in the current list is ns1.
 
-    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
-    integer, intent(in) :: ns1
-    integer,intent(in) :: niter        ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer, intent(in) :: ns1 !< number of the source being done
+    integer,intent(in) :: niter !< interation counter, passed on to evolve0D
     integer :: naxis,nplane,nquadrant
     integer :: ns
     integer :: k
@@ -673,11 +700,10 @@ contains
 
   ! ===========================================================================
 
+  ! Ray tracing for the axes going through the source point
+  ! should be called after having done the source point
   subroutine evolve1D_axis(dt,ns,niter,naxis)
 
-    ! find column density for the axes going through the source point
-    ! should be called after having done the source point
-    
     real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
     integer,intent(in) :: ns           ! current source
     integer,intent(in) :: niter        ! passed on to evolve0D
@@ -738,6 +764,8 @@ contains
 
   ! ===========================================================================
 
+  !> Ray tracing for planes containing the source point
+  !! should be called after evolve1D_axis
   subroutine evolve2D_plane(dt,ns,niter,nplane)
 
     ! find column density for the axes going through the source point
@@ -881,6 +909,8 @@ contains
 
   ! ===========================================================================
 
+  !> Ray tracing for the 8 octants 
+  !! should be called after evolve2D_plane
   subroutine evolve3D_quadrant(dt,ns,niter,nquadrant)
 
     ! find column density for a z-plane srcpos(3) by sweeping in x and y
@@ -996,6 +1026,8 @@ contains
 
   !=======================================================================
 
+  !> Calculates the photo-ionization rate for one cell due to one source
+  !! and adds this contribution to the collective rate.
   subroutine evolve0D(dt,rtpos,ns,niter)
     
     ! Calculates the photo-ionization rate for one cell due to one source
@@ -1215,6 +1247,8 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the evolution of the hydrogen ionization state for
+  !! one cell (pos) and multiple sources.
   subroutine evolve0D_global(dt,pos,conv_flag)
 
     ! Calculates the evolution of the hydrogen ionization state for
@@ -1335,6 +1369,10 @@ contains
 
   ! ===========================================================================
 
+  !> Finds the column density at pos as seen from the source point srcpos
+  !! through interpolation. The interpolation
+  !! depends on the orientation of the ray. The ray crosses either
+  !! a z-plane, a y-plane or an x-plane.
   subroutine cinterp (pos,srcpos,cdensi,path)
     
     ! Author: Garrelt Mellema
@@ -1594,6 +1632,7 @@ contains
 
   ! =========================================================================
 
+  !> Weight function for interpolation in cinterp
   real(kind=dp) function weightf (cd)
 
     use cgsphotoconstants, only: sigh

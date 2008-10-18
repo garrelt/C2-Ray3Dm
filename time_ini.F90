@@ -1,3 +1,12 @@
+!>
+!! \brief This module handles the time variables
+!!
+!! Module for C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 20-Aug-2006
+!<
 module times
 
   ! This module handles the time variables
@@ -10,13 +19,16 @@ module times
 
   implicit none
 
-  integer :: number_timesteps
-  integer :: number_outputs
+  integer :: number_timesteps !< Number of time steps between redshift slices
+  integer :: number_outputs !< Number of outputs between redshift slices
   
 contains
 
   ! =======================================================================
 
+  !>
+  !!  Initializes the module variables
+  !<
   subroutine time_ini( )
     
     ! Initializes number of time steps per frame (integration and output)
@@ -53,6 +65,9 @@ contains
 
   !=======================================================================
 
+  !>
+  !!  Sets the time steps for the interval zred0-zred_end
+  !<
   subroutine set_timesteps (zred0,zred_end,end_time,dt,output_dt)
 
     ! Sets time steps for calculation and outputting
@@ -61,11 +76,11 @@ contains
 
     ! Date: 20-Aug-2006 (f77: 19-May-2005)
 
-    real(kind=dp),intent(in) :: zred0
-    real(kind=dp),intent(in) :: zred_end
-    real(kind=dp),intent(out) :: end_time
-    real(kind=dp),intent(out) :: dt
-    real(kind=dp),intent(out) :: output_dt
+    real(kind=dp),intent(in) :: zred0 !< starting redshift
+    real(kind=dp),intent(in) :: zred_end !< ending redshift
+    real(kind=dp),intent(out) :: end_time !< end time
+    real(kind=dp),intent(out) :: dt !< time step
+    real(kind=dp),intent(out) :: output_dt !< output time step
 
     real(kind=dp) :: current_time
 

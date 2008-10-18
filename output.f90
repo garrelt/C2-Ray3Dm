@@ -1,3 +1,6 @@
+!>
+!! \brief This module contains routines for file output
+
 module output_module
   
   ! This file contains routines having to do with the output
@@ -15,16 +18,17 @@ module output_module
   
   private
 
-  integer,parameter :: max_input_streams=5
-  integer,dimension(max_input_streams) :: streams
+  integer,parameter :: max_input_streams=5 !< maximum number of input streams
+  integer,dimension(max_input_streams) :: streams !< flag array for input streams
 
-  real(kind=dp) :: grtotalsrc
+  real(kind=dp) :: grtotalsrc !< grand total of photons put in
 
   public :: setup_output, output, close_down
 
 contains
   !----------------------------------------------------------------------------
 
+  !> Initializes output streams
   subroutine setup_output ()
     
     ! Sets up output stream
@@ -84,6 +88,8 @@ contains
   end subroutine setup_output
   
   !-----------------------------------------------------------------------------
+
+  !> Closes down output streams
   subroutine close_down ()
     
     ! Closes down
@@ -99,6 +105,7 @@ contains
   
   !----------------------------------------------------------------------------
 
+  !> Produce output for a time frame
   subroutine output(zred_now,time,dt)
 
     ! Simple output routine.

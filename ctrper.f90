@@ -1,3 +1,12 @@
+!>
+!! \brief This module contains data and routines for permuting arrays randomly, but leaving elements close to their initial locations
+!!
+!! \b Author:  Michel Olagnon
+!!
+!! \b Date: May 2000
+!!
+!! \b Version: 
+!!
 Module m_ctrper
 Use m_mrgrnk
 Private

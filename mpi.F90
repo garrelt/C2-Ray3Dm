@@ -1,3 +1,17 @@
+!>
+!! \brief This module contains data and routines for MPI parallelization
+!!
+!! Module for C2Ray / Capreole (3D)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 2008-06-01
+!!
+!! \b Version: True MPI (no dummy). Also reports on OpenMP parallelization.
+!! Log files for nodes 1 and higher are called 'log.n', so node 0 it is
+!! 'C2Ray.log'.
+!! This module is also accepted by the F compiler (Dec 9, 2003)\n
+
 module my_mpi
 
   ! Module for Capreole (3D)

@@ -1,3 +1,10 @@
+!>
+!! \brief Main program for C2Ray-3Dm (3D, multiple sources)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 22-May-2008
+!<
 Program C2Ray
 
   ! Authors: Garrelt Mellema, Ilian Iliev
@@ -51,10 +58,18 @@ Program C2Ray
 #endif
 
   ! Start and end time for CPU report
-  real :: tstart,tend
-  integer :: cntr1,cntr2,countspersec
+  real :: tstart !< Start time for CPU report
+  real :: tend !< End time for CPU report
 
-  integer :: restart,nz,flag, nz0, ierror
+  ! Wall clock time variables
+  integer :: cntr1 !< Start time wall clock
+  integer :: cntr2 !< End time wall clock
+  integer :: countspersec !< counts per second (for wall clock time)
+
+  integer :: restart !< restart flag
+  integer :: nz !< loop counter for loop over redshift list
+  integer :: nz0 !< index of starting redshift from redshift list
+  integer :: ierror !< error flag
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
@@ -62,16 +77,20 @@ Program C2Ray
   ! end_time - end time of calculation (s)
   ! output_time - time interval between outputs (s)
   ! next_output_time - time of next output (s)
-  real(kind=dp) :: end_time,sim_time,output_time,next_output_time
-  real(kind=dp) :: dt,actual_dt
-  real(kind=dp) :: zred_interm
+  real(kind=dp) :: end_time !< end time of the simulation (s)
+  real(kind=dp) :: sim_time !< actual time (s)
+  real(kind=dp) :: output_time !< time interval between outputs (s)
+  real(kind=dp) :: next_output_time !< time of next output (s)
+  real(kind=dp) :: dt !< calculated time step
+  real(kind=dp) :: actual_dt !< actual time step (s)
+  real(kind=dp) :: zred_interm !< intermediate redshift (for restart)
 
 #ifdef MPI
   integer :: mympierror
 #endif
 
   ! Input file
-  character(len=512) :: inputfile
+  character(len=512) :: inputfile !< name of input file
 
   ! Initialize cpu timer
   call cpu_time(tstart)
