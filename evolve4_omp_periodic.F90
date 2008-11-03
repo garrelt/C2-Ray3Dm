@@ -65,12 +65,8 @@ module evolve
   real(kind=dp) :: photon_loss_all
 
   ! mesh positions of end points for RT
-  integer :: ilast1 !< mesh position of left x end point for RT
-  integer :: ilast2 !< mesh position of right x end point for RT
-  integer :: jlast1 !< mesh position of left y end point for RT
-  integer :: jlast2 !< mesh position of right y end point for RT
-  integer :: klast1 !< mesh position of left z end point for RT
-  integer :: klast2 !< mesh position of rightz end point for RT
+  integer,dimension(Ndim) :: lastpos_l !< mesh position of left end point for RT
+  integer,dimension(Ndim) :: lastpos_r !< mesh position of right end point for RT
 
 contains
 
@@ -648,19 +644,11 @@ contains
     
     ! Find the mesh position for the end points of the loop
     if (periodic_bc) then
-       ilast1=srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
-       jlast1=srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-       klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-       ilast2=srcpos(1,ns)-mesh(1)/2
-       jlast2=srcpos(2,ns)-mesh(2)/2
-       klast2=srcpos(3,ns)-mesh(3)/2
+       lastpos_r(:)=srcpos(:,ns)+mesh(:)/2-1+mod(mesh(:),2)
+       lastpos_l(:)=srcpos(:,ns)-mesh(:)/2
     else
-       ilast1=mesh(1)
-       jlast1=mesh(2)
-       klast1=mesh(3)
-       ilast2=1
-       jlast2=1
-       klast2=1
+       lastpos_r(:)=mesh(:)
+       lastpos_l(:)=1
     endif
 
     ! Loop through grid in the order required by short characteristics
@@ -716,14 +704,14 @@ contains
     case(1)
        ! sweep in +i direction
        pos(2:3)=srcpos(2:3,ns)
-       do i=srcpos(1,ns)+1,ilast1
+       do i=srcpos(1,ns)+1,lastpos_r(1)
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) !# `positive' i
        enddo
     case(2)
        ! sweep in -i direction
        pos(2:3)=srcpos(2:3,ns)
-       do i=srcpos(1,ns)-1,ilast2,-1
+       do i=srcpos(1,ns)-1,lastpos_l(1),-1
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) !# `negative' i
        end do
@@ -731,7 +719,7 @@ contains
        ! sweep in +j direction
        pos(1)=srcpos(1,ns)
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)+1,jlast1
+       do j=srcpos(2,ns)+1,lastpos_r(2)
           pos(2)=j
           call evolve0D(dt,pos,ns,niter) !# `positive' j
        end do
@@ -739,21 +727,21 @@ contains
        ! sweep in -j direction
        pos(1)=srcpos(1,ns)
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)-1,jlast2,-1
+       do j=srcpos(2,ns)-1,lastpos_l(2),-1
           pos(2)=j
           call evolve0D(dt,pos,ns,niter) !# `negative' j
        end do
     case(5)
        ! sweep in +k direction
        pos(1:2)=srcpos(1:2,ns)
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
           call evolve0D(dt,pos,ns,niter) !# `positive' k
        end do
     case(6)
        ! sweep in -k direction
        pos(1:2)=srcpos(1:2,ns)
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
           call evolve0D(dt,pos,ns,niter) !# `negative' k
        end do
@@ -784,9 +772,9 @@ contains
     case(1)
        ! sweep in +i,+j direction
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)+1,jlast1
+       do j=srcpos(2,ns)+1,lastpos_r(2)
           pos(2)=j
-          do i=srcpos(1,ns)+1,ilast1
+          do i=srcpos(1,ns)+1,lastpos_r(1)
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -794,9 +782,9 @@ contains
     case(2)
        ! sweep in +i,-j direction
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)-1,jlast2,-1
+       do j=srcpos(2,ns)-1,lastpos_l(2),-1
           pos(2)=j
-          do i=srcpos(1,ns)+1,ilast1
+          do i=srcpos(1,ns)+1,lastpos_r(1)
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -804,9 +792,9 @@ contains
     case(3)
        ! sweep in -i,+j direction
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)+1,jlast1
+       do j=srcpos(2,ns)+1,lastpos_r(2)
           pos(2)=j
-          do i=srcpos(1,ns)-1,ilast2,-1
+          do i=srcpos(1,ns)-1,lastpos_l(1),-1
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -814,9 +802,9 @@ contains
     case(4)
        ! sweep in -i,-j direction
        pos(3)=srcpos(3,ns)
-       do j=srcpos(2,ns)-1,jlast2,-1
+       do j=srcpos(2,ns)-1,lastpos_l(2),-1
           pos(2)=j
-          do i=srcpos(1,ns)-1,ilast2,-1
+          do i=srcpos(1,ns)-1,lastpos_l(1),-1
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -824,9 +812,9 @@ contains
     case(5)
        ! sweep in +i,+k direction
        pos(2)=srcpos(2,ns)
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do i=srcpos(1,ns)+1,ilast1
+          do i=srcpos(1,ns)+1,lastpos_r(1)
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -834,9 +822,9 @@ contains
     case(6)
        ! sweep in -i,+k direction
        pos(2)=srcpos(2,ns)
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do i=srcpos(1,ns)-1,ilast2,-1
+          do i=srcpos(1,ns)-1,lastpos_l(1),-1
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -844,9 +832,9 @@ contains
     case(7)
        ! sweep in -i,-k direction
        pos(2)=srcpos(2,ns)
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do i=srcpos(1,ns)-1,ilast2,-1
+          do i=srcpos(1,ns)-1,lastpos_l(1),-1
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -854,9 +842,9 @@ contains
     case(8)
        ! sweep in +i,-k direction
        pos(2)=srcpos(2,ns)
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do i=srcpos(1,ns)+1,ilast1
+          do i=srcpos(1,ns)+1,lastpos_r(1)
              pos(1)=i
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -864,9 +852,9 @@ contains
     case(9) 
        ! sweep in +j,+k direction
        pos(1)=srcpos(1,ns)
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -874,9 +862,9 @@ contains
     case(10) 
        ! sweep in -j,+k direction
        pos(1)=srcpos(1,ns)
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -884,9 +872,9 @@ contains
     case(11) 
        ! sweep in +j,-k direction
        pos(1)=srcpos(1,ns)
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -894,9 +882,9 @@ contains
     case(12) 
        ! sweep in -j,-k direction
        pos(1)=srcpos(1,ns)
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
              call evolve0D(dt,pos,ns,niter)
           enddo
@@ -926,11 +914,11 @@ contains
     select case (nquadrant)
     case (1)
        ! sweep in +i,+j,+k direction
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
-             do i=srcpos(1,ns)+1,ilast1
+             do i=srcpos(1,ns)+1,lastpos_r(1)
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter)
              end do
@@ -938,11 +926,11 @@ contains
        enddo
     case (2)
        ! sweep in -i,+j,+k direction
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
-             do i=srcpos(1,ns)-1,ilast2,-1
+             do i=srcpos(1,ns)-1,lastpos_l(1),-1
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -950,11 +938,11 @@ contains
        enddo
     case (3)
        ! sweep in +i,-j,+k direction
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
-             do i=srcpos(1,ns)+1,ilast1
+             do i=srcpos(1,ns)+1,lastpos_r(1)
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -962,11 +950,11 @@ contains
        enddo
     case(4)
        ! sweep in -i,-j,+k direction
-       do k=srcpos(3,ns)+1,klast1
+       do k=srcpos(3,ns)+1,lastpos_r(3)
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
-             do i=srcpos(1,ns)-1,ilast2,-1
+             do i=srcpos(1,ns)-1,lastpos_l(1),-1
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -974,11 +962,11 @@ contains
        enddo
     case (5)
        ! sweep in +i,+j,-k direction
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
-             do i=srcpos(1,ns)+1,ilast1
+             do i=srcpos(1,ns)+1,lastpos_r(1)
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `positive' i
              end do
@@ -986,11 +974,11 @@ contains
        enddo
     case (6)
        ! sweep in -i,+j,-k direction
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)+1,jlast1
+          do j=srcpos(2,ns)+1,lastpos_r(2)
              pos(2)=j
-             do i=srcpos(1,ns)-1,ilast2,-1
+             do i=srcpos(1,ns)-1,lastpos_l(1),-1
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -998,11 +986,11 @@ contains
        enddo
     case (7)
        ! sweep in +i,-j,-k direction
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
-             do i=srcpos(1,ns)+1,ilast1
+             do i=srcpos(1,ns)+1,lastpos_r(1)
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -1010,11 +998,11 @@ contains
        enddo
     case(8)
        ! sweep in -i,-j,-k direction
-       do k=srcpos(3,ns)-1,klast2,-1
+       do k=srcpos(3,ns)-1,lastpos_l(3),-1
           pos(3)=k
-          do j=srcpos(2,ns)-1,jlast2,-1
+          do j=srcpos(2,ns)-1,lastpos_l(2),-1
              pos(2)=j
-             do i=srcpos(1,ns)-1,ilast2,-1
+             do i=srcpos(1,ns)-1,lastpos_l(1),-1
                 pos(1)=i
                 call evolve0D(dt,pos,ns,niter) !# `negative' i
              end do
@@ -1231,15 +1219,8 @@ contains
          phih_grid(pos(1),pos(2),pos(3))+phi%h
 
     ! Photon statistics: register number of photons leaving the grid
-    if ( (any(rtpos(:) == srcpos(:,ns)-1-mesh(:)/2)) .or. &
-         (any(rtpos(:) == srcpos(:,ns)+mesh(:)/2)) ) then
-    !if ( &
-    !     (rtpos(1) == srcpos(1,ns)-1-mesh(1)/2).or. &
-    !     (rtpos(1) == srcpos(1,ns)+mesh(1)/2).or. &
-    !     (rtpos(2) == srcpos(2,ns)-1-mesh(2)/2).or. &
-    !     (rtpos(2) == srcpos(2,ns)+mesh(2)/2).or. &
-    !     (rtpos(3) == srcpos(3,ns)-1-mesh(3)/2).or. &
-    !     (rtpos(3) == srcpos(3,ns)+mesh(3)/2)) then
+    if ( (any(rtpos(:) == lastpos_l(:))) .or. &
+         (any(rtpos(:) == lastpos_r(:))) ) then
        photon_loss=photon_loss + phi%h_out*vol/vol_ph
     endif
 

@@ -65,12 +65,8 @@ module evolve
   real(kind=dp) :: photon_loss_all
 
   ! mesh positions of end points for RT
-  integer :: ilast1 !< mesh position of left x end point for RT
-  integer :: ilast2 !< mesh position of right x end point for RT
-  integer :: jlast1 !< mesh position of left y end point for RT
-  integer :: jlast2 !< mesh position of right y end point for RT
-  integer :: klast1 !< mesh position of left z end point for RT
-  integer :: klast2 !< mesh position of rightz end point for RT
+  integer,dimension(Ndim) :: lastpos_l !< mesh position of left end point for RT
+  integer,dimension(Ndim) :: lastpos_r !< mesh position of right end point for RT
 
 contains
 
@@ -524,19 +520,11 @@ contains
     
     ! Find the mesh position for the end points of the loop
     if (periodic_bc) then
-       ilast1=srcpos(1,ns)+mesh(1)/2-1+mod(mesh(1),2)
-       jlast1=srcpos(2,ns)+mesh(2)/2-1+mod(mesh(2),2)
-       klast1=srcpos(3,ns)+mesh(3)/2-1+mod(mesh(3),2)
-       ilast2=srcpos(1,ns)-mesh(1)/2
-       jlast2=srcpos(2,ns)-mesh(2)/2
-       klast2=srcpos(3,ns)-mesh(3)/2
+       lastpos_r(:)=srcpos(:,ns)+mesh(:)/2-1+mod(mesh(:),2)
+       lastpos_l(:)=srcpos(:,ns)-mesh(:)/2
     else
-       ilast1=mesh(1)
-       jlast1=mesh(2)
-       klast1=mesh(3)
-       ilast2=1
-       jlast2=1
-       klast2=1
+       lastpos_r(:)=mesh(:)
+       lastpos_l(:)=1
     endif
     
     ! Loop through grid in the order required by 
@@ -544,13 +532,13 @@ contains
     
     ! 1. transfer in the upper part of the grid 
     !    (srcpos(3)-plane and above)
-    do k=srcpos(3,ns),klast1
+    do k=srcpos(3,ns),lastpos_r(3)
        pos(3)=k
        call evolve2D(dt,pos,ns,niter)
     end do
     
     ! 2. transfer in the lower part of the grid (below srcpos(3))
-    do k=srcpos(3,ns)-1,klast2,-1
+    do k=srcpos(3,ns)-1,lastpos_l(3),-1
        pos(3)=k
        call evolve2D(dt,pos,ns,niter)
     end do
@@ -575,26 +563,26 @@ contains
     integer :: i,j ! mesh positions
 
     ! sweep in `positive' j direction
-    do j=srcpos(2,ns),jlast1
+    do j=srcpos(2,ns),lastpos_r(2)
        pos(2)=j
-       do i=srcpos(1,ns),ilast1
+       do i=srcpos(1,ns),lastpos_r(1)
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) ! `positive' i
        end do
-       do i=srcpos(1,ns)-1,ilast2,-1
+       do i=srcpos(1,ns)-1,lastpos_l(1),-1
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) ! `negative' i
        end do
     end do
     
     ! sweep in `negative' j direction
-    do j=srcpos(2,ns)-1,jlast2,-1
+    do j=srcpos(2,ns)-1,lastpos_l(2),-1
        pos(2)=j
-       do i=srcpos(1,ns),ilast1
+       do i=srcpos(1,ns),lastpos_r(1)
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) ! `positive' i
        end do
-       do i=srcpos(1,ns)-1,ilast2,-1
+       do i=srcpos(1,ns)-1,lastpos_l(1),-1
           pos(1)=i
           call evolve0D(dt,pos,ns,niter) ! `negative' i
        end do
@@ -809,15 +797,8 @@ contains
          phih_grid(pos(1),pos(2),pos(3))+phi%h
 
     ! Photon statistics: register number of photons leaving the grid
-    if ( (any(rtpos(:) == srcpos(:,ns)-1-mesh(:)/2)) .or. &
-         (any(rtpos(:) == srcpos(:,ns)+mesh(:)/2)) ) then
-    !if ( &
-    !     (rtpos(1) == srcpos(1,ns)-1-mesh(1)/2).or. &
-    !     (rtpos(1) == srcpos(1,ns)+mesh(1)/2).or. &
-    !     (rtpos(2) == srcpos(2,ns)-1-mesh(2)/2).or. &
-    !     (rtpos(2) == srcpos(2,ns)+mesh(2)/2).or. &
-    !     (rtpos(3) == srcpos(3,ns)-1-mesh(3)/2).or. &
-    !     (rtpos(3) == srcpos(3,ns)+mesh(3)/2)) then
+    if ( (any(rtpos(:) == lastpos_l(:))) .or. &
+         (any(rtpos(:) == lastpos_r(:))) ) then
        photon_loss=photon_loss + phi%h_out*vol/vol_ph
     endif
 
