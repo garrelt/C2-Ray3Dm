@@ -107,7 +107,7 @@ contains
           write(logf,*) "Number of suppressable sources: ",NumSupprbleSrc
           write(logf,*) "Number of suppressed sources: ",NumSupprsdSrc
           write(logf,*) "Number of massive sources: ",NumMassiveSrc
-          write(logf,*) "Suppressed fraction: ", &
+          if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
                real(NumSupprsdSrc)/real(NumSupprbleSrc)
        else
           ! Upon restart use the previously calculated suppressed source
