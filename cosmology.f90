@@ -26,7 +26,8 @@ module cosmology
   ! - compton_cool: Compton cooling wrt the CMB.
 
   use precision, only: dp
-  use cosmology_parameters, only: H0,Omega0,cmbtemp
+  use cosmology_parameters, only: H0,Omega0,cmbtemp,cosmo_id
+  use file_admin, only: logf
 
   implicit none
 
@@ -44,6 +45,11 @@ contains
     
     real(kind=dp),intent(in) :: zred0 !< initial redshift
     real(kind=dp),intent(in) :: time  !< initial time
+    
+    ! Report cosmological parameter set used
+    if (rank == 0) then
+       write(logf,*) "Cosmology used: ",trim(adjustl(cosmo_id))
+    endif
     
     ! Cosmological time corresponding to (initial) redshift zred0
     ! NOTE: Good only for high-z!!!
@@ -80,7 +86,6 @@ contains
     ! NOTE: Good only for high-z!!!
     time2zred = -1+(1.+zred_t0)*(t0/(t0+time))**(2./3.)
 
-    return
   end function time2zred
 
   ! =======================================================================
@@ -104,7 +109,6 @@ contains
     ! NOTE: Good only for high-z!!!
     zred2time = t0*( ((1.0+zred_t0)/(1.0+zred1))**1.5 - 1.0 )
 
-    return
   end function zred2time
 
   ! =======================================================================

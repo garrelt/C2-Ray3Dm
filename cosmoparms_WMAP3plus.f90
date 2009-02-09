@@ -23,6 +23,7 @@ module cosmology_parameters
   implicit none
 
   ! WMAP3+; Note: Omega_lambda=1-Omega_0 and for this model sigma8=0.8, n_s=0.96.
+  character(len=10),parameter :: cosmo_id="WMAP3+"
 
   real(kind=dp),parameter :: h=0.7 !< Hubble constant (in 100 km/s/Mpc)
   !real(kind=dp),parameter :: Omega0=0.238 !< Total matter density (in critical density)

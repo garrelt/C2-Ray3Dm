@@ -70,6 +70,7 @@ Program C2Ray
   integer :: nz !< loop counter for loop over redshift list
   integer :: nz0 !< index of starting redshift from redshift list
   integer :: ierror !< error flag
+  integer :: photcons_flag !< photon conservation flag, non-zero if photon conservation is violated. This stops the simulation
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
@@ -218,14 +219,18 @@ Program C2Ray
             
         ! Write output
         if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
-           call output(time2zred(sim_time),sim_time,dt)
+           call output(time2zred(sim_time),sim_time,dt,photcons_flag)
            next_output_time=next_output_time+output_time
+           if (photcons_flag =/ 0) exit ! photon conservation violated
         endif
+        ! end time for this redshift interval reached
         if (abs(sim_time-end_time) <= 1e-6*end_time) exit
         if (rank == 0) call flush(logf)
      enddo
 
-     ! stop
+     ! Get out: photon conservation violated
+     if (photcons_flag =/ 0) exit ! photon conservation violated
+
      ! Scale to the current redshift
      if (cosmological) then
         call redshift_evol(sim_time)
@@ -236,7 +241,7 @@ Program C2Ray
 
   ! Write final output
 
-  call output(zred,sim_time,dt)
+  if (photcons_flag == 0) call output(zred,sim_time,dt,photcons_flag)
 
   call close_down ()
   

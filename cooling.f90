@@ -56,7 +56,6 @@ contains
     coolin=nucldens*eldens* &
          (cie_cool(itpos)+(cie_cool(itpos1)-cie_cool(itpos))*dtpos)
     
-    return
   end function coolin
   
   !===========================================================================
@@ -85,7 +84,6 @@ contains
        cie_cool(itemp)=10.0d0**cie_cool(itemp)
     enddo
 
-    return
   end subroutine setup_cool
   
 end module radiative_cooling

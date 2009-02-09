@@ -13,6 +13,8 @@ module cosmology_parameters
 
   ! WMAP3
 
+  character(len=10),parameter :: cosmo_id="WMAP3"
+
   real(kind=dp),parameter :: h=0.73 ! Hubble constant (in 100 km/s/Mpc)
   !real(kind=dp),parameter :: Omega0=0.238 ! Total matter density (in critical density)
   real(kind=dp),parameter :: Omega0=0.24 ! Total matter density (in critical density)

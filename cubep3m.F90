@@ -50,6 +50,18 @@ module nbody
   !> Name of directory with source files
   character(len=180),parameter,private :: dir_src_name= "sources/"
 
+  !> Format of density file (unformatted or binary)
+  character(len=15),parameter :: densityformat="binary"
+  !> Format of clumping file (unformatted or binary)
+  character(len=15),parameter :: densityformat="binary"
+  !> density file with header?
+  logical,parameter :: densityheader=.true.
+  !> clumping file with header?
+  logical,parameter :: clumpingheader=.false.
+  !> unit of density in density file
+  !! can be "grid", "particle", "M0Mpc3"
+  character(len=20),parameter :: density_unit="grid"
+
   ! properties of the box:
   ! M_box      - mass in box
   ! M_particle - mass per particle
