@@ -249,7 +249,6 @@ contains
     call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
 
-    return
   end subroutine source_properties
 
 end module sourceprops

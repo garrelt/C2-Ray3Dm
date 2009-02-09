@@ -747,7 +747,6 @@ contains
        end do
     end select
     
-    return
   end subroutine evolve1D_axis
 
   ! ===========================================================================
@@ -892,7 +891,6 @@ contains
        
     end select
     
-    return
   end subroutine evolve2D_plane
 
   ! ===========================================================================
@@ -1009,7 +1007,7 @@ contains
           end do
        enddo
     end select
-    return
+
   end subroutine evolve3D_quadrant
 
   !=======================================================================
@@ -1608,7 +1606,6 @@ contains
        
     end if
     
-    return
   end subroutine cinterp
 
   ! =========================================================================
@@ -1629,7 +1626,6 @@ contains
 
     ! weightf=1.0/log(max(e_ln,cd))
 
-    return
   end function weightf
 
 end module evolve

@@ -122,7 +122,6 @@ contains
     !if (xfh_av(0).lt.epsilon.and.abs(xfh_av(0)).lt.1.0e-10) xfh_av(0)=epsilon
     if (xfh_av(0) < epsilon) xfh_av(0)=epsilon
     
-    return
   end subroutine doric
   
   ! =======================================================================

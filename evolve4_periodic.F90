@@ -1169,7 +1169,6 @@ contains
        
     end if
     
-    return
   end subroutine cinterp
 
   ! =========================================================================
@@ -1190,7 +1189,6 @@ contains
 
     ! weightf=1.0/log(max(e_ln,cd))
 
-    return
   end function weightf
 
 end module evolve

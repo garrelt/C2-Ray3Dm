@@ -132,7 +132,7 @@ contains
     !write(*,*) srcpos
     !write(*,*) rsrcpos
     !write(*,*) NormFlux*S_star_nominal
-    return
+
   end subroutine source_properties
 
 end module sourceprops

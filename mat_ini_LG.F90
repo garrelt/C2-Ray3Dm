@@ -234,7 +234,7 @@ contains
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
             " cm^-3" 
        write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
-            rho_crit_0/(mu*m_p)*Omega_B, &
+            rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
        write(logf,"(A,1pe10.3)")"calculated at z=", zred_now	 
     endif

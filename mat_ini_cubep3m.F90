@@ -14,6 +14,7 @@ module material
   use cgsconstants, only: m_p
   use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
   use nbody, only: nbody_type, M_grid, id_str, dir_dens, NumZred, Zred_array
+  use nbody, only: densityformat, densityheader, clumpingheader, density_unit
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -170,19 +171,21 @@ contains
             " density input from ",trim(dens_file)
        
        ! Open density file: note that it is in `binary" form
-       open(unit=20,file=dens_file,form="binary",status="old")
+       open(unit=20,file=dens_file,form=densityformat,status="old")
        
        ! Read in data
-       read(20) m1,m2,m3
-       if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-          write(logf,*) "Warning: file with ionization fractions unusable"
-          write(logf,*) "mesh found in file: ",m1,m2,m3
-       else
-          ! Read in data and store it in ndens
-          read(20) ndens_real
-          ndens(:,:,:)=ndens_real(:,:,:)
+       if (densityheader) then
+          read(20) m1,m2,m3
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with ionization fractions unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
        endif
-
+       ! Read in data and store it in ndens
+       read(20) ndens_real
+       ndens(:,:,:)=ndens_real(:,:,:)
+          
        ! close file
        close(20)
        
@@ -195,21 +198,19 @@ contains
          MPI_COMM_NEW,mympierror)
 #endif
        
-    ! Report on data: min, max, total
-    if (rank == 0) then
-       write(logf,*) "Raw density diagnostics (in simulation units)"
-       write(logf,*) "minimum density: ",minval(ndens)/8.
-       write(logf,*) "maximum density: ",maxval(ndens)/8.
-       write(logf,*) "summed density:  ",sum(ndens)/8.
-    endif
-
     ! The original values in terms of the mean density
     ! Below is the conversion factor
     ! vol is redshift dependent, that is why we need to recalculate this
-    ! M_particle should be in g
-    !convert=M_particle*M_solar/vol*Omega_B/Omega0/(mu*m_p)
-    convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
-
+    ! M_particle and M_grid should be in g
+    select case(density_unit)
+    case ("grid")
+       convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
+    case ("particle")
+       convert=M_particle*Omega_B/Omega0/(mu*m_p)/vol
+    case ("M0Mpc3")
+       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+    end select
+    
     ! Assign density to the grid
     do k=1,mesh(3)
        do j=1,mesh(2)
@@ -224,14 +225,17 @@ contains
     ! Find summed and average density
     avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
     
-    ! Report average density
+    ! Report density field properties
     if (rank == 0) then
+       write(logf,*) "Raw density diagnostics (cm^-3)"
+       write(logf,*) "minimum density: ",minval(ndens)
+       write(logf,*) "maximum density: ",maxval(ndens)
        write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
        write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
             " cm^-3" 
        write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
-            rho_crit_0/(mu*m_p)*Omega_B, &
+            rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
     endif
 
@@ -356,6 +360,7 @@ contains
     real(kind=dp),intent(in) :: zred_now
     
     integer :: i,j,k,n,nfile ! loop counters
+    integer :: m1,m2,m3 ! size of mesh in clumping file (header)
     character(len=512):: clump_file
     character(len=6) :: zred_str
     character(len=1) :: nfile_str
@@ -379,8 +384,17 @@ contains
             "clump_"//trim(adjustl(id_str))//".dat"
        
        ! Open clumping file: note that it is in `binary" form
-       open(unit=20,file=clump_file,form="binary",status="old")
+       open(unit=20,file=clump_file,form=clumpingformat,status="old")
        
+       ! Read in data
+       if (clumpingheader) then
+          read(20) m1,m2,m3
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with ionization fractions unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
+       endif
        ! Read in data and store it in clumping_grid
        read(20) clumping_real
        clumping_grid(:,:,:)=clumping_real(:,:,:)

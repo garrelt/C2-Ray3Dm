@@ -106,7 +106,7 @@ contains
   !----------------------------------------------------------------------------
 
   !> Produce output for a time frame
-  subroutine output(zred_now,time,dt)
+  subroutine output(zred_now,time,dt,photcons_flag)
 
     ! Simple output routine.
 
@@ -131,14 +131,23 @@ contains
     use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=dp),intent(in) :: zred_now,time,dt
+    integer,intent(out) :: photcons_flag
 
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=dp) :: totalsrc
+    real(kind=dp) :: totalsrc,photcons
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
 
+#ifdef MPI
+    integer :: mympierror
+#endif
+
+    ! Set photon conservation flag to zero on all processors
+    photcons_flag=0
+
+    ! Only produce output on rank 0
     if (rank == 0) then
        ! Stream 1
        if (streams(1).eq.1) then
@@ -250,10 +259,11 @@ contains
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
           grtotal_ion=grtotal_ion+total_ion-totcollisions
           grtotalsrc=grtotalsrc+totalsrc
+          photcons=(total_ion-totcollisions)/totalsrc
           if (time.gt.0.0) then
              write(90,"(f6.3,6(1pe10.3))") &
                   zred_now, &
-                  (total_ion-totcollisions)/totalsrc, &
+                  photcons, &
                   dh0/total_ion, &
                   totrec/total_ion, &
                   photon_loss/total_ion, &
@@ -265,10 +275,14 @@ contains
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
           write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc,volfrac,massfrac
 
+          if (abs(1.0-photcons) > 0.15) photcons_flag=1
        endif
     endif
     
-    return
+#ifdef MPI
+     call MPI_BCAST(photcons_flag,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+#endif
+
   end subroutine output
 
 end module output_module

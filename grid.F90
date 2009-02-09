@@ -110,7 +110,6 @@ contains
     ! Scalar version
     vol=dr(1)*dr(2)*dr(3)
     
-    return
   end subroutine grid_ini
   
 end module grid

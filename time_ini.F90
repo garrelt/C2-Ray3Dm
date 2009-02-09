@@ -60,7 +60,6 @@ contains
     call MPI_BCAST(number_outputs,1,MPI_INTEGER,0,MPI_COMM_NEW,ierror)
 #endif
     
-    return
   end subroutine time_ini
 
   !=======================================================================
@@ -94,7 +93,6 @@ contains
     ! Convert to time 
     output_dt=(end_time-current_time)/real(number_outputs)
 
-    return
   end subroutine set_timesteps
 
 end module times
