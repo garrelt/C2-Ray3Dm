@@ -38,6 +38,7 @@ module nbody
 
   real(kind=dp),parameter :: boxsize=64.0  !< Box size in Mpc/h comoving
   integer,parameter,private :: n_box=3456   !< cells/side (in N-body,fine grid)
+
   !real(kind=dp),parameter :: boxsize=114.0  !< Box size in Mpc/h comoving
   !integer,parameter,private :: n_box=6144   !< cells/side (in N-body,fine grid)
 
@@ -45,6 +46,7 @@ module nbody
   character(len=180),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
   !> Path to directory containing directory with source files:
   character(len=180),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
@@ -53,9 +55,9 @@ module nbody
   !> Format of density file (unformatted or binary)
   character(len=15),parameter :: densityformat="binary"
   !> Format of clumping file (unformatted or binary)
-  character(len=15),parameter :: densityformat="binary"
+  character(len=15),parameter :: clumpingformat="binary"
   !> density file with header?
-  logical,parameter :: densityheader=.true.
+  logical,parameter :: densityheader=.false.
   !> clumping file with header?
   logical,parameter :: clumpingheader=.false.
   !> unit of density in density file
@@ -67,7 +69,7 @@ module nbody
   ! M_particle - mass per particle
   ! M_grid - mean mass per pmfast cell
   real(kind=dp),private :: M_box !< mass in box
-  real(kind=dp),private :: M_particle !< mass per particle
+  real(kind=dp),public :: M_particle !< mass per particle
   real(kind=dp),public :: M_grid !< mean mass per grid cell
   
   ! redshift sequence information
