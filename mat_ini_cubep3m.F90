@@ -12,9 +12,10 @@ module material
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
-  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
-  use nbody, only: nbody_type, M_grid, id_str, dir_dens, NumZred, Zred_array
-  use nbody, only: densityformat, densityheader, clumpingheader, density_unit
+  use astroconstants, only: M_solar, Mpc
+  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0,h
+  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
+  use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -167,6 +168,7 @@ contains
        dens_file=trim(adjustl(dir_dens))// &
             trim(adjustl(zred_str))// &
             "rho_"//trim(adjustl(id_str))//".dat"
+            !"n_all.dat"
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
             " density input from ",trim(dens_file)
        
@@ -177,7 +179,7 @@ contains
        if (densityheader) then
           read(20) m1,m2,m3
           if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-             write(logf,*) "Warning: file with ionization fractions unusable"
+             write(logf,*) "Warning: file with densities unusable"
              write(logf,*) "mesh found in file: ",m1,m2,m3
              stop
           endif
