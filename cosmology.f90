@@ -26,6 +26,7 @@ module cosmology
   ! - compton_cool: Compton cooling wrt the CMB.
 
   use precision, only: dp
+  use my_mpi
   use cosmology_parameters, only: H0,Omega0,cmbtemp,cosmo_id
   use file_admin, only: logf
 
