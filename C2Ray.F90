@@ -221,7 +221,7 @@ Program C2Ray
         if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
            call output(time2zred(sim_time),sim_time,dt,photcons_flag)
            next_output_time=next_output_time+output_time
-           if (photcons_flag =/ 0) exit ! photon conservation violated
+           if (photcons_flag /= 0) exit ! photon conservation violated
         endif
         ! end time for this redshift interval reached
         if (abs(sim_time-end_time) <= 1e-6*end_time) exit
@@ -229,7 +229,7 @@ Program C2Ray
      enddo
 
      ! Get out: photon conservation violated
-     if (photcons_flag =/ 0) exit ! photon conservation violated
+     if (photcons_flag /= 0) exit ! photon conservation violated
 
      ! Scale to the current redshift
      if (cosmological) then
