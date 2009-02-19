@@ -36,8 +36,11 @@ module nbody
 
   character(len=10),parameter :: nbody_type="cubep3m" !< ID of Nbody type
 
-  real(kind=dp),parameter :: boxsize=64.0  !< Box size in Mpc/h comoving
-  integer,parameter,private :: n_box=3456   !< cells/side (in N-body,fine grid)
+  real(kind=dp),parameter :: boxsize=37.0  !< Box size in Mpc/h comoving
+  integer,parameter,private :: n_box=2048   !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=64.0  !< Box size in Mpc/h comoving
+  !integer,parameter,private :: n_box=3456   !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=114.0  !< Box size in Mpc/h comoving
   !integer,parameter,private :: n_box=6144   !< cells/side (in N-body,fine grid)
@@ -45,8 +48,8 @@ module nbody
   !> Path to directory containing directory with density files:
   character(len=180),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
-  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
+  !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
   !> Path to directory containing directory with source files:
   character(len=180),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
@@ -57,9 +60,9 @@ module nbody
   !> Format of clumping file (unformatted or binary)
   character(len=15),parameter :: clumpingformat="binary"
   !> density file with header?
-  logical,parameter :: densityheader=.false.
+  logical,parameter :: densityheader=.true.
   !> clumping file with header?
-  logical,parameter :: clumpingheader=.false.
+  logical,parameter :: clumpingheader=.true.
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
   character(len=20),parameter :: density_unit="grid"
@@ -159,14 +162,26 @@ contains
 
     ! Set identifying string (resolution-dependent)
     ! Construct the file name
-    select case (mesh(1))
-       case(216,256)	
+    select case (int(boxsize))
+    case (37, 64)
+       select case (n_box/mesh(1))
+       case(16)	
           id_str="coarsest"
-       case(432,384) 
+       case(8) 
           id_str="coarser"
-       case(864,512) 
+       case(4) 
           id_str="coarse"
        end select
+    case(114)
+       select case (n_box/mesh(1))
+       case(24)	
+          id_str="coarsest"
+       case(16) 
+          id_str="coarser"
+       case(12) 
+          id_str="coarse"
+       end select
+    end select
     if (rank == 0) write(unit=logf,fmt=*) "Type of resolution: ",id_str
 
   end subroutine nbody_ini
