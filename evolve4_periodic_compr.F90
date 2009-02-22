@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains routines for calculating the ionization and temperature evolution of the entire grid (3D).
+!!
+!! Module for Capreole / C2-Ray (f90)
+!!
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date:
+!!
+!! \b Version: 3D, no OpenMP, memory efficient (compressed ionization fractions)
+
 module evolve
 
   ! This module contains routines having to do with the calculation of
@@ -32,19 +43,25 @@ module evolve
 
   public :: evolve3D, phih_grid
 
-  ! Has to be true for this version
+  !> Periodic boundary conditions, has to be true for this version
   logical,parameter :: periodic_bc = .true.
 
-  ! Minimum number of MPI processes for using the master-slave
-  ! setup 
+  !> Minimum number of MPI processes for using the master-slave setup 
   integer, parameter ::  min_numproc_master_slave=10
 
   ! Grid variables
+
+  !> Photo-ionization rate on the entire grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
+  !> Time-averaged ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: xh_av_compr
+  !> Intermediate result for ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: xh_im_compr
+  !> Column density (outgoing)
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
+  !> Buffer for MPI communication
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  !> Photon loss from the grid
   real(kind=dp) :: photon_loss_all
 
   ! mesh positions of end points for RT
@@ -54,7 +71,8 @@ module evolve
 contains
 
   ! =======================================================================
-  
+
+  !> Evolve the entire grid over a time step dt
   subroutine evolve3D (dt)
 
     ! Calculates the evolution of the hydrogen ionization state
@@ -82,7 +100,7 @@ contains
     use  m_ctrper, only: ctrper
 
     ! The time step
-    real(kind=dp),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt !< time step
 
     ! Loop variables
     integer :: i,j,k  ! mesh position
@@ -202,7 +220,6 @@ contains
           write(logf,*) "Intermediate result for mean ionization fraction: ", &
                sum(ionized_from_compr(xh_im_compr(:,:,:)))/ &
                real(mesh(1)*mesh(2)*mesh(3))
-          !sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        endif
 
        ! Update xh if converged and exit
@@ -225,14 +242,17 @@ contains
 
   ! ===========================================================================
   
+  !> Ray tracing the entire grid for all the sources using the
+  !! master-slave model for distributing the sources over the
+  !! MPI processes.
   subroutine do_grid_master_slave (dt,niter)
 
     ! Ray tracing the entire grid for all the sources using the
     ! master-slave model for distributing the sources over the
     ! MPI processes.
 
-    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
-    integer,intent(in) :: niter        ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer,intent(in) :: niter !< iteration counter, passed on to evolve0D
 
     if (rank == 0) then
        call do_grid_master ()
@@ -244,6 +264,8 @@ contains
 
   ! ===========================================================================
 
+  !> The master task in the master-slave setup for distributing
+  !! the ray-tracing over the sources over the MPI processes.
   subroutine do_grid_master ()
 
     ! The master task in the master-slave setup for distributing
@@ -345,13 +367,15 @@ contains
 
   ! ===========================================================================
 
+  !> The slave task in the master-slave setup for distributing
+  !! the ray-tracing over the sources over the MPI processes.
   subroutine do_grid_slave(dt,niter)
 
     ! The slave task in the master-slave setup for distributing
     ! the ray-tracing over the sources over the MPI processes.
 
-    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
-    integer,intent(in) :: niter        ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer,intent(in) :: niter !< iteration counter, passed on to evolve0D
 
     integer :: local_count
     integer :: ns1
@@ -449,13 +473,15 @@ contains
 
   ! ===========================================================================
 
+  !> Does the ray-tracing over the sources by distributing
+  !! the sources evenly over the available MPI processes-
   subroutine do_grid_static (dt,niter)
 
     ! Does the ray-tracing over the sources by distributing
     ! the sources evenly over the available MPI processes-
     
-    real(kind=dp),intent(in) :: dt ! passed on to evolve0D
-    integer,intent(in) :: niter    ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer,intent(in) :: niter !< interation counter, passed on to evolve0D
 
     integer :: ns1
 
@@ -468,14 +494,16 @@ contains
 
   ! ===========================================================================
 
+  !> Does the ray-tracing over the entire 3D grid for one source.
+  !! The number of this source in the current list is ns1.
   subroutine do_source(dt,ns1,niter)
 
     ! Does the ray-tracing over the entire 3D grid for one source.
     ! The number of this source in the current list is ns1.
 
-    real(kind=dp),intent(in) :: dt  ! passed on to evolve0D
-    integer, intent(in) :: ns1
-    integer,intent(in) :: niter        ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
+    integer, intent(in) :: ns1 !< number of the source being done
+    integer,intent(in) :: niter !< iteration counter, passed on to evolve0D
 
     integer :: ns
     integer :: k
@@ -520,16 +548,18 @@ contains
 
   ! ===========================================================================
 
+  !> Traverse a z-plane (z=pos(3)) by sweeping in the x and y
+  !! directions.
   subroutine evolve2D(dt,pos,ns,niter)
 
     ! Traverse a z-plane (z=pos(3)) by sweeping in the x and y
     ! directions.
     
-    real(kind=dp),intent(in) :: dt      ! passed on to evolve0D
-    integer,dimension(Ndim),intent(inout) :: pos ! mesh position, pos(3) is
-                                                 ! intent(in)
-    integer,intent(in) :: ns           ! current source
-    integer,intent(in) :: niter        ! passed on to evolve0D
+    real(kind=dp),intent(in) :: dt      !! passed on to evolve0D
+    integer,dimension(Ndim),intent(inout) :: pos !< mesh position, pos(3) is
+                                                 !! intent(in)
+    integer,intent(in) :: ns           !< current source
+    integer,intent(in) :: niter        !< passed on to evolve0D
 
     integer :: i,j ! mesh positions
 
@@ -563,6 +593,8 @@ contains
 
   !=======================================================================
 
+  !> Calculates the photo-ionization rate for one cell due to one source
+  !! and adds this contribution to the collective rate.
   subroutine evolve0D(dt,rtpos,ns,niter)
     
     ! Calculates the photo-ionization rate for one cell due to one source
@@ -631,10 +663,6 @@ contains
     yh0(1)=ionized_from_compr(xh_compr(pos(1),pos(2),pos(3)))
     yh_av(0)=neutral_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))
     yh_av(1)=ionized_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))
-    !do nx=0,1
-       !yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
-       !yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx)
-    !enddo
 
     ! Initialize local density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -742,15 +770,6 @@ contains
             ionized_to_compr(max(yh_av(1), &
             ionized_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))))
 
-       !xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
-       !     xh_intermed(pos(1),pos(2),pos(3),1))
-       !xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
-       !     xh_intermed(pos(1),pos(2),pos(3),1)
-       !xh_av(pos(1),pos(2),pos(3),1)=max(yh_av(1), &
-       !     xh_av(pos(1),pos(2),pos(3),1))
-       !xh_av(pos(1),pos(2),pos(3),0)=1.0- &
-       !     xh_av(pos(1),pos(2),pos(3),1)
-
     endif ! end of niter == 1 and column density test
 
     ! For niter > 1, only ray trace and exit. Do not touch the ionization
@@ -786,6 +805,8 @@ contains
 
   ! =======================================================================
 
+  !> Calculates the evolution of the hydrogen ionization state for
+  !! one cell (pos) and multiple sources.
   subroutine evolve0D_global(dt,pos,conv_flag)
 
     ! Calculates the evolution of the hydrogen ionization state for
@@ -833,11 +854,6 @@ contains
     yh(:)=yh0(:)
     yh_av(0)=neutral_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))
     yh_av(1)=ionized_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))
-    !do nx=0,1
-    !   yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
-    !   yh(nx)=yh0(nx)
-    !   yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx) ! use calculated xh_av
-    !enddo
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -895,7 +911,6 @@ contains
     ! Test for global convergence using the time-averaged neutral fraction.
     ! For low values of this number assume convergence
     yh_av0=neutral_from_compr(xh_av_compr(pos(1),pos(2),pos(3)))
-    !yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
     if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
          (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
          (yh_av(0) > convergence_frac))) then
@@ -905,15 +920,15 @@ contains
     ! Copy ion fractions to the global arrays.
     xh_im_compr(pos(1),pos(2),pos(3))=neutral_to_compr(yh(0))
     xh_av_compr(pos(1),pos(2),pos(3))=neutral_to_compr(yh_av(0))
-    !do nx=0,1
-    !   xh_intermed(pos(1),pos(2),pos(3),nx)=yh(nx)
-    !   xh_av(pos(1),pos(2),pos(3),nx)=yh_av(nx)
-    !enddo
 
   end subroutine evolve0D_global
 
   ! ===========================================================================
 
+  !> Finds the column density at pos as seen from the source point srcpos
+  !! through interpolation. The interpolation
+  !! depends on the orientation of the ray. The ray crosses either
+  !! a z-plane, a y-plane or an x-plane.
   subroutine cinterp (pos,srcpos,cdensi,path)
     
     ! Author: Garrelt Mellema
@@ -932,11 +947,11 @@ contains
     ! depends on the orientation of the ray. The ray crosses either
     ! a z-plane, a y-plane or an x-plane.
     
-    integer,dimension(Ndim),intent(in) :: pos
-    integer,dimension(Ndim),intent(in) :: srcpos
-    real(kind=dp),intent(out) :: cdensi
-    real(kind=dp),intent(out) :: path
-
+    integer,dimension(Ndim),intent(in) :: pos !< cell position (mesh)
+    integer,dimension(Ndim),intent(in) :: srcpos !< source position (mesh)
+    real(kind=dp),intent(out) :: cdensi !< column density to cell
+    real(kind=dp),intent(out) :: path !< path length over cell
+ 
     real(kind=dp),parameter :: sqrt3=sqrt(3.0)
     real(kind=dp),parameter :: sqrt2=sqrt(2.0)
 
@@ -1155,6 +1170,7 @@ contains
 
   ! =========================================================================
 
+  !> Weight function for interpolation in cinterp
   real(kind=dp) function weightf (cd)
 
     use cgsphotoconstants, only: sigh
