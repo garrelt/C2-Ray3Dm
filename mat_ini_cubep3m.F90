@@ -13,7 +13,7 @@ module material
   use grid, only: vol
   use cgsconstants, only: m_p
   use astroconstants, only: M_solar, Mpc
-  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0,h
+  use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
   use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
   use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit
   use abundances, only: mu

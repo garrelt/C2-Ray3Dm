@@ -76,10 +76,11 @@ OPENMP_FLAGS = -openmp # For Intel compiler
 #PGIFLAGS = -O3 -fast -DPGI
 #F90FLAGS1 = -tp barcelona-64  $(PGIFLAGS) # ranger processors
 
-#F90FLAGS = $(F90FLAGS1) -mp -DMPI
-#F90FLAGS = $(F90FLAGS1) -DMPI #-DMPILOG
-#F90FLAGS = $(F90FLAGS1) -mp
-#F90FLAGS = $(F90FLAGS1)
+# These flags should be added to the F90FLAGS1 depending on the executable
+# made. Specify this below on a per executable basis.
+#MPI_FLAGS = -DMPI 
+#MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
+#OPENMP_FLAGS = -mp 
 
 #-------------------------------------------------------
 
