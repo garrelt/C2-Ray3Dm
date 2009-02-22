@@ -260,8 +260,8 @@ contains
           ! added the number of photons lost from the grid. Since
           ! this number was divided by the number of cells, we
           ! multiply by this again.
-          total_ion=total_ion + &
-               photon_loss*real(mesh(1))*real(mesh(2))*real(mesh(3))
+          photon_loss=photon_loss*real(mesh(1))*real(mesh(2))*real(mesh(3))
+          total_ion=total_ion + photon_loss
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
           grtotal_ion=grtotal_ion+total_ion-totcollisions
           grtotalsrc=grtotalsrc+totalsrc
