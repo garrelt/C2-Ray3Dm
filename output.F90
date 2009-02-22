@@ -255,7 +255,13 @@ contains
        ! Check if we are tracking photon conservation
        if (do_photonstatistics) then
           ! Photon Statistics
-          total_ion=total_ion!+photon_loss
+          ! total_ion is the total number of new ionization, plus
+          ! the total number of recombinations, and here is also
+          ! added the number of photons lost from the grid. Since
+          ! this number was divided by the number of cells, we
+          ! multiply by this again.
+          total_ion=total_ion + &
+               photon_loss*real(mesh(1))*real(mesh(2))*real(mesh(3))
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
           grtotal_ion=grtotal_ion+total_ion-totcollisions
           grtotalsrc=grtotalsrc+totalsrc
@@ -273,7 +279,8 @@ contains
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
-          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc,volfrac,massfrac
+          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc, &
+               volfrac,massfrac
 
           if (abs(1.0-photcons) > 0.15) photcons_flag=1
        endif
