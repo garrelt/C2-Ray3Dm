@@ -5,9 +5,9 @@
 !! 
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!! \b Date: 22-Feb-2009 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
 !!
-!! \b Version: PMFAST simulations
+!! \b Version: cubep3m simulations, with compressed ionization fractions
 
 module material
 
@@ -23,8 +23,10 @@ module material
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
-  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
-  use nbody, only: nbody_type, M_grid, id_str, dir_dens, tot_nfiles
+  use astroconstants, only: M_solar, Mpc
+  use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
+  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
+  use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -32,7 +34,7 @@ module material
 
   ! ndens - number density (cm^-3) of a cell
   ! temper - temperature (K) of a cell
-  ! xh - ionization fractions for one cell
+  ! xh_compr - compressed ionization fractions for one cell
   real(kind=si) :: ndens(mesh(1),mesh(2),mesh(3)) !< number density (cm^-3) of a cell
   real(kind=dp) :: temper !< temperature (K) of a cell 
   real(kind=dp) :: xh_compr(mesh(1),mesh(2),mesh(3)) !< ionization fractions for one cell
@@ -54,9 +56,9 @@ contains
 
     ! Initializes material properties on grid
 
-    ! Author: Garrelt Mellema
+    ! Authors: Garrelt Mellema, Ilian Iliev
 
-    ! Date: 20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+    ! Date: 30-Jan-2008 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f)))
 
     ! Version: 
     ! - Three-dimensional. 
@@ -80,8 +82,10 @@ contains
 
     ierror=0
     ! Check consistency with nbody module
-    if (nbody_type /= "pmfast") then
+    if (nbody_type /= "cubep3m") then
        write(logf,*) "Error: wrong material module was compiled."
+       write(logf,*) "       Expected cubep3m, but got", &
+            trim(adjustl(nbody_type))
        ierror=1
     else
        ! restart
@@ -129,7 +133,6 @@ contains
        ! Assign ionization fractions (completely neutral)
        ! In case of a restart this will be overwritten in xfrac_ini
        xh_compr(:,:,:)=neutral_to_compr(1.0_dp)
-       !xh(:,:,:,1)=0.0
 
     endif
 
@@ -142,9 +145,9 @@ contains
 
     ! Initializes density on the grid (at redshift zred_now)
 
-    ! Author: Garrelt Mellema
+    ! Authors: Garrelt Mellema, Ilian Iliev
 
-    ! Date: 20-Aug-2006 (19-May-2005 (8-mar-2005, 23-Nov-2004, 02-Jun-2004))
+    ! Date: 30-Jan-2008 (20-Aug-2006 (19-May-2005 (8-mar-2005, 23-Nov-2004, 02-Jun-2004)))
 
     ! Version: 
     ! - Three-dimensional. 
@@ -164,6 +167,7 @@ contains
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
     real(kind=dp) :: avg_dens
+    integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
     real(kind=si),dimension(:,:,:),allocatable :: ndens_real
@@ -171,69 +175,56 @@ contains
     if (rank == 0) then
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
-       if (id_str /= "coarse") then
-          ! Allocate array needed to read in data
-          allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
-          dens_file=trim(adjustl(dir_dens))// &
-               trim(adjustl(zred_str))// &
-               "rho_"//trim(adjustl(id_str))//".dat"
-          write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-               " density input from ",trim(dens_file)
-          
-          ! Open density file: note that it is in `binary" form
-          open(unit=20,file=dens_file,form="binary",status="old")
-          
-          ! Read in data and store it in ndens
-          read(20) ndens_real
-          ndens(:,:,:)=ndens_real(:,:,:)
-          
-          ! close file
-          close(20)
-
-          ! Deallocate array needed for reading in the data.
-          deallocate(ndens_real)
-       else
-          ! For the highest resolution the density is spread out
-          ! over tot_nfiles. Otherwise the same.
-          allocate(ndens_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
-          do nfile=0,tot_nfiles-1
-             write(nfile_str,"(I1)") nfile
-             dens_file=trim(adjustl(dir_dens))// &
-                  trim(adjustl(zred_str))// &
-                  "rho_c"//nfile_str//".dat"
-             open(unit=20,file=dens_file,form="binary",status="old")
-             read(20) ndens_real
-             ndens(:,:, &
-                  1+nfile*(mesh(3)/tot_nfiles): &
-                  (1+nfile)*(mesh(3)/tot_nfiles))=ndens_real(:,:,:)
-             close(20)
-          enddo
-          deallocate(ndens_real)
+       ! Allocate array needed to read in data
+       allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
+       dens_file=trim(adjustl(dir_dens))// &
+            trim(adjustl(zred_str))// &
+            "rho_"//trim(adjustl(id_str))//".dat"
+            !"n_all.dat"
+       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
+            " density input from ",trim(dens_file)
+       
+       ! Open density file: note that it is in `binary" form
+       open(unit=20,file=dens_file,form=densityformat,status="old")
+       
+       ! Read in data
+       if (densityheader) then
+          read(20) m1,m2,m3
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with densities unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
        endif
+       ! Read in data and store it in ndens
+       read(20) ndens_real
+       ndens(:,:,:)=ndens_real(:,:,:)
+          
+       ! close file
+       close(20)
+       
+       ! Deallocate array needed for reading in the data.
+       deallocate(ndens_real)
     endif
 #ifdef MPI       
     ! Distribute the density to the other nodes
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
          MPI_COMM_NEW,mympierror)
-    !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
-    !     MPI_COMM_NEW,mympierror)
 #endif
        
-    ! Report on data: min, max, total
-    if (rank == 0) then
-       write(logf,*) "Raw density diagnostics (in simulation units)"
-       write(logf,*) "minimum density: ",minval(ndens)/8.
-       write(logf,*) "maximum density: ",maxval(ndens)/8.
-       write(logf,*) "summed density:  ",sum(ndens)/8.
-    endif
-
     ! The original values in terms of the mean density
     ! Below is the conversion factor
     ! vol is redshift dependent, that is why we need to recalculate this
-    ! M_particle should be in g
-    !convert=M_particle*M_solar/vol*Omega_B/Omega0/(mu*m_p)
-    convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
-
+    ! M_particle and M_grid should be in g
+    select case(density_unit)
+    case ("grid")
+       convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
+    case ("particle")
+       convert=M_particle*Omega_B/Omega0/(mu*m_p)/vol
+    case ("M0Mpc3")
+       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+    end select
+    
     ! Assign density to the grid
     do k=1,mesh(3)
        do j=1,mesh(2)
@@ -248,14 +239,17 @@ contains
     ! Find summed and average density
     avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
     
-    ! Report average density
+    ! Report density field properties
     if (rank == 0) then
+       write(logf,*) "Raw density diagnostics (cm^-3)"
+       write(logf,*) "minimum density: ",minval(ndens)
+       write(logf,*) "maximum density: ",maxval(ndens)
        write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
        write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
             " cm^-3" 
        write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
-            rho_crit_0/(mu*m_p)*Omega_B, &
+            rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
     endif
 
@@ -263,7 +257,6 @@ contains
 
   ! ===========================================================================
 
-  !> Initializes ionization fractions on the grid (at redshift zred_now).
   subroutine xfrac_ini (zred_now)
 
     ! Initializes ionization fractions on the grid (at redshift zred_now).
@@ -285,7 +278,9 @@ contains
     if (rank == 0) then
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
        write(zred_str,"(f6.3)") zred_now
+!       xfrac_file= "./xfrac3d_"//trim(adjustl(zred_str))//".bin"
        xfrac_file= trim(adjustl(results_dir))// &
+            !"Ifront3_"//trim(adjustl(zred_str))//".bin"
             "xfrac3d_"//trim(adjustl(zred_str))//".bin"
 
        write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
@@ -319,7 +314,6 @@ contains
 
   ! ===========================================================================
 
-  !> Initialize clumping factor
   subroutine set_clumping(z)
 
     real(kind=dp),intent(in) :: z
@@ -344,7 +338,6 @@ contains
 
   ! ===========================================================================
 
-  !> set clumping factor for current cell
   subroutine clumping_point (i,j,k)
 
     integer,intent(in) :: i,j,k
@@ -360,7 +353,6 @@ contains
 
   ! ===========================================================================
 
-  !> Initializes position dependent clumping (at redshift zred_now)
   subroutine clumping_init (zred_now)
 
     ! Initializes position dependent clumping (at redshift zred_now)
@@ -379,6 +371,7 @@ contains
     real(kind=dp),intent(in) :: zred_now
     
     integer :: i,j,k,n,nfile ! loop counters
+    integer :: m1,m2,m3 ! size of mesh in clumping file (header)
     character(len=512):: clump_file
     character(len=6) :: zred_str
     character(len=1) :: nfile_str
@@ -394,48 +387,34 @@ contains
     if (rank == 0) then
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
-       if (id_str == "coarsest") then
-          ! Allocate array needed to read in data
-          allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
-          write(30,*) "Reading ",id_str," input"
-          clump_file=trim(adjustl(dir_dens))// &
-               trim(adjustl(zred_str))// &
-               "clump_"//trim(adjustl(id_str))//".dat"
-          
-          ! Open clumping file: note that it is in `binary" form
-          open(unit=20,file=clump_file,form="binary",status="old")
-          
-          ! Read in data and store it in clumping_grid
-          read(20) clumping_real
-          clumping_grid(:,:,:)=clumping_real(:,:,:)
-          
-          ! close file
-          close(20)
-
-          ! Deallocate array needed for reading in the data.
-          deallocate(clumping_real)
-
-       else if (id_str == "coarser") then
-          ! For the highest resolution the density is spread out
-          ! over tot_nfiles. Otherwise the same.
-          allocate(clumping_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
-          do nfile=0,tot_nfiles-1
-             write(nfile_str,"(I1)") nfile
-             clump_file=trim(adjustl(dir_dens))// &
-                  trim(adjustl(zred_str))// &
-                  "clump"//nfile_str//".dat"
-             write(30,*) clump_file
-             open(unit=20,file=clump_file,form="binary",status="old")
-             read(20) clumping_real
-             clumping_grid(:,:, &
-                  1+nfile*(mesh(3)/tot_nfiles): &
-                  (1+nfile)*(mesh(3)/tot_nfiles))=clumping_real(:,:,:)
-             close(20)
-          enddo
-          deallocate(clumping_real)
-       else!812^3 run
-          print*,"Cannot do that, data unavailable"!for 812^3 runs just use the 406^3 values in each 2x2x2? 
+       ! Allocate array needed to read in data
+       allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
+       write(30,*) "Reading ",id_str," input"
+       clump_file=trim(adjustl(dir_dens))// &
+            trim(adjustl(zred_str))// &
+            "clump_"//trim(adjustl(id_str))//".dat"
+       
+       ! Open clumping file: note that it is in `binary" form
+       open(unit=20,file=clump_file,form=clumpingformat,status="old")
+       
+       ! Read in data
+       if (clumpingheader) then
+          read(20) m1,m2,m3
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with ionization fractions unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
        endif
+       ! Read in data and store it in clumping_grid
+       read(20) clumping_real
+       clumping_grid(:,:,:)=clumping_real(:,:,:)
+       
+       ! close file
+       close(20)
+       
+       ! Deallocate array needed for reading in the data.
+       deallocate(clumping_real)
     endif
 
 #ifdef MPI       

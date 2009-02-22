@@ -7,7 +7,7 @@
 !!
 !! \b Date: 30-Jan-2008
 !!
-!! \b Version: PMFAST Nbody simulation, with source suppression and compressed ionization fractions
+!! \b Version: cubep3m Nbody simulation, with source suppression and compressed ionization fractions
 
 module sourceprops
 
@@ -23,29 +23,23 @@ module sourceprops
   use c2ray_parameters, only: phot_per_atom1, phot_per_atom2, lifetime, &
        S_star_nominal, StillNeutral
 
-  implicit none
+  integer :: NumSrc 
+  integer,dimension(:,:),allocatable :: srcpos
+  real(kind=dp),dimension(:,:),allocatable :: rsrcpos
+  real(kind=dp),dimension(:),allocatable :: srcMass
+  real(kind=dp),dimension(:),allocatable :: NormFlux
+  integer,dimension(:),allocatable :: srcSeries
 
-  integer :: NumSrc !< Number of sources
-  integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
-  real(kind=dp),dimension(:,:),allocatable :: rsrcpos !< grid position of sources
-  real(kind=dp),dimension(:),allocatable :: srcMass !< masses of sources
-  real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
-  integer,dimension(:),allocatable :: srcSeries !< a randomized list of sources
-
-  integer,private :: NumSrc0=0 !< intermediate source count
-  integer,dimension(3),private :: srcpos0 
-  real(kind=dp),private :: srcMass00 !< mass of high mass sources (one source)
-  real(kind=dp),private :: srcMass01 !< mass of low mass sources (one source)
-  character(len=6) :: z_str !< string value of redshift
-  integer,private :: NumMassiveSrc !< counter: number of massive sources
-  integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
-  integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
+  integer,private :: NumSrc0=0
+  integer,dimension(3),private :: srcpos0
+  real(kind=dp),private :: srcMass00,srcMass01
+  character(len=6) :: z_str 
+  integer,private :: NumMassiveSrc,NumSupprbleSrc,NumSupprsdSrc
 
 contains
   
   ! =======================================================================
 
-  !> Read in source list and set source positions and luminosities
   subroutine source_properties(zred_now,nz,lifetime2,restart)
 
     ! Input routine: establish the source properties
@@ -55,10 +49,10 @@ contains
     ! For random permutation of sources
     use  m_ctrper
 
-    real(kind=dp),intent(in) :: zred_now !< current redshift
-    real(kind=dp),intent(in) :: lifetime2 !< time step
-    integer,intent(in) :: nz !< number of redshift in redshift list
-    integer,intent(in) :: restart !< non-zero if restart
+    real(kind=dp),intent(in) :: zred_now ! current redshift
+    real(kind=dp),intent(in) :: lifetime2 ! time step
+    integer,intent(in) :: nz
+    integer,intent(in) :: restart
 
     character(len=512) :: sourcelistfile,sourcelistfilesuppress
     integer :: ns,ns0
