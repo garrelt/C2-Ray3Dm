@@ -19,8 +19,8 @@ module cgsphotoconstants
   use precision, only: dp
   use cgsconstants
 
-  !> Helium ionization potentials (eV)
-  real(kind=dp), dimension(0:1),parameter :: ethe=(/24.587,54.416/)
+  !	!> Helium ionization potentials (eV)
+  !	real(kind=dp), dimension(0:1),parameter :: ethe=(/24.587,54.416/)
   !> Hydrogen cross section
   real(kind=dp), parameter :: sigh=6.30e-18
   !> Helium cross section
@@ -35,6 +35,9 @@ module cgsphotoconstants
   real(kind=dp), parameter :: frthe1=ev2fr*ethe(1)
   !> Frequency dependence of H cross section parameter
   real(kind=dp),parameter :: betah0=1.0
+  !> Frequency dependence of He cross section parameter
+  real(kind=dp), dimension(0:1),parameter :: betahe=(/1.0,1.0/)
+
   !> Frequency dependence of H cross section parameter
   real(kind=dp), parameter :: sh0=2.8
   !> Frequency dependence of He cross section parameter

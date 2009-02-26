@@ -61,9 +61,16 @@ module cgsconstants
   real(kind=dp),parameter :: two_pi_c2=2.0*pi/(c*c)!*sclfre**3
 
   !> Hydrogen recombination parameter (power law index)
-  real(kind=dp),parameter :: albpow=-0.7_dp
+  real(kind=dp),parameter :: albpow=-0.7_dp  !in the old code -0.79
   !> Hydrogen recombination parameter (value at 10^4 K)
   real(kind=dp),parameter :: bh00=2.59e-13_dp ! OTS value, alpha_B
+  !> Helium0 recombination parameter (power law index)
+  real(kind=dp), parameter :: alcpow=-0.672_dp
+  !> Helium0 recombination parameter (value at 10^4 K)
+  real(kind=dp), parameter :: bhe00=4.26e-13_dp !alpha_b+alpha_1
+  !> Helium1 recombination parameter (value at 10^4 K)
+  real(kind=dp), parameter :: bhe10=1.53e-12_dp !different in the book! 
+  !here it was 5.91e-12 I replace with book value of 2*1.1e-12
 
   !> Hydrogen ionization energy (in eV)
   real(kind=dp), parameter :: eth0=13.598
@@ -77,6 +84,23 @@ module cgsconstants
   real(kind=dp),parameter :: fh0=0.83
   !> Hydrogen collisional ionization parameter
   real(kind=dp),parameter :: colh0=1.3e-8*fh0*xih0/(eth0*eth0)
+
+
+  !> Helium ionization energy (in eV)
+  real(kind=dp), dimension(0:1), parameter :: ethe=(/24.587,54.416/)
+  !> Helium ionization energy (in erg)
+  real(kind=dp), dimension(0:1), parameter :: heionen=(/ethe(0)*ev2erg,ethe(1)*ev2erg/)
+  !> Helium ionization energy expressed in K
+  real(kind=dp), dimension(0:1), parameter :: temphe=(/ethe(0)*ev2k,ethe(1)*ev2k/)
+  !> Helium collisional ionization parameter 1
+  real(kind=dp),dimension(0:1),parameter :: xihe=(/2.0,1.0/)
+  !> Helium collisional ionization parameter 2
+  real(kind=dp),dimension(0:1),parameter :: fhe=(/0.63,1.30/)
+  !> Helium collisional ionization parameter
+  real(kind=dp),dimension(0:1),parameter :: colhe=(/1.3e-8*fhe(0)*xihe(0)/(ethe(0)*ethe(0)), &
+  	1.3e-8*fhe(1)*xihe(1)/(ethe(1)*ethe(1))/)
+
+
 
 end module cgsconstants
 
