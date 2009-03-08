@@ -4,7 +4,7 @@ module sourceprops
   use my_mpi
   use file_admin, only: logf
   use cgsconstants, only: m_p
-  use astroconstants, only: M_SOLAR
+  use astroconstants, only: M_SOLAR, YEAR
   use cosmology_parameters, only: Omega_B, Omega0
   use nbody, only: id_str, M_grid, dir_src
   use material, only: xh
@@ -226,9 +226,9 @@ contains
     
     if (rank == 0) then
        
-       write(logf,*) 'Source lifetime=', lifetime2/3.1536e13
+       write(logf,*) 'Source lifetime=', lifetime2/(1e6*YEAR),' Myr'
        !write(logf,*) 'Source lifetime=', lifetime/3.1536e13
-       write(logf,*) 'Total flux= ',sum(NormFlux)
+       write(logf,*) 'Total flux= ',sum(NormFlux)*S_star_nominal,' s^-1'
        ! Create array of source numbers for generating random order
        do ns=1,NumSrc
           SrcSeries(ns)=ns

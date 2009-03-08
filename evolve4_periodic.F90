@@ -866,12 +866,6 @@ contains
     ! Use the collected photo-ionization rates
     phih=phih_grid(pos(1),pos(2),pos(3))
     
-    ! Add lost photons
-    ! (if the cell is ionized, add a fraction of the lost photons)
-    !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-    ! DO THIS BELOW, yh_av is changing
-    !phih=phih + photon_loss/(vol*yh_av(0)*ndens_p)
-
     ! Iterate this one cell until convergence
     nit=0
     do 
@@ -889,6 +883,9 @@ contains
 
        ! Find total photo-ionization rate (direct plus
        ! photon losses)
+       ! DO THIS HERE, yh_av is changing
+       ! (if the cell is ionized, add a fraction of the lost photons)
+       !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
        phih_total=phih + photon_loss/(vol*yh_av(0)*ndens_p)
 
        ! Calculate the new and mean ionization states

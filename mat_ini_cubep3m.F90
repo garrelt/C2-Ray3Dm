@@ -167,8 +167,8 @@ contains
        allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
        dens_file=trim(adjustl(dir_dens))// &
             trim(adjustl(zred_str))// &
-            "rho_"//trim(adjustl(id_str))//".dat"
-            !"n_all.dat"
+            !"rho_"//trim(adjustl(id_str))//".dat"
+            "n_all.dat"
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
             " density input from ",trim(dens_file)
        

@@ -136,7 +136,7 @@ contains
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=dp) :: totalsrc,photcons
+    real(kind=dp) :: totalsrc,photcons,total_photon_loss
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
 
@@ -260,8 +260,9 @@ contains
           ! added the number of photons lost from the grid. Since
           ! this number was divided by the number of cells, we
           ! multiply by this again.
-          photon_loss=photon_loss*real(mesh(1))*real(mesh(2))*real(mesh(3))
-          total_ion=total_ion + photon_loss
+          total_photon_loss=photon_loss*dt* &
+               real(mesh(1))*real(mesh(2))*real(mesh(3))
+          !total_ion=total_ion + total_photon_loss
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
           grtotal_ion=grtotal_ion+total_ion-totcollisions
           grtotalsrc=grtotalsrc+totalsrc
@@ -272,7 +273,7 @@ contains
                   photcons, &
                   dh0/total_ion, &
                   totrec/total_ion, &
-                  photon_loss/total_ion, &
+                  total_photon_loss/totalsrc, &
                   totcollisions/total_ion, &
                   grtotal_ion/grtotalsrc
           endif
@@ -282,7 +283,12 @@ contains
           write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc, &
                volfrac,massfrac
 
-          if (abs(1.0-photcons) > 0.15) photcons_flag=1
+          if (abs(1.0-photcons) > 0.15) then
+             if ((1.0-photcons) > 0.15 .and. &
+                  total_photon_loss/totalsrc < (1.0-photcons) ) then
+                photcons_flag=1
+             endif
+          endif
        endif
     endif
     
