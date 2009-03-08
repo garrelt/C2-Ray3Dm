@@ -24,6 +24,11 @@ module sizes
   integer,parameter,public :: Ndim=3
 
   !> Size of the mesh for spatial coordinate.
+
+
+  !for test problem
+  integer,dimension(Ndim),parameter,public :: mesh=(/ 100, 100, 100 /)
+
   !for 3072^3 particles, 6144^3 grid, 114/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 256, 256, 256 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 384, 384, 384 /)
@@ -31,7 +36,7 @@ module sizes
 
   !for 1728^3 particles, 3456^3 grid, 64/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 216, 216, 216 /)
-  integer,dimension(Ndim),parameter,public :: mesh=(/ 432, 432, 432 /)
+  !integer,dimension(Ndim),parameter,public :: mesh=(/ 432, 432, 432 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 864, 864, 864 /)
 
   !for LG simulation: 1024^3 particles, 1024^3 grid, 64/h Mpc box
