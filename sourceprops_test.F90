@@ -76,21 +76,21 @@ contains
        srcpos(1:3,2)=(/ 51, 50, 50 /)
        srcpos(1:3,3)=(/ 52, 50, 50 /)
        srcpos(1:3,4)=(/ 53, 50, 50 /)
-       NormFlux(1:4)=1e53_dp/S_star_nominal
+       NormFlux(1:4)=1e55_dp/S_star_nominal
 
        srcpos(1:3,5)=(/ 20, 10, 10 /)
-       NormFlux(5)=1e55_dp/S_star_nominal
+       NormFlux(5)=1e57_dp/S_star_nominal
 
 
        srcpos(1:3,6)=(/ 70, 70, 50 /)
        srcpos(1:3,7)=(/ 72, 70, 50 /)
        srcpos(1:3,8)=(/ 70, 72, 50 /)
        srcpos(1:3,9)=(/ 72, 72, 50 /)
-       NormFlux(6:8)=1e53_dp/S_star_nominal
-       NormFlux(9)=1e54_dp/S_star_nominal
+       NormFlux(6:8)=1e55_dp/S_star_nominal
+       NormFlux(9)=1e56_dp/S_star_nominal
 
-       srcpos(1:3,5)=(/ 20, 10, 90 /)
-       NormFlux(5)=1e52_dp/S_star_nominal
+       srcpos(1:3,10)=(/ 20, 10, 90 /)
+       NormFlux(10)=1e54_dp/S_star_nominal
 
        ! Source is always at cell centre!!
        do ns=1,NumSrc
