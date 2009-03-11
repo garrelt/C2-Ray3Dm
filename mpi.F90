@@ -1,5 +1,5 @@
 !>
-!! \brief This module contains data and routines for MPI parallelization
+!! \Brief This module contains data and routines for MPI parallelization
 !!
 !! Module for C2Ray / Capreole (3D)
 !!
@@ -87,6 +87,7 @@ contains
                access="append")
        endif
        write(unit=logf,fmt="(A)") "Log file for C2-Ray run"
+       write(unit=logf,fmt=*) " Number of MPI ranks used: ",npr
     endif
 #ifdef MPILOG
     ! Open processor dependent log file
