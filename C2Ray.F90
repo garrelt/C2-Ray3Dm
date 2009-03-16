@@ -219,8 +219,12 @@ Program C2Ray
             
         ! Write output
         if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
-           call output(time2zred(sim_time),sim_time,dt,photcons_flag)
+           call output(time2zred(sim_time),sim_time,actual_dt, &
+                photcons_flag)
            next_output_time=next_output_time+output_time
+           if (photcons_flag /= 0 .and. rank == 0) &
+                write(logf,*) &
+                "Exiting because of photon conservation violation"
            if (photcons_flag /= 0) exit ! photon conservation violated
         endif
         ! end time for this redshift interval reached
@@ -229,6 +233,8 @@ Program C2Ray
      enddo
 
      ! Get out: photon conservation violated
+     if (photcons_flag /= 0 .and. rank == 0) &
+          write(logf,*) "Exiting because of photon conservation violation"
      if (photcons_flag /= 0) exit ! photon conservation violated
 
      ! Scale to the current redshift
@@ -241,7 +247,7 @@ Program C2Ray
 
   ! Write final output
 
-  if (photcons_flag == 0) call output(zred,sim_time,dt,photcons_flag)
+  if (photcons_flag == 0) call output(zred,sim_time,actual_dt,photcons_flag)
 
   call close_down ()
   
