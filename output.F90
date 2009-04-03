@@ -12,7 +12,7 @@ module output_module
 
   use precision, only: dp
   use my_mpi
-  use file_admin, only: stdinput, results_dir, file_input
+  use file_admin, only: stdinput, results_dir, file_input, logf
 
   implicit none
   
@@ -268,8 +268,9 @@ contains
           grtotalsrc=grtotalsrc+totalsrc
           photcons=(total_ion-totcollisions)/totalsrc
           if (time.gt.0.0) then
-             write(90,"(f6.3,6(1pe10.3))") &
+             write(90,"(f6.3,8(1pe10.3))") &
                   zred_now, &
+                  total_ion, totalsrc, &
                   photcons, &
                   dh0/total_ion, &
                   totrec/total_ion, &
@@ -287,6 +288,11 @@ contains
              if ((1.0-photcons) > 0.15 .and. &
                   total_photon_loss/totalsrc < (1.0-photcons) ) then
                 photcons_flag=1
+                ! Report photon conservation
+                write(logf,"(A,2(1pe10.3,x))") &
+                     "Photon conservation problem: ", &
+                     photcons, total_photon_loss/totalsrc
+
              endif
           endif
        endif

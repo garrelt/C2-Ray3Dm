@@ -34,7 +34,8 @@ module evolve
   use material, only: ndens, xh, temper
   use sourceprops, only: SrcSeries, NumSrc, srcpos
   use photonstatistics, only: state_before, calculate_photon_statistics, &
-       photon_loss
+       photon_loss, report_photonstatistics, state_after, total_rates, &
+       total_ionizations
   use c2ray_parameters, only: convergence_fraction
 
   implicit none
@@ -119,7 +120,7 @@ contains
     ! End of declarations
 
     ! Initial state (for photon statistics)
-    call state_before ()
+    call state_before (xh)
 
     ! initialize average and intermediate results to initial values
     xh_av(:,:,:,:)=xh(:,:,:,:)
@@ -221,6 +222,12 @@ contains
                sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
        endif
 
+       ! Report on photon conservation
+       call state_after (xh_intermed) ! number of neutrals after integration
+       call total_rates (dt,xh_av) ! total photons used in balancing recombinations etc.
+       call total_ionizations () ! final statistics
+       call report_photonstatistics (dt)
+
        ! Update xh if converged and exit
        if (conv_flag <= int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
@@ -235,7 +242,8 @@ contains
     enddo
 
     ! Calculate photon statistics
-    call calculate_photon_statistics (dt)
+    call calculate_photon_statistics (dt,xh)
+    call report_photonstatistics (dt)
 
   end subroutine evolve3D
 
@@ -508,9 +516,8 @@ contains
     integer :: k
 
     ! Mesh position of the cell being treated
-    integer,dimension(Ndim) :: pos
+    integer,dimension(Ndim) :: rtpos
       
-
     ! Pick up source number from the source list
     ns=SrcSeries(ns1)
     
@@ -533,29 +540,29 @@ contains
     ! 1. transfer in the upper part of the grid 
     !    (srcpos(3)-plane and above)
     do k=srcpos(3,ns),lastpos_r(3)
-       pos(3)=k
-       call evolve2D(dt,pos,ns,niter)
+       rtpos(3)=k
+       call evolve2D(dt,rtpos,ns,niter)
     end do
     
     ! 2. transfer in the lower part of the grid (below srcpos(3))
     do k=srcpos(3,ns)-1,lastpos_l(3),-1
-       pos(3)=k
-       call evolve2D(dt,pos,ns,niter)
+       rtpos(3)=k
+       call evolve2D(dt,rtpos,ns,niter)
     end do
     
   end subroutine do_source
 
   ! ===========================================================================
 
-  !> Traverse a z-plane (z=pos(3)) by sweeping in the x and y
+  !> Traverse a z-plane (z=rtpos(3)) by sweeping in the x and y
   !! directions.
-  subroutine evolve2D(dt,pos,ns,niter)
+  subroutine evolve2D(dt,rtpos,ns,niter)
 
-    ! Traverse a z-plane (z=pos(3)) by sweeping in the x and y
+    ! Traverse a z-plane (z=rtpos(3)) by sweeping in the x and y
     ! directions.
     
     real(kind=dp),intent(in) :: dt      !! passed on to evolve0D
-    integer,dimension(Ndim),intent(inout) :: pos !< mesh position, pos(3) is
+    integer,dimension(Ndim),intent(inout) :: rtpos !< mesh position, pos(3) is
                                                  !! intent(in)
     integer,intent(in) :: ns           !< current source
     integer,intent(in) :: niter        !< passed on to evolve0D
@@ -564,27 +571,27 @@ contains
 
     ! sweep in `positive' j direction
     do j=srcpos(2,ns),lastpos_r(2)
-       pos(2)=j
+       rtpos(2)=j
        do i=srcpos(1,ns),lastpos_r(1)
-          pos(1)=i
-          call evolve0D(dt,pos,ns,niter) ! `positive' i
+          rtpos(1)=i
+          call evolve0D(dt,rtpos,ns,niter) ! `positive' i
        end do
        do i=srcpos(1,ns)-1,lastpos_l(1),-1
-          pos(1)=i
-          call evolve0D(dt,pos,ns,niter) ! `negative' i
+          rtpos(1)=i
+          call evolve0D(dt,rtpos,ns,niter) ! `negative' i
        end do
     end do
     
     ! sweep in `negative' j direction
     do j=srcpos(2,ns)-1,lastpos_l(2),-1
-       pos(2)=j
+       rtpos(2)=j
        do i=srcpos(1,ns),lastpos_r(1)
-          pos(1)=i
-          call evolve0D(dt,pos,ns,niter) ! `positive' i
+          rtpos(1)=i
+          call evolve0D(dt,rtpos,ns,niter) ! `positive' i
        end do
        do i=srcpos(1,ns)-1,lastpos_l(1),-1
-          pos(1)=i
-          call evolve0D(dt,pos,ns,niter) ! `negative' i
+          rtpos(1)=i
+          call evolve0D(dt,rtpos,ns,niter) ! `negative' i
        end do
     end do
 
@@ -807,7 +814,7 @@ contains
   ! =======================================================================
 
   !> Calculates the evolution of the hydrogen ionization state for
-  !! one cell (pos) and multiple sources.
+  !! one cell (mesh position pos) and multiple sources.
   subroutine evolve0D_global(dt,pos,conv_flag)
 
     ! Calculates the evolution of the hydrogen ionization state for
@@ -929,7 +936,7 @@ contains
   !! through interpolation. The interpolation
   !! depends on the orientation of the ray. The ray crosses either
   !! a z-plane, a y-plane or an x-plane.
-  subroutine cinterp (pos,srcpos,cdensi,path)
+  subroutine cinterp (rtpos,srcpos,cdensi,path)
     
     ! Author: Garrelt Mellema
     
@@ -947,7 +954,7 @@ contains
     ! depends on the orientation of the ray. The ray crosses either
     ! a z-plane, a y-plane or an x-plane.
     
-    integer,dimension(Ndim),intent(in) :: pos !< cell position (mesh)
+    integer,dimension(Ndim),intent(in) :: rtpos !< cell position (mesh)
     integer,dimension(Ndim),intent(in) :: srcpos !< source position (mesh)
     real(kind=dp),intent(out) :: cdensi !< column density to cell
     real(kind=dp),intent(out) :: path !< path length over cell
@@ -971,9 +978,9 @@ contains
 
     !DEC$ ATTRIBUTES FORCEINLINE :: weightf
     ! map to local variables (should be pointers ;)
-    i=pos(1)
-    j=pos(2)
-    k=pos(3)
+    i=rtpos(1)
+    j=rtpos(2)
+    k=rtpos(3)
     i0=srcpos(1)
     j0=srcpos(2)
     k0=srcpos(3)
@@ -1025,6 +1032,7 @@ contains
        s3=(1.-dx)*dy
        s4=dx*dy
        
+       ! Map to rtpos to mesh pos, assuming a periodic mesh
        ip=modulo(i-1,mesh(1))+1
        imp=modulo(im-1,mesh(1))+1
        jp=modulo(j-1,mesh(2))+1

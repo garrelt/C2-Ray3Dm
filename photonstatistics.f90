@@ -23,11 +23,15 @@ module photonstatistics
   ! and evolve3d (in case of parallelization).
  
   use precision, only: dp
+  use my_mpi, only: rank
   use cgsconstants, only: albpow,bh00,colh0,temph0
   use sizes, only: mesh
   use grid, only: vol
-  use material, only: ndens, xh, temper, clumping
+  use material, only: ndens, temper, clumping
   use tped, only: electrondens
+  use sourceprops, only: NormFlux, NumSrc
+  use radiation, only: S_star
+  use file_admin, only: logf
 
   !> true if checking photonstatistics
   logical,parameter :: do_photonstatistics=.true. 
@@ -68,14 +72,15 @@ contains
   !----------------------------------------------------------------------------
 
   !> Call the individual routines needed for photon statistics calculation
-  subroutine calculate_photon_statistics (dt)
+  subroutine calculate_photon_statistics (dt,xh_l)
 
     real(kind=dp),intent(in) :: dt
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
 
     ! Call the individual routines needed for this calculation
 
-    call state_after () ! number of neutrals after integration
-    call total_rates (dt) ! total photons used in balancing recombinations etc.
+    call state_after (xh_l) ! number of neutrals after integration
+    call total_rates (dt,xh_l) ! total photons used in balancing recombinations etc.
     call total_ionizations () ! final statistics
     
   end subroutine calculate_photon_statistics
@@ -83,7 +88,9 @@ contains
   !----------------------------------------------------------------------------
 
   !> Calculate the state at the start of the time step
-  subroutine state_before ()
+  subroutine state_before (xh_l)
+
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
 
     ! Photon statistics: calculate the number of neutrals before integration
     h0_before=0.0
@@ -91,8 +98,8 @@ contains
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
-             h0_before=h0_before+ndens(i,j,k)*xh(i,j,k,0)
-             h1_before=h1_before+ndens(i,j,k)*xh(i,j,k,1)
+             h0_before=h0_before+ndens(i,j,k)*xh_l(i,j,k,0)
+             h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k,1)
           enddo
        enddo
     enddo
@@ -105,9 +112,10 @@ contains
   !----------------------------------------------------------------------------
 
   !> Calculate (sum) all the rates
-  subroutine total_rates(dt)
+  subroutine total_rates(dt,xh_l)
 
     real(kind=dp),intent(in) :: dt
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
 
     real(kind=dp),dimension(0:1) :: yh
     real(kind=dp) :: ndens_p ! needed because ndens may be single precision
@@ -120,14 +128,14 @@ contains
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
-             yh(0)=xh(i,j,k,0)
-             yh(1)=xh(i,j,k,1)
+             yh(0)=xh_l(i,j,k,0)
+             yh(1)=xh_l(i,j,k,1)
              ndens_p=ndens(i,j,k)
-             totrec=totrec+ndens_p*xh(i,j,k,1)*    &
+             totrec=totrec+ndens_p*xh_l(i,j,k,1)*    &
                   electrondens(ndens_p,yh)*  &
                   clumping*bh00*(temper/1e4)**albpow
              totcollisions=totcollisions+ndens_p*   &
-                  xh(i,j,k,0)*electrondens(ndens_p,yh)* &
+                  xh_l(i,j,k,0)*electrondens(ndens_p,yh)* &
                   colh0*sqrt(temper)*exp(-temph0/temper)
           enddo
        enddo
@@ -141,16 +149,18 @@ contains
   !----------------------------------------------------------------------------
 
   !> Calculate the state at the end of the time step
-  subroutine state_after()
+  subroutine state_after(xh_l)
     
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
+
     ! Photon statistics: Calculate the number of neutrals after the integration
     h0_after=0.0
     h1_after=0.0
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
-             h0_after=h0_after+ndens(i,j,k)*xh(i,j,k,0)
-             h1_after=h1_after+ndens(i,j,k)*xh(i,j,k,1)
+             h0_after=h0_after+ndens(i,j,k)*xh_l(i,j,k,0)
+             h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k,1)
           enddo
        enddo
     enddo
@@ -169,5 +179,30 @@ contains
     total_ion=totrec+dh0
     
   end subroutine total_ionizations
+
+  !----------------------------------------------------------------------------
+
+  !> Calculate the total number of ionizing photons used
+  subroutine report_photonstatistics (dt)
+
+    real(kind=dp),intent(in) :: dt
+
+    real(kind=dp) :: totalsrc,photcons,total_photon_loss
+
+    total_photon_loss=photon_loss*dt* &
+         real(mesh(1))*real(mesh(2))*real(mesh(3))
+    totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
+    photcons=(total_ion-totcollisions)/totalsrc
+    if (rank == 0) then
+       write(logf,"(7(1pe10.3))") &
+            total_ion, totalsrc, &
+            photcons, &
+            dh0/total_ion, &
+            totrec/total_ion, &
+            total_photon_loss/totalsrc, &
+            totcollisions/total_ion
+    endif
+    
+  end subroutine report_photonstatistics
 
 end module photonstatistics
