@@ -110,8 +110,8 @@ contains
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
                real(NumSupprsdSrc)/real(NumSupprbleSrc)
        else
-          ! Upon restart use the previously calculated suppressed source
-          ! list
+          ! Upon restart from intermediate redshift use the previously 
+          ! calculated suppressed source list
           open(unit=49,file=sourcelistfilesuppress,status='unknown')
           ! Number of sources
           read(49,*) NumSrc
