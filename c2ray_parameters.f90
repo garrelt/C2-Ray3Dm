@@ -18,7 +18,7 @@ module c2ray_parameters
 
   !> Which fraction of the cells can be left unconverged in order
   !! to improve performance (used in rad_evolve3d)
-  real(kind=dp),parameter :: convergence_fraction=1.5e-5
+  real(kind=dp),parameter :: convergence_fraction=1.0e-5
 
   !> Set to true to let C2-Ray not change the temperature
   logical,parameter :: isothermal=.true.
@@ -30,10 +30,16 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence1=1.0e-3
 
   !> Convergence criterion for global calculation (evolve0d)
-  real(kind=dp),parameter :: convergence2=1.0e-2
+  real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: convergence_frac=1.0e-10
+  real(kind=dp),parameter :: convergence_frac=1.0e-8
+
+  !> Size increase of subboxes around sources (evolve4_periodic)
+  !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
+  !! no photons escape or we reach the edge of the (possibly periodic)
+  !! grid
+  integer,parameter :: subboxsize=10
 
   !> Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
@@ -46,7 +52,7 @@ module c2ray_parameters
   !! 3: 3.5Mpc PM, WMAP3 clumping\n
   !! 4: 1 Mpc P3M\n
   !! 5: position dependent clumping
-  integer,parameter :: type_of_clumping=1
+  integer,parameter :: type_of_clumping=5
   !> Clumping factor if constant
   real,parameter :: clumping_factor=1.0  
 
@@ -59,9 +65,9 @@ module c2ray_parameters
   real(kind=dp),parameter :: relative_denergy=0.1
 
   !> Source properties: Photon per atom for high mass sources
-  real,parameter :: phot_per_atom1=100.0
+  real,parameter :: phot_per_atom1=10.0
   !> Source properties: Photon per atom for low mass sources
-  real,parameter :: phot_per_atom2=250.0
+  real,parameter :: phot_per_atom2=150.0
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=20e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo
