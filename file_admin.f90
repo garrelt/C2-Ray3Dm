@@ -17,7 +17,7 @@ module file_admin
   private
 
   !> directory where files with results are placed
-  character(len=50),public,parameter :: results_dir="../results/"
+  character(len=50),public,parameter :: results_dir="./results/"
 
   !> set to not 5 if input via file (not implemented in all codes, check main program!)  
   integer,public,parameter :: stdinput=5 
