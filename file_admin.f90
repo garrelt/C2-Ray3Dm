@@ -23,6 +23,7 @@ module file_admin
   integer,public,parameter :: stdinput=5 
   integer,public,parameter :: logf=30 !< unit number of log file(s)
   integer,public,parameter :: ah3=40  !< unit number of ah3 files (if applicable)
+  integer,public,parameter :: iterdump=50  !< unit number of iterdump files (if applicable)
   logical,public :: file_input=.false. !< input from file?
 
   public :: flag_for_file_input

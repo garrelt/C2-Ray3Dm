@@ -183,15 +183,12 @@ Program C2Ray
      ! Set next output time
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
-     if (restart == 2) then
+     if (restart >= 2) then
         sim_time=zred2time(zred_interm)
         next_output_time=end_time
      else
         next_output_time=sim_time+output_time
      endif
-
-     ! Reset restart
-     restart=0
 
      ! Loop until end time is reached
      do
@@ -212,7 +209,11 @@ Program C2Ray
         if (type_of_clumping /= 5) call set_clumping(zred)
 
         ! Take one time step
-        if (NumSrc > 0) call evolve3D(actual_dt)
+        if (NumSrc > 0) call evolve3D(actual_dt,restart)
+
+        ! Reset restart (evolve3D is the last routine affected by
+        ! restart)
+        restart=0
 
         ! Update time
         sim_time=sim_time+actual_dt
