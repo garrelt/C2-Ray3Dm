@@ -58,13 +58,15 @@ Program C2Ray
 #endif
 
   ! Start and end time for CPU report
-  real :: tstart !< Start time for CPU report
-  real :: tend !< End time for CPU report
+  real :: cputime1 !< Start time for CPU report
+  real :: cputime2 !< End time for CPU report
+  real(kind=dp) :: mycputime=0.0
 
   ! Wall clock time variables
   integer :: cntr1 !< Start time wall clock
   integer :: cntr2 !< End time wall clock
   integer :: countspersec !< counts per second (for wall clock time)
+  real(kind=dp) :: mywallclock=0.0
 
   integer :: restart !< restart flag
   integer :: nz !< loop counter for loop over redshift list
@@ -85,18 +87,19 @@ Program C2Ray
   real(kind=dp) :: dt !< calculated time step
   real(kind=dp) :: actual_dt !< actual time step (s)
   real(kind=dp) :: zred_interm !< intermediate redshift (for restart)
-
+  real(kind=dp) :: interm_zred !< calculated intermediate redshift (for restart)
 #ifdef MPI
   integer :: mympierror
 #endif
 
   ! Input file
   character(len=512) :: inputfile !< name of input file
+  character(len=1) :: answer !< y or n answer
 
   ! Initialize cpu timer
-  call cpu_time(tstart)
+  call cpu_time(cputime1)
 
-  ! Initialize wall cock times
+  ! Initialize wall clock times
   call system_clock(cntr1)
 
   ! Set up MPI structure
@@ -144,7 +147,7 @@ Program C2Ray
   if (restart == 2) then
      if (rank == 0) then
         if (.not.file_input) &
-             write(*,"(A,$)") "At which redshift to restart x_frac?:"
+             write(*,"(A,$)") "At which redshift to restart x_frac?: "
         read(stdinput,*) zred_interm
      endif
 #ifdef MPI
@@ -184,7 +187,12 @@ Program C2Ray
      ! Note: this assumes that there are ALWAYS two time steps
      ! between redshifts. Should be made more general.
      if (restart >= 2) then
-        sim_time=zred2time(zred_interm)
+        interm_zred=time2zred(zred2time(zred)+dt)
+        if (abs(interm_zred-zred_interm) < 0.001) then
+           sim_time=zred2time(zred)+dt
+        else
+           sim_time=zred2time(zred_interm)
+        endif
         next_output_time=end_time
      else
         next_output_time=sim_time+output_time
@@ -207,6 +215,21 @@ Program C2Ray
         ! Do not call in case of position dependent clumping,
         ! the clumping grid should have been initialized above
         if (type_of_clumping /= 5) call set_clumping(zred)
+
+        if (restart /= 0) then
+           if (rank == 0) then
+              if (.not.file_input) &
+                   write(*,"(A,$)") "Restart from iteration dump (y/n)? : "
+              read(stdinput,*) answer
+              if (answer == "y" .or. answer == "Y") then
+                 restart=restart+2
+              endif
+           endif
+#ifdef MPI
+           call MPI_BCAST(restart,1,MPI_INTEGER,0,MPI_COMM_NEW, &
+                mympierror)
+#endif
+        endif
 
         ! Take one time step
         if (NumSrc > 0) call evolve3D(actual_dt,restart)
@@ -244,6 +267,14 @@ Program C2Ray
         call cosmo_evol()
      endif
 
+     ! Find out intermediate CPU time (to avoid overflowing the counter)
+     call cpu_time(cputime2)
+     mycputime=mycputime+real(cputime2-cputime1)
+     cputime1=cputime2
+     call system_clock(cntr2,countspersec)
+     mywallclock=mywallclock+real(cntr2-cntr1)/real(countspersec)
+     cntr1=cntr2
+
   enddo
 
   ! Write final output
@@ -253,12 +284,12 @@ Program C2Ray
   call close_down ()
   
   ! Find out CPU time
-  call cpu_time(tend)
+  call cpu_time(cputime2)
   call system_clock(cntr2,countspersec)
 
   if (rank == 0) then
-     write(logf,*) "CPU time: ",tend-tstart," s"
-     write(logf,*) "Wall clock time: ",(cntr2-cntr1)/countspersec," s"
+     write(logf,*) "CPU time: ",mycputime+real(cputime2-cputime1)," s"
+     write(logf,*) "Wall clock time: ",mywallclock+real(cntr2-cntr1)/real(countspersec)," s"
   endif
 
   ! End the run
