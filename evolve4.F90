@@ -131,7 +131,8 @@ contains
     call state_before (xh)
 
     ! initialize average and intermediate results to initial values
-    if (restart <= 2) then
+    if (rank == 0) write(logf,*) "Restart = ",restart
+    if (restart == 0) then
        xh_av(:,:,:,:)=xh(:,:,:,:)
        xh_intermed(:,:,:,:)=xh(:,:,:,:)
        niter=0 ! iteration starts at zero
@@ -173,7 +174,10 @@ contains
     enddo
 
     ! Calculate photon statistics
-    call calculate_photon_statistics (dt,xh)
+    call state_after (xh) ! number of neutrals after integration
+    call total_rates (dt,xh_av) ! total photons used in balancing recombinations etc.
+    call total_ionizations () ! final statistics
+    !call calculate_photon_statistics (dt,xh)
     call report_photonstatistics (dt)
 
   end subroutine evolve3D
@@ -229,6 +233,10 @@ contains
        read(iterdump) xh_intermed
        
        close(iterdump)
+       write(logf,*) "Read iteration ",niter," from dump file"
+       write(logf,*) 'photon loss counter: ',photon_loss_all
+       write(logf,*) "Intermediate result for mean ionization fraction: ", &
+            sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
     endif
 
 #ifdef MPI       
@@ -287,7 +295,8 @@ contains
     endif
     
 #ifdef MPI
-    ! accumulate (sum) the MPI distributed photon losses
+    ! accumulate (sum) the MPI distributed photon losses (photon_loss)
+    ! into the variable photon_loss_all
     call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
     
@@ -297,28 +306,8 @@ contains
     
     ! Overwrite the processor local values with the accumulated value
     phih_grid(:,:,:)=buffer(:,:,:)
-    
-    ! Only on the first iteration does evolve2D (evolve0D) change the
-    ! ionization fractions
-    if (niter == -1) then
-       ! accumulate (max) MPI distributed xh_av
-       call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
-       
-       ! Overwrite the processor local values with the accumulated value
-       xh_av(:,:,:,1) = buffer(:,:,:)
-       xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
-       
-       ! accumulate (max) MPI distributed xh_intermed
-       call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
-            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
-            MPI_COMM_NEW, mympierror)
-       
-       ! Overwrite the processor local values with the accumulated value
-       xh_intermed(:,:,:,1)=buffer(:,:,:)
-       xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
-    endif
 #else
+    ! Put photon_loss in photon_loss_all
     photon_loss_all=photon_loss
 #endif
     
@@ -744,9 +733,11 @@ contains
     ! We call this routine for every grid point and for every source (ns).
     ! The photo-ionization rates for each grid point are found and added
     ! to phih_grid, but the ionization fractions are not updated.
+
     ! For the first pass (niter = 1) it makes sense to DO update the
     ! ionization fractions since this will increase convergence speed
-    ! in the case of isolated sources.
+    ! in the case of isolated sources. However, this is currently disabled
+    ! and removed.
 
     use tped, only: electrondens
     use doric_module, only: doric, coldens
@@ -783,10 +774,6 @@ contains
     
     type(photrates) :: phi
 
-    !write(*,*) rtpos
-    ! set convergence tolerance
-    convergence=convergence1
-
     ! Map pos to mesh pos, assuming a periodic mesh
     do idim=1,Ndim
        pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
@@ -794,16 +781,11 @@ contains
 
     ! Initialize local ionization states to the global ones
     do nx=0,1
-       yh0(nx)=xh(pos(1),pos(2),pos(3),nx)
        yh_av(nx)=xh_av(pos(1),pos(2),pos(3),nx)
     enddo
 
     ! Initialize local density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
-    avg_temper=temper
-
-    ! Initialize local clumping (if type of clumping is appropriate)
-    if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
 
     ! Find the column density at the entrance point of the cell (short
     ! characteristics)
@@ -839,74 +821,6 @@ contains
        vol_ph=4.0*pi*dist2*path
 
     endif
-
-    ! Only do chemistry if this is the first pass over the sources,
-    ! and if column density is below the maximum.
-    ! On the first global iteration pass it may be beneficial to assume 
-    ! isolated sources, but on later passes the effects of multiple sources 
-    ! has to be taken into account. 
-    ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
-    if (niter == -1 .and. coldensh_in < max_coldensh) then
-
-       ! Iterate to get mean ionization state 
-       ! (column density / optical depth) in cell
-       nit=0
-       do 
-          nit=nit+1
-
-          ! Debug write
-          if (niter > 1 .and. nit > 2) write(*,*) niter, nit, pos(1:3)
-
-          ! Store the value of yh_av found in the previous iteration
-          ! (for convergence test)
-          yh_av0=yh_av(0)
-
-          ! Calculate (time averaged) column density of cell
-          coldensh_cell=coldens(path,yh_av(0),ndens_p)
-
-          ! Calculate (photon-conserving) photo-ionization rate
-          call photoion(phi,coldensh_in,coldensh_in+coldensh_cell, &
-               vol_ph,ns)
-          phi%h=phi%h/(yh_av(0)*ndens_p)
-
-          ! Restore yh to initial values (for doric)
-          yh(:)=yh0(:)
-              
-          ! Calculate (mean) electron density
-          de=electrondens(ndens_p,yh_av)
-
-          ! Calculate the new and mean ionization states (yh and yh_av)
-          call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phi%h)
-
-          ! Test for convergence on the time-averaged neutral fraction
-          ! For low values of this number assume convergence
-          if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence .or. &
-               (yh_av(0) < convergence_frac))) exit
-
-          ! Warn about non-convergence and terminate iteration
-          if (nit > 5000) then
-             write(logf,*) 'Convergence failing (source ',ns,')'
-             write(logf,*) 'xh: ',yh_av(0),yh_av0
-             write(logf,*) 'on processor rank ',rank
-             exit
-          endif
-
-       enddo ! end of iteration loop
-
-       ! Copy ion fractions tp global arrays.
-       ! This will speed up convergence if
-       ! the sources are isolated and only ionizing up.
-       ! In other cases it does not make a difference.
-       xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
-            xh_intermed(pos(1),pos(2),pos(3),1))
-       xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
-            xh_intermed(pos(1),pos(2),pos(3),1)
-       xh_av(pos(1),pos(2),pos(3),1)=max(yh_av(1), &
-            xh_av(pos(1),pos(2),pos(3),1))
-       xh_av(pos(1),pos(2),pos(3),0)=1.0- &
-            xh_av(pos(1),pos(2),pos(3),1)
-
-    endif ! end of niter == 1 and column density test
 
     ! For niter > 1, only ray trace and exit. Do not touch the ionization
     ! fractions. They are updated using phih_grid in evolve0d_global

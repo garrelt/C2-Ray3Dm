@@ -68,7 +68,8 @@ Program C2Ray
   integer :: countspersec !< counts per second (for wall clock time)
   real(kind=dp) :: mywallclock=0.0
 
-  integer :: restart !< restart flag
+  integer :: restart=0 !< restart flag
+  integer :: iter_restart=0 !< restart from iteration flag
   integer :: nz !< loop counter for loop over redshift list
   integer :: nz0 !< index of starting redshift from redshift list
   integer :: ierror !< error flag
@@ -142,6 +143,25 @@ Program C2Ray
   ! Initialize cosmology
   call cosmology_init(zred_array(nz0),sim_time)
 
+  ! If a restart, inquire whether to restart from iteration
+  if (restart /= 0) then
+     if (rank == 0) then
+        if (.not.file_input) &
+             write(*,"(A,$)") "Restart from iteration dump (y/n)? : "
+        read(stdinput,*) answer
+        write(logf,*) "restart answer: ",answer
+        if (answer == "y" .or. answer == "Y") then
+           ! Set flag, this is passed to evolve3d
+           iter_restart=1
+           write(logf,*) "Restarting from iteration dump."
+        endif
+     endif
+#ifdef MPI
+     call MPI_BCAST(iter_restart,1,MPI_INTEGER,0,MPI_COMM_NEW, &
+          mympierror)
+#endif
+  endif
+
   ! If a restart, read ionization fractions from file
   if (restart == 1) call xfrac_ini(zred_array(nz0))
   if (restart == 2) then
@@ -197,6 +217,8 @@ Program C2Ray
      else
         next_output_time=sim_time+output_time
      endif
+     ! Reset restart flag now that everything has been dealt with
+     restart=0
 
      ! Loop until end time is reached
      do
@@ -216,27 +238,12 @@ Program C2Ray
         ! the clumping grid should have been initialized above
         if (type_of_clumping /= 5) call set_clumping(zred)
 
-        if (restart /= 0) then
-           if (rank == 0) then
-              if (.not.file_input) &
-                   write(*,"(A,$)") "Restart from iteration dump (y/n)? : "
-              read(stdinput,*) answer
-              if (answer == "y" .or. answer == "Y") then
-                 restart=restart+2
-              endif
-           endif
-#ifdef MPI
-           call MPI_BCAST(restart,1,MPI_INTEGER,0,MPI_COMM_NEW, &
-                mympierror)
-#endif
-        endif
-
         ! Take one time step
-        if (NumSrc > 0) call evolve3D(actual_dt,restart)
+        if (NumSrc > 0) call evolve3D(actual_dt,iter_restart)
 
-        ! Reset restart (evolve3D is the last routine affected by
-        ! restart)
-        restart=0
+        ! Reset flag for restart from iteration 
+        ! (evolve3D is the last routine affected by this)
+        iter_restart=0
 
         ! Update time
         sim_time=sim_time+actual_dt
