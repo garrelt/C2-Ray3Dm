@@ -370,7 +370,7 @@ contains
     real(kind=dp) :: avg_dens
 
     ! clumping in file is in 4B reals, read in via this array
-    real(kind=si),dimension(:,:,:),allocatable :: clumping_real
+    !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
 
     if (.not.(allocated(clumping_grid))) &
          allocate(clumping_grid(mesh(1),mesh(2),mesh(3)))
@@ -379,39 +379,46 @@ contains
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
        ! Allocate array needed to read in data
-       allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
+       !allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
        write(30,*) "Reading ",id_str," input"
        clump_file=trim(adjustl(dir_dens))// &
             trim(adjustl(zred_str))// &
-            "clump_"//trim(adjustl(id_str))//".dat"
+            "c_all.dat"
+            !"clump_"//trim(adjustl(id_str))//".dat"
        
+       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
+            " clumping input from ",trim(clump_file)
        ! Open clumping file: note that it is in `binary" form
        open(unit=20,file=clump_file,form=clumpingformat,status="old")
        
        ! Read in data
        if (clumpingheader) then
           read(20) m1,m2,m3
-          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-             write(logf,*) "Warning: file with ionization fractions unusable"
-             write(logf,*) "mesh found in file: ",m1,m2,m3
-             stop
-          endif
+          ! disabled because of errors in clumping files
+          ! GM 090324
+          !if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+          !   write(logf,*) "Warning: file with clumping factors unusable"
+          !   write(logf,*) "mesh found in file: ",m1,m2,m3
+          !   stop
+          !endif
        endif
        ! Read in data and store it in clumping_grid
-       read(20) clumping_real
-       clumping_grid(:,:,:)=clumping_real(:,:,:)
+       !read(20) clumping_real
+       read(20) clumping_grid
+       write(logf,*) 'Clumping data read'
+       !clumping_grid(:,:,:)=clumping_real(:,:,:)
        
        ! close file
        close(20)
        
        ! Deallocate array needed for reading in the data.
-       deallocate(clumping_real)
+       !deallocate(clumping_real)
     endif
 
 #ifdef MPI       
     ! Distribute the density to the other nodes
     call MPI_BCAST(clumping_grid,mesh(1)*mesh(2)*mesh(3), &
-         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+         MPI_REAL,0,MPI_COMM_NEW,mympierror)
 #endif
        
     ! Report on data: min, max, total
