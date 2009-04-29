@@ -16,6 +16,8 @@ module c2ray_parameters
   use precision, only: dp
   use astroconstants, only: YEAR
 
+  implicit none
+
   !> Which fraction of the cells can be left unconverged in order
   !! to improve performance (used in rad_evolve3d)
   real(kind=dp),parameter :: convergence_fraction=1.0e-5

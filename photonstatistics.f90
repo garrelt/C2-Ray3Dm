@@ -32,6 +32,9 @@ module photonstatistics
   use sourceprops, only: NormFlux, NumSrc
   use radiation, only: S_star
   use file_admin, only: logf
+  use c2ray_parameters, only: type_of_clumping
+
+  implicit none
 
   !> true if checking photonstatistics
   logical,parameter :: do_photonstatistics=.true. 
