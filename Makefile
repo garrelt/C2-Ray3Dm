@@ -12,14 +12,6 @@
 # _mpi means MPI (distributed memory). Both can also be
 # used at the same time (if your architecture supports
 # it.
-# The Makefile does NOT automatically set the right flags
-# for the executable you want to make. 
-# If you want to compile for OpenMP, you have to add the
-# the OpenMP flags (OPENMP_FLAGS) to F90FLAGS manually 
-# before running make.
-# If you want to compile for MPI you have to add the MPI
-# flags (MPI_FLAGS) to F90FLAGS, and change the compiler (F90) 
-# manually before running make.
 #
 # Note 2: N-body module
 # Different versions exist with different Nbody interfaces:
@@ -29,9 +21,9 @@
 # Gadget - interface to LOFAR EoR GADGET simulations (not working)
 #
 # Note 3: Compiler & Flags
-# The compiler is specified by the F90 variable. We have only
-# extensively used the Intel F90 compiler. Support for other
-# compilers will have to added.
+# The compiler is specified by the FC and MPIFC variables. 
+# We have only extensively used the Intel F90 compiler. 
+# Support for other compilers will have to added.
 # Parts of the code need to know about the compiler, this is
 # done through preprocessor statements. So when compiling with
 # intel compiler, -DIFORT needs to be specified. Support for
@@ -51,9 +43,9 @@ MPIFC = mpif90 # MPI compiler
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 F90FLAGS1 = $(IFORTFLAGS) 
-#F90FLAGS1 = -xW $(IFORTFLAGS) 
+F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xO $(IFORTFLAGS) 
-F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
+#F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
@@ -157,8 +149,10 @@ C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
-C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+#C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+#	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_box_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_box_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
