@@ -27,7 +27,7 @@ module photonstatistics
   use cgsconstants, only: albpow,bh00,colh0,temph0
   use sizes, only: mesh
   use grid, only: vol
-  use material, only: ndens, temper, clumping
+  use material, only: ndens, temper, clumping, clumping_point
   use tped, only: electrondens
   use sourceprops, only: NormFlux, NumSrc
   use radiation, only: S_star
@@ -131,6 +131,9 @@ contains
              yh(0)=xh_l(i,j,k,0)
              yh(1)=xh_l(i,j,k,1)
              ndens_p=ndens(i,j,k)
+             ! Set clumping to local value if we have a clumping grid
+             if (type_of_clumping == 5) &
+                  call clumping_point (i,j,k)
              totrec=totrec+ndens_p*xh_l(i,j,k,1)*    &
                   electrondens(ndens_p,yh)*  &
                   clumping*bh00*(temper/1e4)**albpow
