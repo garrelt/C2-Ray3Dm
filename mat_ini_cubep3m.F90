@@ -206,9 +206,9 @@ contains
     ! M_particle and M_grid should be in g
     select case(density_unit)
     case ("grid")
-       convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
+       convert=density_convert_grid
     case ("particle")
-       convert=M_particle*Omega_B/Omega0/(mu*m_p)/vol
+       convert=density_convert_particle
     case ("M0Mpc3")
        convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
     end select
