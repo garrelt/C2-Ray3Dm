@@ -33,6 +33,7 @@ module evolve
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
   use sourceprops, only: SrcSeries, NumSrc, srcpos
+  use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations
@@ -52,19 +53,20 @@ module evolve
 
   ! Grid variables
 
-  !> Photo-ionization rate on the entire grid
+  !> H Photo-ionization rate on the entire grid
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
-  !> Time-averaged ionization fraction
+  !> Time-averaged H ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
-  !> Intermediate result for ionization fraction
+  !> Intermediate result for H ionization fraction
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
-  !> Column density (outgoing)
+  !> H0 Column density (outgoing)
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
   !> Buffer for MPI communication
   real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
   !> Photon loss from the grid
-  real(kind=dp) :: photon_loss_all
-  real(kind=dp) :: photon_loss_src
+  real(kind=dp) :: photon_loss_all(1:NumFreqBnd)
+  !> Photon loss from one source
+  real(kind=dp) :: photon_loss_src(1:NumFreqBnd)
 
   ! mesh positions of end points for RT
   integer,dimension(Ndim) :: lastpos_l !< mesh position of left end point for RT
@@ -115,6 +117,9 @@ contains
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
 
+    ! Minimum number of cells which are allowed to be non-converged
+    integer :: conv_criterion 
+
 #ifdef MPI
     integer :: mympierror
 #endif
@@ -139,10 +144,15 @@ contains
        call global_pass (conv_flag,dt)
     endif
 
+    ! Set the conv_criterion, if there are few sources we should make
+    ! sure that things are converged around these sources.
+    conv_criterion=min(int(convergence_fraction*mesh(1)*mesh(2)*mesh(3)), &
+         (NumSrc-1)/3)
+
     ! Iterate to reach convergence for multiple sources
     do
        ! Update xh if converged and exit
-       if (conv_flag <= int(convergence_fraction*mesh(1)*mesh(2)*mesh(3))) then
+       if (conv_flag <= conv_criterion) then
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
@@ -270,7 +280,7 @@ contains
     phih_grid(:,:,:)=0.0
     
     ! reset photon loss counter
-    photon_loss=0.0
+    photon_loss(:)=0.0
     
     ! Make a randomized list of sources :: call in serial
     if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
@@ -292,7 +302,7 @@ contains
     
 #ifdef MPI
     ! accumulate (sum) the MPI distributed photon losses
-    call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
+    call MPI_ALLREDUCE(photon_loss, photon_loss_all, NumFreqBnd, &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
     
     ! accumulate (sum) the MPI distributed phih_grid
@@ -303,7 +313,7 @@ contains
     phih_grid(:,:,:)=buffer(:,:,:)
     
 #else
-    photon_loss_all=photon_loss
+    photon_loss_all(:)=photon_loss(:)
 #endif
     
   end subroutine pass_all_sources
@@ -322,13 +332,15 @@ contains
     integer,dimension(Ndim) :: pos
 
     ! Report photon losses over grid boundary 
-    if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all
+    if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all(:)
     
     ! Turn total photon loss into a mean per cell (used in evolve0d_global)
-    photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
+    photon_loss(:)=photon_loss_all(:)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
     
     ! Report minimum value of xh_av(0) to check for zeros
-    if (rank == 0) write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
+    if (rank == 0) then
+       write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
+    endif
     
     ! Apply total photo-ionization rates from all sources (phih_grid)
     conv_flag=0 ! will be used to check for convergence
@@ -347,7 +359,7 @@ contains
     ! Report on convergence and intermediate result
     if (rank == 0) then
        write(logf,*) "Number of non-converged points: ",conv_flag
-       write(logf,*) "Intermediate result for mean ionization fraction: ", &
+       write(logf,*) "Intermediate result for mean H ionization fraction: ", &
             sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
     endif
     
@@ -658,15 +670,16 @@ contains
     ! photons are leaving this subbox and we need to do another
     ! one. We also stop once we have done the whole grid.
     nbox=0 ! subbox counter
-    photon_loss_src=-1.0 ! to pass the first while test
+    photon_loss_src(:)=-1.0 ! to pass the first while test
     last_r(:)=srcpos(:,ns) ! to pass the first while test
     last_l(:)=srcpos(:,ns) ! to pass the first while test
 
     ! Loop through boxes of increasing size
-    do while (photon_loss_src /= 0.0 .and. last_r(3) < lastpos_r(3) .and. &
-         last_l(3) > lastpos_l(3))
+    do while (all(photon_loss_src(:) /= 0.0) &
+         .and. last_r(3) < lastpos_r(3) &
+         .and. last_l(3) > lastpos_l(3))
        nbox=nbox+1 ! increase subbox counter
-       photon_loss_src = 0.0 ! reset photon_loss_src to zero
+       photon_loss_src(:) = 0.0 ! reset photon_loss_src to zero
        last_r(:)=min(srcpos(:,ns)+subboxsize*nbox,lastpos_r(:))
        last_l(:)=max(srcpos(:,ns)-subboxsize*nbox,lastpos_l(:))
 
@@ -687,7 +700,7 @@ contains
 
     ! Record the final photon loss, this is the photon loss that leaves
     ! the grid.
-    photon_loss=photon_loss + photon_loss_src
+    photon_loss(:)=photon_loss(:) + photon_loss_src(:)
 
   end subroutine do_source
 
