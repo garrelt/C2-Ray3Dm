@@ -54,7 +54,7 @@ module my_mpi
 
   integer,public :: rank            ! rank of the processor
   integer,public :: npr             ! number of processors
-  integer,public :: nthreads        ! number of threads (per processor)
+  integer,public :: nthreads=1      ! number of threads (per processor)
   integer,public :: MPI_COMM_NEW    ! the (new) communicator
   integer,public,dimension(MPI_STATUS_SIZE) :: mympi_status ! status array
   integer,dimension(NPDIM),public :: dims ! number of processors in 
