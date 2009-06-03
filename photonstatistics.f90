@@ -30,7 +30,7 @@ module photonstatistics
   use material, only: ndens, temper, clumping, clumping_point
   use tped, only: electrondens
   use sourceprops, only: NormFlux, NumSrc
-  use radiation, only: S_star
+  use radiation, only: S_star, NumFreqBnd
   use file_admin, only: logf
   use c2ray_parameters, only: type_of_clumping
 
@@ -49,7 +49,7 @@ module photonstatistics
   !> Grand total number of ionizing photons used
   real(kind=dp) :: grtotal_ion
   !> Number of photons leaving the grid
-  real(kind=dp) :: photon_loss
+  real(kind=dp) :: photon_loss(NumFreqBnd)
 
   real(kind=dp),private :: h0_before !< number of H atoms at start of time step
   real(kind=dp),private :: h0_after !< number of H atoms at end of time step
@@ -195,7 +195,7 @@ contains
 
     real(kind=dp) :: totalsrc,photcons,total_photon_loss
 
-    total_photon_loss=photon_loss*dt* &
+    total_photon_loss=sum(photon_loss)*dt* &
          real(mesh(1))*real(mesh(2))*real(mesh(3))
     totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
     photcons=(total_ion-totcollisions)/totalsrc
