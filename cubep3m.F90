@@ -37,13 +37,13 @@ module nbody
   character(len=10),parameter :: nbody_type="cubep3m" !< ID of Nbody type
 
   real(kind=dp),parameter :: boxsize=37.0  !< Box size in Mpc/h comoving
-  integer,parameter,private :: n_box=2048  !< cells/side (in N-body,fine grid)
+  integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=64.0  !< Box size in Mpc/h comoving
-  !integer,parameter,private :: n_box=3456  !< cells/side (in N-body,fine grid)
+  !integer,parameter :: n_box=3456  !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=114.0 !< Box size in Mpc/h comoving
-  !integer,parameter,private :: n_box=6144  !< cells/side (in N-body,fine grid)
+  !integer,parameter :: n_box=6144  !< cells/side (in N-body,fine grid)
 
   !> Path to directory containing directory with density files:
   character(len=180),parameter,private :: dir_dens_path = "../" 
