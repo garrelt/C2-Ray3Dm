@@ -249,7 +249,7 @@ contains
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(niter,1, &
          MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(photon_loss_all,1, &
+    call MPI_BCAST(photon_loss_all,NumFreqBnd, &
          MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
@@ -888,7 +888,7 @@ contains
        ! Photon statistics: register number of photons leaving the grid
        if ( (any(rtpos(:) == last_l(:))) .or. &
             (any(rtpos(:) == last_r(:))) ) then
-          photon_loss_src=photon_loss_src + phi%h_out*vol/vol_ph
+          photon_loss_src(1)=photon_loss_src(1) + phi%h_out*vol/vol_ph
        endif
 
     endif ! end of coldens test
@@ -977,7 +977,7 @@ contains
        ! DO THIS HERE, yh_av is changing
        ! (if the cell is ionized, add a fraction of the lost photons)
        !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-       phih_total=phih + photon_loss/(vol*yh_av(0)*ndens_p)
+       phih_total=phih + photon_loss(1)/(vol*yh_av(0)*ndens_p)
 
        ! Calculate the new and mean ionization states
        call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih_total)
