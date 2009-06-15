@@ -18,8 +18,8 @@ module cosmology_parameters
   real(kind=dp),parameter :: h=0.73 ! Hubble constant (in 100 km/s/Mpc)
   !real(kind=dp),parameter :: Omega0=0.238 ! Total matter density (in critical density)
   real(kind=dp),parameter :: Omega0=0.24 ! Total matter density (in critical density)
-  !real(kind=dp),parameter :: Omega_B=0.0418 ! Baryon density (in critical density)
-  real(kind=dp),parameter :: Omega_B=0.0223/(h*h) ! Baryon density (in critical density)
+  real(kind=dp),parameter :: Omega_B=0.0418 ! Baryon density (in critical density)
+  !real(kind=dp),parameter :: Omega_B=0.0223/(h*h) ! Baryon density (in critical density)
   real(kind=dp),parameter :: cmbtemp=2.726 ! CMB temperature
 
   ! Derived parameters
