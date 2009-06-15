@@ -28,9 +28,11 @@ module nbody
   use precision, only: dp
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, file_input
+  use cgsconstants, only: m_p
   use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
-  use cosmology_parameters, only: rho_crit_0, Omega0, h
+  use cosmology_parameters, only: rho_crit_0, Omega0, Omega_B, h, H0
+  use abundances, only: mu
 
   implicit none
 
@@ -72,19 +74,19 @@ module nbody
   ! M_box      - mass in box
   ! M_particle - mass per particle
   ! M_grid - mean mass per pmfast cell
-  real(kind=dp),public :: M_box=rho_crit_0*Omega0*(boxsize*Mpc/h)**3 !< mass in box
-  real(kind=dp),public :: M_grid=M_box/(real(n_box)**3) !< mean mass per grid cell
-  real(kind=dp),public :: M_particle=8.0*M_grid !< mass per particle
+  real(kind=dp),parameter,public :: M_box=rho_crit_0*Omega0*(boxsize*Mpc/h)**3 !< mass in box
+  real(kind=dp),parameter,public :: M_grid=M_box/(real(n_box)**3) !< mean mass per grid cell
+  real(kind=dp),parameter,public :: M_particle=8.0*M_grid !< mass per particle
 
   !> Conversion factor for comoving gas (number) density (cm^-3)
-  real(kind=dp),public :: density_convert_grid=rho_crit_0*OmegaB/(mu*m_p)*(mesh(1)/n_box)**3
+  real(kind=dp),parameter,public :: density_convert_grid=rho_crit_0*Omega_B/(mu*m_p)*(real(mesh(1))/real(n_box))**3
   !> Conversion factor for comoving gas (number) density (cm^-3)
-  real(kind=dp),public :: density_convert_particle=8.0*density_convert_grid
+  real(kind=dp),parameter,public :: density_convert_particle=8.0*density_convert_grid
   !> Conversion factor for (comoving) cubep3m lenght scales
-  lscale=boxsize*Mpc/h/n_box
+  real(kind=dp),parameter,public :: lscale=boxsize*Mpc/h/n_box
   !> Conversion factor for cubep3m time scale (divide by (1+z)^2 to get proper
   !! converison factor for time)
-  tscale= 2.d0/(3.d0*sqrt(Omega0)*H0)
+  real(kind=dp),parameter,public :: tscale= 2.d0/(3.d0*sqrt(Omega0)*H0)
 
   ! redshift sequence information
   integer, public :: NumZred               !< number of redshifts

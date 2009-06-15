@@ -44,7 +44,7 @@ Program C2Ray
        time2zred, zred2time, zred
   use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping
   use times, only: time_ini, set_timesteps
-  use sourceprops, only: source_properties, NumSrc
+  use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve3D
 
 #ifdef XLF
@@ -136,6 +136,9 @@ Program C2Ray
 
   ! Find the redshifts we are dealing with
   call nbody_ini ()
+
+  ! Initialize the source model
+  call source_properties_ini ()
 
   ! Initialize time step parameters
   call time_ini ()

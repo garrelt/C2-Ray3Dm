@@ -16,6 +16,7 @@ module material
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
   use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
   use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit
+  use nbody, only: density_convert_particle, density_convert_grid
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -206,13 +207,13 @@ contains
     ! M_particle and M_grid should be in g
     select case(density_unit)
     case ("grid")
-       convert=density_convert_grid
+       convert=density_convert_grid*(1.0+zred_now)**3 
     case ("particle")
-       convert=density_convert_particle
+       convert=density_convert_particle*(1.0+zred_now)**3 
     case ("M0Mpc3")
        convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
     end select
-    
+
     ! Assign density to the grid
     do k=1,mesh(3)
        do j=1,mesh(2)
