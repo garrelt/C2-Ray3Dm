@@ -30,7 +30,9 @@ module my_mpi
 
 #ifdef IFORT
   USE IFPORT, only: hostnm, flush
-  !$ USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+#ifdef _OPENMP
+  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+#endif
 #endif
 
   implicit none
@@ -87,14 +89,20 @@ contains
 
     ! Report number of OpenMP threads
     !$omp parallel default(shared)
-    !$nthreads=omp_get_num_threads()
+#ifdef _OPENMP
+    nthreads=omp_get_num_threads()
+#endif
     !$omp end parallel
-    !$write(logf,*) ' Number of OpenMP threads is ',nthreads
+#ifdef _OPENMP
+    write(logf,*) ' Number of OpenMP threads is ',nthreads
+#endif
 
     ! Let OpenMP threads report
-    !$omp parallel default(shared)
-    !$tn=omp_get_thread_num()+1
-    !$write(logf,*) 'Thread number ',tn,' reporting'
+    !$omp parallel default(private)
+#ifdef _OPENMP
+    tn=omp_get_thread_num()+1
+    write(logf,*) 'Thread number ',tn,' reporting'
+#endif
     !$omp end parallel
 
     call flush(logf)
