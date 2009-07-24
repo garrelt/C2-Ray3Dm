@@ -164,8 +164,6 @@ contains
     if (rank == 0) then
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
-       ! Allocate array needed to read in data
-       allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
        dens_file=trim(adjustl(dir_dens))// &
             trim(adjustl(zred_str))// &
             !"rho_"//trim(adjustl(id_str))//".dat"
@@ -186,6 +184,8 @@ contains
           endif
        endif
        ! Read in data and store it in ndens
+       ! Allocate array needed to read in data
+       allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
        read(20) ndens_real
        ndens(:,:,:)=ndens_real(:,:,:)
           

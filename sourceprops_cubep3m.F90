@@ -23,6 +23,8 @@ module sourceprops
   use c2ray_parameters, only: phot_per_atom, lifetime, &
        S_star_nominal, StillNeutral, Number_Sourcetypes
 
+  implicit none
+
   integer :: NumSrc !< Number of sources
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
   real(kind=dp),dimension(:,:),allocatable :: rsrcpos !< grid position of sources
@@ -30,9 +32,9 @@ module sourceprops
   real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
   integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
   real(kind=dp),dimension(:),allocatable :: uv_array  !< list of UV flux evolution (for some sources models)
-
   character(len=30) :: UV_Model !< type of UV model
   integer :: NumZred_uv !< Number of redshift points in UV model
+
   integer,private :: NumSrc0=0 !< intermediate source count
   integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: srcMass00,srcMass01,total_SrcMass
@@ -200,9 +202,16 @@ contains
              endif
           enddo
           
-          ! Collect total source mass 
-          SrcMass(:,0)=SrcMass(:,1)*phot_per_atom(1)  & !massive sources
-               +SrcMass(:,2)*phot_per_atom(2)      !small sources   
+          ! Collect total source mass (UV model dependent because Iliev et
+          ! al requires the f factors in)
+          select case (UV_Model)
+          case ("Iliev et al")
+             SrcMass(:,0)=SrcMass(:,1)*phot_per_atom(1)  & !massive sources
+                  +SrcMass(:,2)*phot_per_atom(2)      !small sources
+          case default
+             SrcMass(:,0)=SrcMass(:,1)+SrcMass(:,2)
+          end select
+
           ! Save new source list, without the suppressed ones
           open(unit=49,file=sourcelistfilesuppress,status='unknown')
           write(49,*) NumSrc
@@ -234,14 +243,15 @@ contains
     ! Distribute the source parameters to the other nodes
     call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(SrcMass,NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(SrcMass,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
     
     ! Turn masses into luminosities
     select case (UV_Model)
     case ("Iliev et al")
        do ns=1,NumSrc
-          NormFlux(ns)=SrcMass(ns,0)*M_grid*  &!note that now photons/atom are included in SrcMass
+          !note that now photons/atom are included in SrcMass
+          NormFlux(ns)=SrcMass(ns,0)*M_grid*  &
                Omega_B/(Omega0*m_p)/S_star_nominal
           !NormFlux(ns)=NormFlux(ns)/lifetime
           NormFlux(ns)=NormFlux(ns)/lifetime2

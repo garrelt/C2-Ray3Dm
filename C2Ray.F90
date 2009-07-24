@@ -257,7 +257,7 @@ Program C2Ray
             
         ! Write output
         if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
-           call output(time2zred(sim_time),sim_time,actual_dt, &
+           if (NumSrc > 0) call output(time2zred(sim_time),sim_time,actual_dt, &
                 photcons_flag)
            next_output_time=next_output_time+output_time
            if (photcons_flag /= 0 .and. rank == 0) &

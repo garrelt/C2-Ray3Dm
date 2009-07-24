@@ -74,7 +74,7 @@ contains
   ! =======================================================================
 
   !> Evolve the entire grid over a time step dt
-  subroutine evolve3D (dt)
+  subroutine evolve3D (dt,restart)
 
     ! Calculates the evolution of the hydrogen ionization state
      
@@ -102,6 +102,7 @@ contains
 
     ! The time step
     real(kind=dp),intent(in) :: dt !< time step
+    integer,intent(in) :: restart !< restart flag
 
     ! Loop variables
     integer :: i,j,k  ! mesh position
@@ -136,7 +137,7 @@ contains
        phih_grid(:,:,:)=0.0
        
        ! reset photon loss counter
-       photon_loss=0.0
+       photon_loss(:)=0.0
        
        ! Make a randomized list of sources :: call in serial
        if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
@@ -158,7 +159,7 @@ contains
        
 #ifdef MPI
        ! accumulate (sum) the MPI distributed photon losses
-       call MPI_ALLREDUCE(photon_loss, photon_loss_all, 1, &
+       call MPI_ALLREDUCE(photon_loss, photon_loss_all, NumFreqBnd, &
             MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
        
        ! accumulate (sum) the MPI distributed phih_grid
@@ -189,14 +190,14 @@ contains
           xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
        endif
 #else
-       photon_loss_all=photon_loss
+       photon_loss_all=photon_loss(1)
 #endif
 
        ! Report photon losses over grid boundary 
        if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all
        
        ! Turn total photon loss into a mean per cell (used in evolve0d_global)
-       photon_loss=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
+       photon_loss(1)=photon_loss_all/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
        
        ! Report minimum value of xh_av(0) to check for zeros
        if (rank == 0) write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
@@ -223,9 +224,7 @@ contains
        endif
 
        ! Report on photon conservation
-       call state_after (xh_intermed) ! number of neutrals after integration
-       call total_rates (dt,xh_av) ! total photons used in balancing recombinations etc.
-       call total_ionizations () ! final statistics
+       call calculate_photon_statistics (dt,xh_intermed,xh_av)
        call report_photonstatistics (dt)
 
        ! Update xh if converged and exit
@@ -242,7 +241,7 @@ contains
     enddo
 
     ! Calculate photon statistics
-    call calculate_photon_statistics (dt,xh)
+    call calculate_photon_statistics (dt,xh,xh_av)
     call report_photonstatistics (dt)
 
   end subroutine evolve3D
@@ -720,6 +719,10 @@ contains
     ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
     if (niter == 1 .and. coldensh_in < max_coldensh) then
 
+       if (rank == 0) then
+          write(logf,*) 'Doing chemistry',pos
+       endif
+
        ! Iterate to get mean ionization state 
        ! (column density / optical depth) in cell
        nit=0
@@ -806,7 +809,7 @@ contains
     ! Photon statistics: register number of photons leaving the grid
     if ( (any(rtpos(:) == lastpos_l(:))) .or. &
          (any(rtpos(:) == lastpos_r(:))) ) then
-       photon_loss=photon_loss + phi%h_out*vol/vol_ph
+       photon_loss(1)=photon_loss(1) + phi%h_out*vol/vol_ph
     endif
 
   end subroutine evolve0D
@@ -893,7 +896,7 @@ contains
        ! DO THIS HERE, yh_av is changing
        ! (if the cell is ionized, add a fraction of the lost photons)
        !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-       phih_total=phih + photon_loss/(vol*yh_av(0)*ndens_p)
+       phih_total=phih + photon_loss(1)/(vol*yh_av(0)*ndens_p)
 
        ! Calculate the new and mean ionization states
        call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih_total)

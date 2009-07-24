@@ -75,15 +75,16 @@ contains
   !----------------------------------------------------------------------------
 
   !> Call the individual routines needed for photon statistics calculation
-  subroutine calculate_photon_statistics (dt,xh_l)
+  subroutine calculate_photon_statistics (dt,xh_l,xh_r)
 
     real(kind=dp),intent(in) :: dt
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_r
 
     ! Call the individual routines needed for this calculation
 
     call state_after (xh_l) ! number of neutrals after integration
-    call total_rates (dt,xh_l) ! total photons used in balancing recombinations etc.
+    call total_rates (dt,xh_r) ! total photons used in balancing recombinations etc.
     call total_ionizations () ! final statistics
     
   end subroutine calculate_photon_statistics

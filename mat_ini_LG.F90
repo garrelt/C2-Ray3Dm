@@ -15,6 +15,7 @@ module material
   use astroconstants, only: M_SOLAR, MPC
   use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0,h
   use nbody, only: nbody_type, id_str, dir_dens, boxsize
+  use nbody, only: densityformat, densityheader, density_unit
   use abundances, only: mu, abu_he
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -71,6 +72,8 @@ contains
     ! Check consistency with nbody module
     if (nbody_type /= "LG") then
        write(logf,*) "Error: wrong material module was compiled."
+       write(logf,*) "       Expected LG, but got", &
+            trim(adjustl(nbody_type))
        ierror=1
     else
        ! restart
@@ -152,11 +155,14 @@ contains
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
     real(kind=dp) :: avg_dens
-    integer :: ngrid1,ngrid2,ngrid3
+    integer :: m1,m2,m3
+
+    ! density in file is in 4B reals, read in via this array
+    real(kind=si),dimension(:,:,:),allocatable :: ndens_real
 
     if (rank == 0) then
        write(logf,*) "Reading LG input"
-       write(logf,*) "Reading ",id," input"
+       write(logf,*) "Reading ",nz," input"
 
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
@@ -168,26 +174,41 @@ contains
           dens_file=trim(adjustl(dir_dens))// &
                trim(adjustl(id))//trim(adjustl(id_str))//".dat"
        endif
-         
+       
        ! Open density file: note that it is in "unformatted" form
-       open(unit=20,file=dens_file,form="unformatted",status="old")
-          
-       read(20) ngrid1,ngrid2,ngrid3
+       open(unit=20,file=dens_file,form=densityformat,status="old")
+       write(logf,*) " from file ",trim(adjustl(dens_file))
 
-       if (ngrid1 /= mesh(1) .or. ngrid2 /= mesh(2) .or. ngrid3 /= mesh(3)) then
-          write(logf,*) "Warning: array size for density is wrong"
-          write(logf,*) ngrid1,ngrid2,ngrid3
-          stop
-       end if
+       ! Read in data
+       if (densityheader) then
+          write(logf,*) " reading density header"
+          read(20) m1,m2,m3
+          write(logf,*) " density header: ",m1,m2,m3
+          write(logf,*) " should match: ",mesh
+
+
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with densities unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
+       endif
 
        ! Read in data and store it in ndens
+       ! Allocate array needed to read in data
+       allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
        do k=1,mesh(3)
-          read(20) ((ndens(i,j,k),i=1,mesh(1)),j=1,mesh(2))
+          read(20) ((ndens_real(i,j,k),i=1,mesh(1)),j=1,mesh(2))
        end do
-       
+       write(logf,*) "Data read",m1,m2,m3
+       ndens(:,:,:)=ndens_real(:,:,:)
+
        ! close file
        close(20)
 
+       ! Deallocate array needed for reading in the data.
+       deallocate(ndens_real)
+ 
     endif
 #ifdef MPI       
     ! Distribute the density to the other nodes
@@ -195,14 +216,6 @@ contains
          MPI_COMM_NEW,mympierror)
 #endif
        
-    ! Report on data: min, max, total
-    if (rank == 0) then
-       write(logf,*) "Raw density diagnostics (in simulation units)"
-       write(logf,*) "minimum density: ",minval(ndens)
-       write(logf,*) "maximum density: ",maxval(ndens)
-       write(logf,*) "summed density:  ",sum(ndens)
-    endif
-
     if (rank == 0) write(logf,*) "M_box from data [M_sun]= ", &
          sum(ndens)*(boxsize/mesh(1))**3/h,mesh,h   
 
@@ -210,8 +223,15 @@ contains
     ! Below is the conversion factor to number density.
     ! This makes the density ndens, the TOTAL number density.
 
-    !converts density to CGS units, PROPER coordinates
-    convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+    ! The original values in terms of the mean density
+    ! Below is the conversion factor.
+    ! For LG the standard is "M0Mpc3", see LG.F90
+    ! vol is redshift dependent, that is why we need to recalculate this
+    ! M_particle and M_grid should be in g
+    select case(density_unit)
+    case ("M0Mpc3")
+       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+    end select
 
     ! Assign density to the grid
     do k=1,mesh(3)
@@ -227,8 +247,11 @@ contains
     ! Find summed and average density
     avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
     
-    ! Report average density
+    ! Report density field properties
     if (rank == 0) then
+       write(logf,*) "Raw density diagnostics (cm^-3)"
+       write(logf,*) "minimum density: ",minval(ndens)
+       write(logf,*) "maximum density: ",maxval(ndens)
        write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
        write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
@@ -262,13 +285,14 @@ contains
     character(len=6) :: zred_str
     integer :: m1,m2,m3
     ! Array needed to read in 4B reals
-    real(kind=si),dimension(:,:,:),allocatable :: xh1_real
+    real(kind=dp),dimension(:,:,:),allocatable :: xh1
+    !real(kind=si),dimension(:,:,:),allocatable :: xh1_real
 
     if (rank == 0) then
-       allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
+       allocate(xh1(mesh(1),mesh(2),mesh(3)))
        write(zred_str,"(f6.3)") zred_now
-       xfrac_file=trim(adjustl(results_dir))// &
-            "Ifront3_"//trim(adjustl(zred_str))//".bin"
+       xfrac_file= trim(adjustl(results_dir))// &
+            "xfrac3d_"//trim(adjustl(zred_str))//".bin"
        
        write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
             trim(xfrac_file)
@@ -281,14 +305,15 @@ contains
           write(logf,*) "Warning: file with ionization fractions unusable"
           write(logf,*) "mesh found in file: ",m1,m2,m3
        else
-          read(20) xh1_real
-          xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
+          read(20) xh1
+          xh(:,:,:,1)=xh1(:,:,:)
+          !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
           xh(:,:,:,0)=1.0-xh(:,:,:,1)
        endif
 
        ! close file
        close(20)
-       deallocate(xh1_real)
+       deallocate(xh1)
     endif
 
 #ifdef MPI       

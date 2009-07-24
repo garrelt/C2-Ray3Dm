@@ -25,20 +25,38 @@ module nbody
 
   real(kind=dp),parameter :: boxsize=64.0  ! Box size in Mpc/h comoving
 
+  !> Path to directory containing directory with density files:
   character(len=180),parameter,private :: dir_dens_path = "../" 
+  !> Name of directory with density files
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  character(len=180),parameter,private :: dir_src_path = "../" 
-  character(len=180),parameter,private :: dir_src_name= "coarser_densities/"
+  !> Path to directory containing directory with source files:
+  character(len=180),parameter,private :: dir_src_path = "./" 
+  !> Name of directory with source files
+  character(len=180),parameter,private :: dir_src_name= "sources/"
+
+  !> Format of density file (unformatted or binary)
+  character(len=15),parameter :: densityformat="unformatted"
+  !> Format of clumping file (unformatted or binary)
+  character(len=15),parameter :: clumpingformat="unformatted"
+  !> density file with header?
+  logical,parameter :: densityheader=.true.
+  !> clumping file with header?
+  logical,parameter :: clumpingheader=.true.
+  !> unit of density in density file
+  !! can be "grid", "particle", "M0Mpc3"
+  character(len=20),parameter :: density_unit="M0Mpc3"
 
   ! redshift sequence information
-  integer, public :: NumZred               ! number of redshifts
-  real(kind=dp),dimension(:),allocatable,public :: zred_array ! array of redshifts
-  integer,dimension(:),allocatable,public :: snap ! array of snapshot numbers
-  character(len=80),public :: id_str       ! resolution-dependent string
-  character(len=180),public :: dir_dens, dir_src
+  integer, public :: NumZred               !< number of redshifts
+  real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts 
+  integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
+  character(len=8),public :: id_str       !< resolution dependent string
+
+  character(len=180),public :: dir_dens !< Path to directory with density files
+  character(len=180),public :: dir_src !< Path to directory with source files
 
 #ifdef MPI
-  integer,private :: mympierror
+  integer,private :: mympierror !< MPI error flag variable
 #endif
 
 contains
@@ -93,7 +111,7 @@ contains
        allocate(zred_array(NumZred))
        allocate(snap(NumZred))
        do nz=1,NumZred
-          read(unit=60,fmt=*) snap(nz), a, zred_array(nz)
+          read(unit=60,fmt=*) snap(nz), zred_array(nz)
        enddo
        close(20)
     endif

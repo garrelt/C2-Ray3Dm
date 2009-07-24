@@ -35,7 +35,7 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: convergence_frac=1.0e-7
+  real(kind=dp),parameter :: convergence_frac=1.0e-10
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
@@ -56,7 +56,7 @@ module c2ray_parameters
   !! 5: position dependent clumping
   integer,parameter :: type_of_clumping=1
   !> Clumping factor if constant
-  real,parameter :: clumping_factor=1.0  
+  real,parameter :: clumping_factor=1.0
 
   !> Cosmological cooling
   logical,parameter :: cosmological=.true.
@@ -69,7 +69,7 @@ module c2ray_parameters
   !> Source properties: Number of different sources
   integer,parameter :: Number_Sourcetypes=2
   !> Source properties: Photon per atom for different source types (high to low mass)
-  real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 2.0, 10.0 /)
+  real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 /)
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=20e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo

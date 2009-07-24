@@ -180,10 +180,7 @@ contains
     enddo
 
     ! Calculate photon statistics
-    call state_after (xh) ! number of neutrals after integration
-    call total_rates (dt,xh_av) ! total photons used in balancing recombinations etc.
-    call total_ionizations () ! final statistics
-    !call calculate_photon_statistics (dt,xh)
+    call calculate_photon_statistics (dt,xh,xh_av)
     call report_photonstatistics (dt)
 
   end subroutine evolve3D
@@ -364,9 +361,7 @@ contains
     endif
     
     ! Report on photon conservation
-    call state_after (xh_intermed) ! number of neutrals after integration
-    call total_rates (dt,xh_av) ! total photons used in balancing recombinations etc.
-    call total_ionizations () ! final statistics
+    call calculate_photon_statistics (dt,xh_intermed,xh_av)
     call report_photonstatistics (dt)
     
   end subroutine global_pass
