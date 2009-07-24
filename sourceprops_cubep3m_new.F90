@@ -352,7 +352,7 @@ contains
              SrcMass(ns,0)=SrcMass(ns,1) !sum(SrcMass(ns,1:Number_Sourcetypes))
              NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
-          write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
+          !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
        else
           NormFlux(:)=0.0
           if (rank == 0) write(logf,*) "No UV model available, setting fluxes to zero."
