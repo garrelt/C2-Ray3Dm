@@ -46,9 +46,9 @@ module nbody
   !> Name of directory with density files
   character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
   !> Path to directory containing directory with source files:
-  character(len=180),parameter,private :: dir_src_path = "../" 
+  character(len=180),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
-  character(len=180),parameter,private :: dir_src_name= "coarser_densities/"
+  character(len=180),parameter,private :: dir_src_name= "sources/"
 
   ! properties of the box:
   ! M_box      - mass in box
