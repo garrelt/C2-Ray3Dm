@@ -21,9 +21,9 @@
 # Gadget - interface to LOFAR EoR GADGET simulations (not working)
 #
 # Note 3: Compiler & Flags
-# The compiler is specified by the FC and MPIFC variables. 
-# We have only extensively used the Intel F90 compiler. 
-# Support for other compilers will have to added.
+# The compiler is specified by the FC variable (MPIFC for the MPI
+# compiler). We have only extensively used the Intel F90 compiler. 
+# Support for other compilers will have to be added.
 # Parts of the code need to know about the compiler, this is
 # done through preprocessor statements. So when compiling with
 # intel compiler, -DIFORT needs to be specified. Support for
@@ -40,8 +40,9 @@ FC = ifort # Intel compiler
 MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
-IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT #-check all -traceback
+IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
+# Processor dependent optimization
 F90FLAGS1 = $(IFORTFLAGS) 
 F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xO $(IFORTFLAGS) 
@@ -51,16 +52,16 @@ F90FLAGS1 = -xW $(IFORTFLAGS)
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
-MPI_FLAGS = -DMPI # For LAM mpi (Stockholm)
+MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
 OPENMP_FLAGS = -openmp # For Intel compiler
 
 #-------------------------------------------------------
 
 # PGI compiler
-#F90 = pf90
-#F90 = mpif77
-#F90 = mpif90
+#FC = pf90
+#MPIFC = mpif77
+#MPIFC = mpif90
 
 # F90 options (pgi)
 #PGIFLAGS = -O3 -fast -DPGI
@@ -75,21 +76,7 @@ OPENMP_FLAGS = -openmp # For Intel compiler
 #-------------------------------------------------------
 
 # Other F90 compilers
-#F90 = f90
-
-#F90FLAGS = -O3 -u -fpe0 -vec_report -ipo #Lobster 6
-#F90FLAGS = -O4 -omp -fpe1# -fpe4 Compaq
-#F90FLAGS  = -O3 -openmp
-
-#F90FLAGS = -g -O0 -openmp #seg fault
-#F90FLAGS = -g -O0 
-#F90FLAGS = -u -fpe0
-#F90FLAGS = -O3 -u -ipo -fpe0
-#F90FLAGS = -O3 -ipo
-#F90FLAGS = -fpe0 -g -u 
-#F90FLAGS = -O3 -vec_report -u -ipo
-#F90FLAGS = -xW -O3 -openmp -vec_report -u -ipo -fpe0
-#F90FLAGS =  -Wv,-Pprocs,4 -O3 -cpu:opteron
+#FC = f90
 
 #-------------------------------------------------------
 
