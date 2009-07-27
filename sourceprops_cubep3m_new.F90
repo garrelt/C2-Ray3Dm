@@ -349,7 +349,6 @@ contains
           total_SrcMass=sum(SrcMass(:,0))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             SrcMass(ns,0)=SrcMass(ns,1) !sum(SrcMass(ns,1:Number_Sourcetypes))
              NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
           !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
@@ -362,7 +361,6 @@ contains
           total_SrcMass=sum(SrcMass(:,0))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             SrcMass(ns,0)=SrcMass(ns,1) !sum(SrcMass(ns,1:Number_Sourcetypes))
              NormFlux(ns)=uv_array(nz)*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
        else
