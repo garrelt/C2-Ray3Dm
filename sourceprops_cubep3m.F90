@@ -243,7 +243,7 @@ contains
     ! Distribute the source parameters to the other nodes
     call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(SrcMass,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(SrcMass,(1+Number_Sourcetypes)*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
     
     ! Turn masses into luminosities
@@ -285,7 +285,7 @@ contains
 
     if (rank == 0) then
        write(logf,*) 'Source lifetime=', lifetime2/(1e6*YEAR),' Myr'
-       !write(logf,*) 'Source lifetime=', lifetime/3.1536e13
+       !write(logf,*) 'Source lifetime=', lifetime/(1e6*YEAR),' Myr'
        write(logf,*) 'Total flux= ',sum(NormFlux)*S_star_nominal,' s^-1'
        ! Create array of source numbers for generating random order
        do ns=1,NumSrc

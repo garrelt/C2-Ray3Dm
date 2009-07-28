@@ -23,8 +23,11 @@ module material
   use my_mpi
   use grid, only: vol
   use cgsconstants, only: m_p
-  use cosmology_parameters, only: Omega_B,Omega0,rho_crit_0
-  use nbody, only: nbody_type, M_grid, id_str, dir_dens, tot_nfiles
+  use astroconstants, only: M_solar, Mpc
+  use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
+  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
+  use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit, tot_nfiles
+  use nbody, only: density_convert_particle, density_convert_grid
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
 
@@ -83,6 +86,8 @@ contains
     if (nbody_type /= "pmfast") then
        write(logf,*) "Error: wrong material module was compiled."
        ierror=1
+       write(logf,*) "       Expected cubep3m, but got", &
+            trim(adjustl(nbody_type))
     else
        ! restart
        restart=0 ! no restart by default
@@ -164,6 +169,7 @@ contains
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
     real(kind=dp) :: avg_dens
+    integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
     real(kind=si),dimension(:,:,:),allocatable :: ndens_real
@@ -172,8 +178,6 @@ contains
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
        if (id_str /= "coarse") then
-          ! Allocate array needed to read in data
-          allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
           dens_file=trim(adjustl(dir_dens))// &
                trim(adjustl(zred_str))// &
                "rho_"//trim(adjustl(id_str))//".dat"
@@ -181,8 +185,17 @@ contains
                " density input from ",trim(dens_file)
           
           ! Open density file: note that it is in `binary" form
-          open(unit=20,file=dens_file,form="binary",status="old")
-          
+          open(unit=20,file=dens_file,form=densityformat,status="old")
+          if (densityheader) then
+             read(20) m1,m2,m3
+             if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+                write(logf,*) "Warning: file with densities unusable"
+                write(logf,*) "mesh found in file: ",m1,m2,m3
+                stop
+             endif
+          endif
+          ! Allocate array needed to read in data
+          allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
           ! Read in data and store it in ndens
           read(20) ndens_real
           ndens(:,:,:)=ndens_real(:,:,:)
@@ -195,13 +208,22 @@ contains
        else
           ! For the highest resolution the density is spread out
           ! over tot_nfiles. Otherwise the same.
-          allocate(ndens_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
           do nfile=0,tot_nfiles-1
              write(nfile_str,"(I1)") nfile
              dens_file=trim(adjustl(dir_dens))// &
                   trim(adjustl(zred_str))// &
                   "rho_c"//nfile_str//".dat"
-             open(unit=20,file=dens_file,form="binary",status="old")
+             open(unit=20,file=dens_file,form=densityformat,status="old")
+             if (densityheader) then
+                read(20) m1,m2,m3
+                if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+                   write(logf,*) "Warning: file with densities unusable"
+                   write(logf,*) "mesh found in file: ",m1,m2,m3
+                   stop
+                endif
+             endif
+             ! Allocate array needed to read in data
+             allocate(ndens_real(mesh(1),mesh(2),mesh(3)/tot_nfiles))
              read(20) ndens_real
              ndens(:,:, &
                   1+nfile*(mesh(3)/tot_nfiles): &
@@ -218,20 +240,18 @@ contains
          MPI_COMM_NEW,mympierror)
 #endif
        
-    ! Report on data: min, max, total
-    if (rank == 0) then
-       write(logf,*) "Raw density diagnostics (in simulation units)"
-       write(logf,*) "minimum density: ",minval(ndens)/8.
-       write(logf,*) "maximum density: ",maxval(ndens)/8.
-       write(logf,*) "summed density:  ",sum(ndens)/8.
-    endif
-
     ! The original values in terms of the mean density
     ! Below is the conversion factor
     ! vol is redshift dependent, that is why we need to recalculate this
-    ! M_particle should be in g
-    !convert=M_particle*M_solar/vol*Omega_B/Omega0/(mu*m_p)
-    convert=M_grid*Omega_B/Omega0/(mu*m_p)/vol
+    ! M_particle and M_grid should be in g
+    select case(density_unit)
+    case ("grid")
+       convert=density_convert_grid*(1.0+zred_now)**3 
+    case ("particle")
+       convert=density_convert_particle*(1.0+zred_now)**3 
+    case ("M0Mpc3")
+       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+    end select
 
     ! Assign density to the grid
     do k=1,mesh(3)
@@ -247,14 +267,17 @@ contains
     ! Find summed and average density
     avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
     
-    ! Report average density
+    ! Report density field properties
     if (rank == 0) then
+       write(logf,*) "Raw density diagnostics (cm^-3)"
+       write(logf,*) "minimum density: ",minval(ndens)
+       write(logf,*) "maximum density: ",maxval(ndens)
        write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
        write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
             " cm^-3" 
        write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
-            rho_crit_0/(mu*m_p)*Omega_B, &
+            rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
     endif
 
@@ -380,6 +403,7 @@ contains
     real(kind=dp),intent(in) :: zred_now
     
     integer :: i,j,k,n,nfile ! loop counters
+    integer :: m1,m2,m3 ! size of mesh in clumping file (header)
     character(len=512):: clump_file
     character(len=6) :: zred_str
     character(len=1) :: nfile_str
@@ -404,9 +428,19 @@ contains
                "clump_"//trim(adjustl(id_str))//".dat"
           
           ! Open clumping file: note that it is in `binary" form
-          open(unit=20,file=clump_file,form="binary",status="old")
+          open(unit=20,file=clump_file,form=clumpingformat,status="old")
           
           ! Read in data and store it in clumping_grid
+          if (clumpingheader) then
+             read(20) m1,m2,m3
+             ! disabled because of errors in clumping files
+             ! GM 090324
+             !if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             !   write(logf,*) "Warning: file with clumping factors unusable"
+             !   write(logf,*) "mesh found in file: ",m1,m2,m3
+             !   stop
+             !endif
+          endif
           read(20) clumping_real
           clumping_grid(:,:,:)=clumping_real(:,:,:)
           
@@ -426,7 +460,17 @@ contains
                   trim(adjustl(zred_str))// &
                   "clump"//nfile_str//".dat"
              write(30,*) clump_file
-             open(unit=20,file=clump_file,form="binary",status="old")
+             open(unit=20,file=clump_file,form=clumpingformat,status="old")
+             if (clumpingheader) then
+                read(20) m1,m2,m3
+                ! disabled because of errors in clumping files
+                ! GM 090324
+                !if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+                !   write(logf,*) "Warning: file with clumping factors unusable"
+                !   write(logf,*) "mesh found in file: ",m1,m2,m3
+                !   stop
+                !endif
+             endif
              read(20) clumping_real
              clumping_grid(:,:, &
                   1+nfile*(mesh(3)/tot_nfiles): &

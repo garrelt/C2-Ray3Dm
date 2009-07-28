@@ -29,17 +29,22 @@ module nbody
   use precision, only: dp
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, file_input
+  use cgsconstants, only: m_p
   use astroconstants, only: Mpc, M_SOLAR
   use my_mpi
-  use cosmology_parameters, only: rho_crit_0, Omega0, h
+  use cosmology_parameters, only: rho_crit_0, Omega0, Omega_B, h, H0
+  use abundances, only: mu
 
   implicit none
 
   character(len=10),parameter :: nbody_type="pmfast" !< ID of Nbody type
 
   ! Boxsize: change here
-  real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
-  integer,parameter,private :: n_box=3248    !< cells/side (in N-body)
+  real(kind=dp),parameter :: boxsize=35.0  !< Box size in Mpc/h comoving
+  integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
+  !integer,parameter,private :: n_box=3248    !< cells/side (in N-body)
 
   !> Path to directory containing directory with density files:
   character(len=180),parameter,private :: dir_dens_path = "../" 
@@ -50,14 +55,35 @@ module nbody
   !> Name of directory with source files
   character(len=180),parameter,private :: dir_src_name= "sources/"
 
+  !> Format of density file (unformatted or binary)
+  character(len=15),parameter :: densityformat="binary"
+  !> Format of clumping file (unformatted or binary)
+  character(len=15),parameter :: clumpingformat="binary"
+  !> density file with header?
+  logical,parameter :: densityheader=.false.
+  !> clumping file with header?
+  logical,parameter :: clumpingheader=.false.
+  !> unit of density in density file
+  !! can be "grid", "particle", "M0Mpc3"
+  character(len=20),parameter :: density_unit="grid"
+
+  ! Parameters of simulations boxes
   ! properties of the box:
-  ! M_box      - mass in box
-  ! M_particle - mass per particle
-  ! M_grid - mean mass per grid cell
-  real(kind=dp),private :: M_box !< mass in box
-  real(kind=dp),private :: M_particle !< mass per particle
-  real(kind=dp),public :: M_grid !< mean mass per grid cell
-  
+  ! M_grid - mean mass per pmfast cell
+  real(kind=dp),parameter,public :: M_box=rho_crit_0*Omega0*(boxsize*Mpc/h)**3 !< mass in box
+  real(kind=dp),parameter,public :: M_grid=M_box/(real(n_box)**3) !< mean mass per grid cell
+  real(kind=dp),parameter,public :: M_particle=8.0*M_grid !< mass per particle
+
+  !> Conversion factor for comoving gas (number) density (cm^-3)
+  real(kind=dp),parameter,public :: density_convert_grid=rho_crit_0*Omega_B/(mu*m_p)*(real(mesh(1))/real(n_box))**3
+  !> Conversion factor for comoving gas (number) density (cm^-3)
+  real(kind=dp),parameter,public :: density_convert_particle=8.0*density_convert_grid
+  !> Conversion factor for (comoving) cubep3m lenght scales
+  real(kind=dp),parameter,public :: lscale=boxsize*Mpc/h/n_box
+  !> Conversion factor for cubep3m time scale (divide by (1+z)^2 to get proper
+  !! converison factor for time)
+  real(kind=dp),parameter,public :: tscale= 2.d0/(3.d0*sqrt(Omega0)*H0)
+
   ! redshift sequence information
   integer, public :: NumZred               !< number of redshifts
   real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts
@@ -136,13 +162,6 @@ contains
     call MPI_BCAST(zred_array,NumZred,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,&
          mympierror)
 #endif
-
-    ! Parameters of simulations boxes
-
-    rho_matter = rho_crit_0*Omega0             ! mean matter density (g/cm^3)
-    M_box      = rho_matter*(boxsize*Mpc/h)**3 ! mass in box (g, not M0) 
-    M_particle = 8.0*M_box/(real(n_box)**3)    ! mass per particle (g, not M0)
-    M_grid = M_particle/8.                     ! mass in grid cell (g)
 
     ! Set identifying string (resolution-dependent)
     ! Construct the file name
