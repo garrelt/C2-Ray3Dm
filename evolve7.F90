@@ -156,7 +156,7 @@ contains
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
           exit
        else
-          if (niter > 100) then
+          if (niter > 150) then
              ! Complain about slow convergence
              if (rank == 0) write(logf,*) 'Multiple sources not converging'
              exit
@@ -170,9 +170,10 @@ contains
        
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
-          if (wallclock2-wallclock1 > 15.0*60.0*countspersec) &
-               call write_iteration_dump(niter)
-          wallclock1=wallclock2
+          if (wallclock2-wallclock1 > 15.0*60.0*countspersec) then
+             call write_iteration_dump(niter)
+             wallclock1=wallclock2
+          endif
        endif
 
        call global_pass (conv_flag,dt)
