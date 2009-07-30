@@ -41,7 +41,7 @@ module nbody
 
   ! Boxsize: change here
   real(kind=dp),parameter :: boxsize=35.0  !< Box size in Mpc/h comoving
-  integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)
+  integer,parameter :: n_box=3248  !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
   !integer,parameter,private :: n_box=3248    !< cells/side (in N-body)
