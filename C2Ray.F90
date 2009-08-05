@@ -77,7 +77,7 @@ Program C2Ray
   integer :: nz !< loop counter for loop over redshift list
   integer :: nz0 !< index of starting redshift from redshift list
   integer :: ierror !< error flag
-  integer :: photcons_flag !< photon conservation flag, non-zero if photon conservation is violated. This stops the simulation
+  integer :: photcons_flag=0 !< photon conservation flag, non-zero if photon conservation is violated. This stops the simulation
 
   ! end_time - end time of the simulation (s)
   ! dt - time step (s)
