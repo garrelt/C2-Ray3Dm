@@ -104,8 +104,8 @@ C2Ray_3D_test_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o n
 
 C2Ray_3D_pmfast_periodic: F90=$(FC)
 C2Ray_3D_pmfast_periodic: F90FLAGS = $(F90FLAGS1)
-C2Ray_3D_pmfast_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
 
 C2Ray_3D_pmfast_periodic_compr: F90=$(FC)
 C2Ray_3D_pmfast_periodic_compr: F90FLAGS = $(F90FLAGS1)
@@ -114,9 +114,8 @@ C2Ray_3D_pmfast_periodic_compr: precision.o $(CONSTANTS) $(UTILS) sizes.o file_a
 
 C2Ray_3D_pmfast_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_pmfast_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
-C2Ray_3D_pmfast_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
-	F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve4_periodic.o output.o C2Ray.o
+C2Ray_3D_pmfast_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o pmfast.o grid.o tped.o mat_ini_pmfast.o sourceprops_pmfast.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
 
 C2Ray_3D_pmfast_periodic_omp_mpi: F90=$(MPIFC)
 C2Ray_3D_pmfast_periodic_omp_mpi: F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) $(MPI_FLAGS)
@@ -137,8 +136,8 @@ C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
-C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m_new.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
-	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m_new.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve7.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m_new.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m_new.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_omp: F90=$(FC)
 C2Ray_3D_cubep3m_periodic_omp: F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) 
