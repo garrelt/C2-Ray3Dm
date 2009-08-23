@@ -1,0 +1,13 @@
+Check list for changing simulations
+- mesh size (sizes.f90)
+- cosmological parameters (cosmoparms.f90)
+- abundances (abundances.f90)
+- clumping (c2ray-parameters.f90)
+- grey opacity (radiation.F90)
+- boxsize (module nbody (pmfast.F90, cubep3m.F90, LG.F90)
+- photon efficiencies (c2ray-parameters.f90)
+- input directories (module nbody)
+- output directory (file-admin.f90)
+- RT grid resolutions in 'case' (module nbody (pmfast.F90, cubep3m.F90, LG.F90))
+- check if density files have a header or not and fix code accordingly (mat_ini_*.f90)
+- do 'make clean' !!
