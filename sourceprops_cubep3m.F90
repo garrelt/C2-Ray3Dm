@@ -25,6 +25,9 @@ module sourceprops
 
   implicit none
 
+  !> maximum increase in uv to use up cumulated photons
+  real(kind=dp),parameter,private :: cumfrac_max=0.15 
+
   integer :: NumSrc=0 !< Number of sources
   integer :: Prev_NumSrc !< Previous number of sources
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
@@ -46,6 +49,7 @@ module sourceprops
   integer,private :: NumMassiveSrc !< counter: number of massive sources
   integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
   integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
+  real(kind=dp),private :: cumfrac
 
   character(len=512),private :: sourcelistfile,sourcelistfilesuppress
 
@@ -137,7 +141,8 @@ contains
        ! Set cumulative number of uv photons to zero if this is not the
        ! first redshift for which sources are active (this way cumulative_uv
        ! can be used in all cases).
-       if (Prev_NumSrc /= 0) cumulative_uv=0.0
+       ! New version: cumulative_uv is slowly reduced
+       !if (Prev_NumSrc /= 0) cumulative_uv=0.0
        call assign_uv_luminosities (lifetime2,nz)
 
        if (rank == 0) then
@@ -348,9 +353,13 @@ contains
           endif
           total_SrcMass=sum(SrcMass(:,0))
           ! Only set NormFlux when data is available!
+          cumfrac=min(cumfrac_max,cumulative_uv/uv_array(nz))
           do ns=1,NumSrc
-             NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
+             NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
+             !NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
+          ! Subtract extra photons from cumulated photons
+          cumulative_uv=max(0.0_dp,cumulative_uv-cumfrac*uv_array(nz))
           !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
        else
           NormFlux(:)=0.0
