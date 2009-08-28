@@ -347,13 +347,14 @@ contains
        enddo
     case ("Fixed N_gamma")
        if (nz <= NumZred_uv) then
+          cumfrac=min(cumfrac_max,cumulative_uv/uv_array(nz))
           if (rank == 0) then 
              write(logf,*) 'Cumulative versus current photons: ', &
-                  cumulative_uv/uv_array(nz)
+                  cumulative_uv,uv_array(nz),cumulative_uv/uv_array(nz)
+             write(logf,*) 'Cumulative fraction used: ', cumfrac
           endif
           total_SrcMass=sum(SrcMass(:,0))
           ! Only set NormFlux when data is available!
-          cumfrac=min(cumfrac_max,cumulative_uv/uv_array(nz))
           do ns=1,NumSrc
              NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
              !NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
