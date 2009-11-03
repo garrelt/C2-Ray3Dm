@@ -72,18 +72,37 @@ contains
        
        ! Open files
        if (do_photonstatistics) then
+          !open(unit=90,file=trim(adjustl(results_dir))//"PhotonCounts.out", &
+          !     form="formatted",status="unknown",access="append")
+          ! Fortran 2003 standard
           open(unit=90,file=trim(adjustl(results_dir))//"PhotonCounts.out", &
-               form="formatted",status="unknown",access="append")
-          write(90,*) "redshift, photon conservation number, fraction new ionization, fraction recombinations, fraction photon losses, fraction collisional ionization, grand total photon conservation number"
+               form="formatted",status="unknown",position="append")
+          write(90,*) "redshift, photon conservation number, ", &
+               "fraction new ionization, fraction recombinations, ", &
+               "fraction photon losses, fraction collisional ionization, ", &
+               "grand total photon conservation number"
+          !open(unit=95,file=trim(adjustl(results_dir))//"PhotonCounts2.out", &
+          !     form="formatted",status="unknown",access="append")
+          ! Fortran 2003 standard
           open(unit=95,file=trim(adjustl(results_dir))//"PhotonCounts2.out", &
-               form="formatted",status="unknown",access="append")
-          write(95,*) "redshift, total number of ions, grand total ionizing photons, mean ionization fraction (by volume and mass)"
+               form="formatted",status="unknown",position="append")
+          write(95,*) "redshift, total number of ions, ", &
+               "grand total ionizing photons, mean ionization fraction ", &
+               "(by volume and mass)"
        endif
+#ifdef MPILOG
+       write(logf,*) "Making output streams according to: ", &
+            streams(1),streams(2),streams(3),streams(4),streams(5)
+#endif
     endif
     if (do_photonstatistics) then
        call initialize_photonstatistics ()
        grtotalsrc=0.0
     endif
+
+#ifdef MPILOG
+    write(logf,*) "End of setup output"
+#endif
 
   end subroutine setup_output
   

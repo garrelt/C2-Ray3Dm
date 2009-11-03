@@ -42,7 +42,7 @@ module my_mpi
 #endif
 
 #ifdef IFORT
-  USE IFPORT, only: hostnm, flush
+  USE IFPORT, only: hostnm
 #ifdef _OPENMP
   USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
@@ -59,6 +59,8 @@ module my_mpi
   integer,public :: nthreads=1      ! number of threads (per processor)
   integer,public :: MPI_COMM_NEW    ! the (new) communicator
   integer,public,dimension(MPI_STATUS_SIZE) :: mympi_status ! status array
+
+  logical,parameter :: reorder=.false. !< reorder the mpi structure (for hydro)
   integer,dimension(NPDIM),public :: dims ! number of processors in 
                                              !  each dimension
   integer,dimension(NPDIM),public :: grid_struct ! coordinates of 
@@ -86,7 +88,7 @@ contains
        if (logf /= 6) then
           filename=trim(adjustl(trim(adjustl(results_dir))//"C2Ray.log"))
           open(unit=logf,file=filename,status="unknown",action="write",&
-               access="append")
+               position="append")
        endif
        write(unit=logf,fmt="(A)") "Log file for C2-Ray run"
        write(unit=logf,fmt=*) " Number of MPI ranks used: ",npr
@@ -135,10 +137,20 @@ contains
 #endif
     !$omp end parallel
 
-    call flush(logf)
+    write(logf,*) "almost end of mpi setup"
+    flush(logf)
 #endif
 
-    call mpi_topology ()
+    if (reorder) then
+       call mpi_topology ()
+    else
+       MPI_COMM_NEW=MPI_COMM_WORLD
+    endif
+
+#ifdef MPILOG
+    write(logf,*) "end of mpi setup"
+    flush(logf)
+#endif
 
   end subroutine mpi_setup
 
@@ -169,16 +181,34 @@ contains
     dims(:)=0
 
     call MPI_Dims_create(npr,NPDIM,dims,ierror)
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Dims_create"
+    write(logf,*) "MPI_Dims_create"
+    flush(logf)
+#endif
+
 
     periods(:)=.FALSE.      ! non-periodic boundaries
 
     reorder=.TRUE.
-    ! makes MPI_COMM_NEW    
+    ! makes MPI_COMM_NEW
+    ! Warning: openmpi + gfortran seems to have problems here
+    ! GM 091102
     call MPI_Cart_create(MPI_COMM_WORLD,NPDIM,dims,periods,reorder, &
          MPI_COMM_NEW,ierror)
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Cart_create"
+    write(logf,*) "MPI_Cart_create"
+    flush(logf)
+#endif
     ! makes grid_struct               
     call MPI_Cart_get(MPI_COMM_NEW,NPDIM,dims, & ! makes grid_struct
          periods,grid_struct,ierror)
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Cart_get"
+    write(logf,*) "MPI_Cart_get"
+    flush(logf)
+#endif
       
     ! Find the neighbours.
     ! My neighbors are now +/- 1 with my rank. Handle the case of the 
@@ -215,8 +245,23 @@ contains
     integer :: ierror=0
 
     call MPI_Cart_shift( MPI_COMM_NEW, 0,  1, nbrleft,  nbrright, ierror )
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Cart_shift",0
+    write(logf,*) "MPI_Cart_shift",0
+    flush(logf)
+#endif
     call MPI_Cart_shift( MPI_COMM_NEW, 1,  1, nbrdown,  nbrup,    ierror )
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Cart_shift",1
+    write(logf,*) "MPI_Cart_shift",1
+    flush(logf)
+#endif
     call MPI_Cart_shift( MPI_COMM_NEW, 2,  1, nbrbelow, nbrabove, ierror )
+#ifdef MPILOG
+    if (ierror /= 0 ) write(logf,*) "error in MPI_Cart_shift",2
+    write(logf,*) "MPI_Cart_shift",2
+    flush(logf)
+#endif
 
   end subroutine fnd3dnbrs
 

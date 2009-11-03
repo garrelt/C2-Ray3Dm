@@ -45,10 +45,10 @@ Program C2Ray
   use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
-  use evolve, only: evolve3D
+  use evolve, only: evolve_ini,evolve3D
 
 #ifdef XLF
-  USE XLFUTILITY, only: iargc, getarg, flush => flush_
+  ! Place for xlf specific statements
 #endif
 
   implicit none
@@ -112,28 +112,41 @@ Program C2Ray
 
   ! Set up input stream (either standard input or from file given
   ! by first argument)
-  if (iargc() > 0) then
-     call getarg(1,inputfile)
-     if (rank == 0) then
+  if (rank == 0) then
+     write(logf,*) "input or input?"
+     flush(logf)
+     if (COMMAND_ARGUMENT_COUNT () > 0) then
+        call GET_COMMAND_ARGUMENT(1,inputfile)
         write(logf,*) "reading input from ",trim(adjustl(inputfile))
         open(unit=stdinput,file=inputfile)
         call flag_for_file_input(.true.)
+     else
+        write(logf,*) "reading input from command line"
      endif
+     flush(logf)
   endif
 
   ! Initialize output
   call setup_output ()
-  if (rank == 0) call flush(logf)
 
   ! Initialize grid
   call grid_ini ()
 
+#ifdef MPILOG
+  write(logf,*) "Before rad_ini"
+#endif
   ! Initialize photo-ionization calculation
   call rad_ini ( )
 
+#ifdef MPILOG
+  write(logf,*) "Before mat_ini"
+#endif
   ! Initialize the material properties
   call mat_ini (restart, nz0, ierror)
 
+#ifdef MPILOG
+  write(logf,*) "Before nbody_ini"
+#endif
   ! Find the redshifts we are dealing with
   call nbody_ini ()
 
@@ -142,7 +155,10 @@ Program C2Ray
 
   ! Initialize time step parameters
   call time_ini ()
-  if (rank == 0) call flush(logf)
+  if (rank == 0) flush(logf)
+
+  ! Initialize evolve arrays
+  call evolve_ini ()
 
   ! Set time to zero
   sim_time=0.0
@@ -267,7 +283,7 @@ Program C2Ray
         endif
         ! end time for this redshift interval reached
         if (abs(sim_time-end_time) <= 1e-6*end_time) exit
-        if (rank == 0) call flush(logf)
+        if (rank == 0) flush(logf)
      enddo
 
      ! Get out: photon conservation violated
@@ -304,6 +320,7 @@ Program C2Ray
 
   if (photcons_flag == 0) call output(zred,sim_time,actual_dt,photcons_flag)
 
+  ! End output streams
   call close_down ()
   
   ! Find out CPU time

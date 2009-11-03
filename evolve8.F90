@@ -43,7 +43,7 @@ module evolve
 
   private
 
-  public :: evolve3D, phih_grid
+  public :: evolve3D, phih_grid, evolve_ini
 
   !> Periodic boundary conditions, has to be true for this version
   logical,parameter :: periodic_bc = .true.
@@ -54,15 +54,15 @@ module evolve
   ! Grid variables
 
   !> H Photo-ionization rate on the entire grid
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: phih_grid
+  real(kind=dp),dimension(:,:,:),allocatable :: phih_grid
   !> Time-averaged H ionization fraction
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_av
+  real(kind=dp),dimension(:,:,:,:),allocatable :: xh_av
   !> Intermediate result for H ionization fraction
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1) :: xh_intermed
+  real(kind=dp),dimension(:,:,:,:),allocatable :: xh_intermed
   !> H0 Column density (outgoing)
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: coldensh_out
+  real(kind=dp),dimension(:,:,:),allocatable :: coldensh_out
   !> Buffer for MPI communication
-  real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)) :: buffer
+  real(kind=dp),dimension(:,:,:),allocatable :: buffer
   !> Photon loss from the grid
   real(kind=dp) :: photon_loss_all(1:NumFreqBnd)
   !> Photon loss from one source
@@ -77,6 +77,19 @@ module evolve
 contains
 
   ! =======================================================================
+
+  !> Allocate the arrays needed for evolve
+  subroutine evolve_ini ()
+    
+    allocate(phih_grid(mesh(1),mesh(2),mesh(3)))
+    allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
+    allocate(xh_intermed(mesh(1),mesh(2),mesh(3),0:1))
+    allocate(coldensh_out(mesh(1),mesh(2),mesh(3)))
+    allocate(buffer(mesh(1),mesh(2),mesh(3)))
+
+  end subroutine evolve_ini
+
+  ! ===========================================================================
 
   !> Evolve the entire grid over a time step dt
   subroutine evolve3D (dt,restart)
@@ -506,7 +519,7 @@ contains
     write(logf,*) 'Minimum and maximum number of sources ', &
          'per processor: ', &
          minval(counts(1:npr-1)),maxval(counts(1:npr-1))
-    call flush(logf)
+    flush(logf)
 
 #endif
 
@@ -552,7 +565,7 @@ contains
           write(logf,*) 'Processor ',rank,' received: ',ns1
           write(logf,*) ' that is source ',SrcSeries(ns1)
           write(logf,*) ' at:',srcpos(:,ns1)
-          call flush(logf)
+          flush(logf)
 #endif
           ! Do the source at hand
           call do_source(dt,ns1,niter)
@@ -590,7 +603,7 @@ contains
           if (mympi_status(MPI_TAG) == 2) then
 #ifdef MPILOG
              write(logf,*) 'Stop received'
-             call flush(logf)
+             flush(logf)
 #endif
              exit 
           endif
@@ -605,7 +618,7 @@ contains
 #ifdef MPILOG
     ! Report
     write(logf,*) 'Processor ',rank,' did ',local_count,' sources'
-    call flush(logf)
+    flush(logf)
 #endif
     call MPI_Send (local_count,  &
          1,           & 

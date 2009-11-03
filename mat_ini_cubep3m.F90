@@ -15,7 +15,7 @@ module material
   use astroconstants, only: M_solar, Mpc
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
   use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
-  use nbody, only: densityformat, densityheader, clumpingformat, clumpingheader, density_unit
+  use nbody, only: densityformat, densityaccess, densityheader, clumpingformat, clumpingaccess, clumpingheader, density_unit
   use nbody, only: density_convert_particle, density_convert_grid
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor
@@ -25,9 +25,9 @@ module material
   ! ndens - number density (cm^-3) of a cell
   ! temper - temperature (K) of a cell
   ! xh - ionization fractions for one cell
-  real(kind=dp) :: ndens(mesh(1),mesh(2),mesh(3))
+  real(kind=dp),dimension(:,:,:),allocatable :: ndens
   real(kind=dp) :: temper
-  real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1)
+  real(kind=dp),dimension(:,:,:,:),allocatable :: xh
   logical isothermal
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
@@ -115,10 +115,14 @@ contains
        isothermal=.true.
        temper=temper_val
        
+       ! Allocate density array
+       allocate(ndens(mesh(1),mesh(2),mesh(3)))
        ! Assign dummy density to the grid
        ! This should be overwritten later (in dens_ini)
        ndens(:,:,:)=1.0
        
+       ! Allocate density array
+       allocate(xh(mesh(1),mesh(2),mesh(3),0:1))
        ! Assign ionization fractions (completely neutral)
        ! In case of a restart this will be overwritten in xfrac_ini
        xh(:,:,:,0)=1.0
@@ -172,7 +176,8 @@ contains
             " density input from ",trim(dens_file)
        
        ! Open density file: note that it is in `binary" form
-       open(unit=20,file=dens_file,form=densityformat,status="old")
+       open(unit=20,file=dens_file,form=densityformat, &
+            access=densityaccess,status="old")
        
        ! Read in data
        if (densityheader) then
@@ -390,7 +395,8 @@ contains
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
             " clumping input from ",trim(clump_file)
        ! Open clumping file: note that it is in `binary" form
-       open(unit=20,file=clump_file,form=clumpingformat,status="old")
+       open(unit=20,file=clump_file,form=clumpingformat, &
+            access=clumpingaccess,status="old")
        
        ! Read in data
        if (clumpingheader) then

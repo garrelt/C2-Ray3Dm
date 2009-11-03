@@ -8,8 +8,8 @@ module sourceprops
   use cosmology_parameters, only: Omega_B, Omega0
   use material, only: xh
   use grid, only: x,y,z
-  use c2ray_parameters, only: phot_per_atom1, phot_per_atom2, lifetime, &
-       S_star_nominal, StillNeutral
+  use c2ray_parameters, only: phot_per_atom, lifetime, &
+       S_star_nominal, StillNeutral, Number_Sourcetypes
 
   integer :: NumSrc 
   integer,dimension(:,:),allocatable :: srcpos
@@ -125,5 +125,14 @@ contains
 #endif
 
   end subroutine source_properties
+
+  ! =======================================================================
+
+  !> Initialization routine: dummy
+  !! Author: Garrelt Mellema
+  
+  subroutine source_properties_ini ()
+    
+  end subroutine source_properties_ini
 
 end module sourceprops

@@ -48,26 +48,38 @@ module nbody
   !integer,parameter :: n_box=6144  !< cells/side (in N-body,fine grid)
 
   !> Path to directory containing directory with density files:
-  character(len=180),parameter,private :: dir_dens_path = "../" 
+  character(len=*),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
   !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
+  character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
   !> Path to directory containing directory with source files:
-  character(len=180),parameter,private :: dir_src_path = "./" 
+  character(len=*),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
-  character(len=180),parameter,private :: dir_src_name= "sources/"
+  character(len=*),parameter,private :: dir_src_name= "sources/"
 
   !> Format of density file (unformatted or binary)
-  character(len=15),parameter :: densityformat="binary"
+#ifdef IFORT
+  character(len=*),parameter :: densityformat="binary"
+  character(len=*),parameter :: densityaccess="sequential"
+#else
+  character(len=*),parameter :: densityformat="unformatted"
+  character(len=*),parameter :: densityaccess="stream"
+#endif
   !> Format of clumping file (unformatted or binary)
-  character(len=15),parameter :: clumpingformat="binary"
+#ifdef IFORT
+  character(len=*),parameter :: clumpingformat="binary"
+  character(len=*),parameter :: clumpingaccess="sequential"
+#else
+  character(len=15),parameter :: clumpingformat="unformatted"
+  character(len=*),parameter :: clumpingaccess="stream"
+#endif
   !> density file with header?
   logical,parameter :: densityheader=.true.
   !> clumping file with header?
   logical,parameter :: clumpingheader=.true.
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
-  character(len=20),parameter :: density_unit="grid"
+  character(len=*),parameter :: density_unit="grid"
 
   ! Parameters of simulations boxes
   ! properties of the box:

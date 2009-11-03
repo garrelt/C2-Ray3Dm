@@ -13,7 +13,7 @@ module grid
   use astroconstants, only: Mpc
   use cosmology_parameters, only: h
   use my_mpi
-  use file_admin, only: stdinput,logf
+  use file_admin, only: stdinput,logf,file_input
   use nbody, only : boxsize
 
   implicit none
@@ -23,9 +23,9 @@ module grid
   ! x,y,z - x,y,z coordinates
   ! vol - volume of one cell
   real(kind=dp),dimension(Ndim) :: dr !< cell size
-  real(kind=dp),dimension(mesh(1)) :: x !< spatial coordinate x
-  real(kind=dp),dimension(mesh(2)) :: y !< spatial coordinate y
-  real(kind=dp),dimension(mesh(3)) :: z !< spatial coordinate z
+  real(kind=dp),dimension(:),allocatable :: x !< spatial coordinate x
+  real(kind=dp),dimension(:),allocatable :: y !< spatial coordinate y
+  real(kind=dp),dimension(:),allocatable :: z !< spatial coordinate z
   real(kind=dp) :: vol !< volume of grid cell
   
 contains
@@ -50,6 +50,7 @@ contains
     ! contained in common block in grid.h
     
     integer :: i,j,k
+    integer :: alloc_status
     real(kind=dp) :: xgrid,ygrid,zgrid
     
 #ifdef MPI
@@ -59,7 +60,9 @@ contains
     ! Ask for grid size (if rank 0 and not set in nbody module)
     if (rank == 0) then
        if (boxsize == 0.0) then
-          write(*,'(A,$)') 'Enter comoving size of grid in x,y,z (Mpc/h): '
+          if (.not.file_input) then
+             write(*,'(A,$)') 'Enter comoving size of grid in x,y,z (Mpc/h): '
+          endif
           read(stdinput,*) xgrid,ygrid,zgrid
        else
           xgrid=boxsize
@@ -68,13 +71,23 @@ contains
        endif
        ! Report
        write(logf,*) "Box size is ",xgrid," Mpc/h (comoving)"
+       flush(logf)
     endif
     
 #ifdef MPI
     ! Distribute the total grid size over all processors
     call MPI_BCAST(xgrid,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
+#ifdef MPILOG
+    write(logf,*) ierror
+#endif
     call MPI_BCAST(ygrid,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
+#ifdef MPILOG
+    write(logf,*) ierror
+#endif
     call MPI_BCAST(zgrid,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,ierror)
+#ifdef MPILOG
+    write(logf,*) ierror
+#endif
 #endif
     
     xgrid=xgrid*Mpc/h
@@ -86,6 +99,20 @@ contains
     dr(2)=ygrid/real(mesh(2))
     dr(3)=zgrid/real(mesh(3))
     
+    ! allocate coordinates
+    allocate(x(mesh(1)),stat=alloc_status)
+#ifdef MPILOG
+    write(logf,*) alloc_status
+#endif
+    allocate(y(mesh(2)),stat=alloc_status)
+#ifdef MPILOG
+    write(logf,*) alloc_status
+#endif
+    allocate(z(mesh(3)),stat=alloc_status)
+#ifdef MPILOG
+    write(logf,*) alloc_status
+#endif
+
     ! coordinates of a cell
     do k=1,mesh(3)
        z(k)=(real(k)-0.5)*dr(3)
@@ -110,6 +137,11 @@ contains
     ! Scalar version
     vol=dr(1)*dr(2)*dr(3)
     
+#ifdef MPILOG
+    write(logf,*) "End of grid_ini"
+    flush(logf)
+#endif
+
   end subroutine grid_ini
   
 end module grid

@@ -29,12 +29,12 @@ module my_mpi
 #endif
 
 #ifdef IFORT
-  USE IFPORT, only: hostnm, flush
+  USE IFPORT, only: hostnm
 #ifdef _OPENMP
   USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 #endif
-
+  
   implicit none
 
   integer,parameter,public :: NPDIM=3 ! dimension of problem
@@ -55,6 +55,10 @@ module my_mpi
 
   integer,parameter,public :: MPI_PROC_NULL=-1
 
+#ifdef SUN
+  integer :: hostnm
+#endif
+
 contains
 
   !----------------------------------------------------------------------------
@@ -73,7 +77,7 @@ contains
     if (logf /= 6) then
        filename=trim(adjustl(trim(adjustl(results_dir))//"C2Ray.log"))
        open(unit=logf,file=filename,status="unknown",action="write", &
-            access="append")
+            position="append")
     endif
     write(unit=logf,fmt="(A)") "Log file for C2-Ray run"
 
@@ -105,7 +109,7 @@ contains
 #endif
     !$omp end parallel
 
-    call flush(logf)
+    flush(logf)
 
     call mpi_topology ()
 
