@@ -36,15 +36,16 @@
 #-------------------------------------------------------
 
 # Compiler
-FC = ifort # Intel compiler
-MPIFC = mpif90 # MPI compiler
+#FC = gfort # GNU compiler
+#MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
-IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
+#IFORTFLAGS = -O3 -DGFORT
+#IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 # Processor dependent optimization
-F90FLAGS1 = $(IFORTFLAGS) 
-F90FLAGS1 = -xW $(IFORTFLAGS) 
+#F90FLAGS1 = $(IFORTFLAGS) 
+#F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xO $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
@@ -52,9 +53,54 @@ F90FLAGS1 = -xW $(IFORTFLAGS)
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
-MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
+#OPENMP_FLAGS = -openmp # For Intel compiler
+
+#-------------------------------------------------------
+# Compiler
+# Intel: best tested
+FC = ifort # Intel compiler
+MPIFC = mpif90 # MPI compiler
+
+# F90 options (ifort)
+#IFORTFLAGS = -O0 -g -DIFORT
+IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
+#IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
+# Processor dependent optimization
+#F90FLAGS1 = $(IFORTFLAGS) 
+#F90FLAGS1 = -xW $(IFORTFLAGS) 
+#F90FLAGS1 = -xO $(IFORTFLAGS) 
+#F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
+#F90FLAGS1 = -xB $(IFORTFLAGS)
+
+# These flags should be added to the F90FLAGS1 depending on the executable
+# made. Specify this below on a per executable basis.
+#MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
+#MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
+#OPENMP_FLAGS = -openmp # For Intel compiler
+
+#-------------------------------------------------------
+
+# Compiler
+# Sun: problems with constant definition. Cannot have sqrt in constant
+# definition.
+#FC = f95 # Sun compiler
+#MPIFC = mpif90 # MPI compiler
+
+# F90 options (ifort)
+#SUNFLAGS = -O3 -DSUN
+# Processor dependent optimization
+#F90FLAGS1 = $(SUNFLAGS) 
+#F90FLAGS1 = -xW $(SUNFLAGS) 
+
+# These flags should be added to the F90FLAGS1 depending on the executable
+# made. Specify this below on a per executable basis.
+#MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
+#MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -openmp # For Intel compiler
+#OPENMP_FLAGS = -openmp # For Sun compiler
 
 #-------------------------------------------------------
 
@@ -84,8 +130,8 @@ OPENMP_FLAGS = -openmp # For Intel compiler
 
 OPTIONS = $(F90FLAGS)
 
-LDFLAGS = $(OPTIONS)
-LIBS = 
+LDFLAGS = $(OPTIONS) -L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
+LIBS = -lirc
 
 #-------------------------------------------------------
 
@@ -99,6 +145,11 @@ C2Ray_3D_test_periodic: F90=$(FC)
 C2Ray_3D_test_periodic: F90FLAGS = $(F90FLAGS1)
 C2Ray_3D_test_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o file_admin.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+
+C2Ray_3D_test_periodic_mpi: F90=$(MPIFC)
+C2Ray_3D_test_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
+C2Ray_3D_test_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(OPTIONS) -o $@ precision.o $(UTILS) sizes.o mpi.o file_admin.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 #--------PMFAST---------------------------------------------------------------
 
