@@ -150,13 +150,22 @@ Program C2Ray
   ! Find the redshifts we are dealing with
   call nbody_ini ()
 
+#ifdef MPILOG
+  write(logf,*) "Before source_properties_ini"
+#endif
   ! Initialize the source model
   call source_properties_ini ()
 
+#ifdef MPILOG
+  write(logf,*) "Before time_ini"
+#endif
   ! Initialize time step parameters
   call time_ini ()
   if (rank == 0) flush(logf)
 
+#ifdef MPILOG
+  write(logf,*) "Before evolve_ini"
+#endif
   ! Initialize evolve arrays
   call evolve_ini ()
 
