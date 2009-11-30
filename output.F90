@@ -172,7 +172,7 @@ contains
        if (streams(1).eq.1) then
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))//"Ifront1_"//trim(adjustl(file1))//".dat"
-          open(unit=51,file=file1,form="unformatted",status="unknown")
+          open(unit=51,file=file1,form="formatted",status="unknown")
           do i=1,mesh(1)
              write(51,"(5(1pe10.3,1x))") x(i), &
                   xh(i,srcpos(2,1),srcpos(3,1),0), &
