@@ -1,0 +1,11 @@
+0 1 1 1 1    !output streams
+1e4          !temp
+y            !restart (y/n)
+n            !restart at midpoint (y/n)
+40           !from which slice to start/restart
+6.3Mpc_42_ni-nj.txt ! Clumping fit table
+red.dat      !file with redshifts
+2            !number of timesteps per density/source slice
+2            !number of outputs per density/source slice
+y	     !restart from iteration dump
+9.094        !intermediate redshift if such restart
