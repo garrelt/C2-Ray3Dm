@@ -31,8 +31,10 @@ module material
   logical isothermal
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
+  real(kind=dp) :: avg_dens !< average density
+  character(len=512) :: clumping_fit_file
   public :: set_clumping, clumping_point
-
+  
 #ifdef MPI
   integer,private :: mympierror
 #endif
@@ -102,6 +104,9 @@ contains
           if (answer == "y" .or. answer == "Y") restart=2
           if (.not.file_input) write(*,"(A,$)") "Number of starting slice: "
           read(stdinput,*) nz0
+          if (.not.file_input) &
+               write(*,"(A,$)") "Clumping fit table file: "
+          read(stdinput,*) clumping_fit_file
           !print*,"Number of starting slice: ",nz0
        endif
 #ifdef MPI       
@@ -159,7 +164,6 @@ contains
     character(len=1) :: nfile_str
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
-    real(kind=dp) :: avg_dens
     integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
@@ -372,8 +376,12 @@ contains
     character(len=512):: clump_file
     character(len=6) :: zred_str
     character(len=1) :: nfile_str
-    real(kind=dp) :: summed_density
-    real(kind=dp) :: avg_dens
+    real(kind=dp) :: z_read
+    real(kind=dp) :: a0
+    real(kind=dp) :: a1
+    real(kind=dp) :: a2
+    real(kind=dp) :: error
+    integer :: io_status
 
     ! clumping in file is in 4B reals, read in via this array
     !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
@@ -420,6 +428,30 @@ contains
        
        ! Deallocate array needed for reading in the data.
        !deallocate(clumping_real)
+       
+       ! Read clumping fit (for clumping based on smaller scales
+       ! This file contains the parameters for the fit
+       ! y=a0+a1*x+a2*x²
+       ! where x is the alog10(<n²>_int) and y is alog10(<n²>_Jeans).
+       open(unit=21,file=clumping_fit_file,status="old",form="formatted")
+       z_read=0.0
+       io_status=0
+       do while(z_read-zred_now > 1e-2 .and. io_status == 0)
+          read(unit=21,iostat=io_status) z_read,a0,a1,a2,error
+       enddo
+       close(unit=21)
+       if (io_status /= 0) then
+          ! Something went wrong, assume no clumping and warn
+          a0=0.0
+          a1=1.0
+          a2=0.0
+          write(logf,*) "WARNING: no clumping data found in ", & 
+               trim(adjustl(clumping_fit_file))," for redshift ",zred_now
+       endif
+       clumping_grid(:,:,:)=10.0**(a0+ &
+            a1*log10(clumping_grid(:,:,:)*ndens(:,:,:)/avg_dens)+ &
+            a2*(log10(clumping_grid(:,:,:)*ndens(:,:,:)/avg_dens))**2 - &
+            log10(ndens(:,:,:)/avg_dens))
     endif
 
 #ifdef MPI       
