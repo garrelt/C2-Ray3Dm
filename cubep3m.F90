@@ -53,15 +53,17 @@ module nbody
   !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
   character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
   !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "./" 
+  character(len=*),parameter,private :: dir_src_path = "../" 
   !> Name of directory with source files
   character(len=*),parameter,private :: dir_src_name= "sources/"
 
   !> Format of density file (unformatted or binary)
 #ifdef IFORT
+  ! ifort standard for "binary"
   character(len=*),parameter :: densityformat="binary"
   character(len=*),parameter :: densityaccess="sequential"
 #else
+  ! Fortran2003 standard for "binary"
   character(len=*),parameter :: densityformat="unformatted"
   character(len=*),parameter :: densityaccess="stream"
 #endif

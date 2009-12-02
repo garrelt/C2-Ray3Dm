@@ -429,11 +429,20 @@ contains
        ! Deallocate array needed for reading in the data.
        !deallocate(clumping_real)
        
+       ! Report on data: min, max, total
+       ! assign mean to clumping for reporting in set_clumping
+       clumping=sum(clumping_grid)/(mesh(1)*mesh(2)*mesh(3))
+       write(logf,*) "Statistics BEFORE applying clumping fit"
+       write(logf,*) "minimum: ",minval(clumping_grid)
+       write(logf,*) "maximum: ",maxval(clumping_grid)
+       write(logf,*) "average clumping: ",clumping
+
        ! Read clumping fit (for clumping based on smaller scales
        ! This file contains the parameters for the fit
        ! y=a0+a1*x+a2*x²
        ! where x is the alog10(<n²>_int) and y is alog10(<n²>_Jeans).
-       open(unit=21,file=clumping_fit_file,status="old",form="formatted")
+       open(unit=21,file=trim(adjustl(dir_dens))//clumping_fit_file, &
+          status="old",form="formatted")
        z_read=0.0
        io_status=0
        do while(z_read-zred_now > 1e-2 .and. io_status == 0)
@@ -464,9 +473,11 @@ contains
     ! assign mean to clumping for reporting in set_clumping
     clumping=sum(clumping_grid)/(mesh(1)*mesh(2)*mesh(3))
     if (rank == 0) then
+       write(logf,*) "Statistics AFTER applying clumping fit"
+       write(logf,*) "clumping fit for redshift ",z_read
        write(logf,*) "minimum: ",minval(clumping_grid)
        write(logf,*) "maximum: ",maxval(clumping_grid)
-       write(logf,*) "mean clumping: ",clumping
+       write(logf,*) "average clumping: ",clumping
     endif
 
   end subroutine clumping_init
