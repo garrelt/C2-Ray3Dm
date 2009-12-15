@@ -36,19 +36,13 @@
 #-------------------------------------------------------
 
 # Compiler
-#FC = gfort # GNU compiler
+#FC = gfortran # GNU compiler
 #MPIFC = mpif90 # MPI compiler
 
-# F90 options (ifort)
-#IFORTFLAGS = -O3 -DGFORT
-#IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
-#IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
+# F90 options (gfortran)
+#IFORTFLAGS = -O3 -DGFORT -DMPILOG
 # Processor dependent optimization
 #F90FLAGS1 = $(IFORTFLAGS) 
-#F90FLAGS1 = -xW $(IFORTFLAGS) 
-#F90FLAGS1 = -xO $(IFORTFLAGS) 
-#F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
-#F90FLAGS1 = -xB $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
@@ -68,8 +62,8 @@ MPIFC = mpif90 # MPI compiler
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 # Processor dependent optimization
-F90FLAGS1 = $(IFORTFLAGS) 
-#F90FLAGS1 = -xW $(IFORTFLAGS) 
+#F90FLAGS1 = $(IFORTFLAGS) 
+F90FLAGS1 = -xW $(IFORTFLAGS) 
 #F90FLAGS1 = -xO $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
