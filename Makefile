@@ -39,10 +39,10 @@
 #FC = gfortran # GNU compiler
 #MPIFC = mpif90 # MPI compiler
 
-# F90 options (gfortran)
-#IFORTFLAGS = -O3 -DGFORT -DMPILOG
+# F90 options (ifort)
+#GFORTFLAGS = -O3 -DGFORT -DMPILOG
 # Processor dependent optimization
-#F90FLAGS1 = $(IFORTFLAGS) 
+F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
