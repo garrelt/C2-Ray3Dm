@@ -5,7 +5,7 @@
 !! 
 !! \b Author: Garrelt Mellema, Ilian Iliev
 !!
-!! \b Date: 22-May-2008 (previous version was not dated)
+!! \b Date: 09-Dec-2009 (22-May-2008, previous versions were not dated)
 !!
 !! \b Version: CUBEP3M simulations
 
@@ -23,7 +23,7 @@ module nbody
 
   ! Authors: Ilian Iliev, Garrelt Mellema
 
-  ! Date: 22-May-2008 (previous version was not dated)
+  ! Date: 09-Dec-2009 (22-May-2008, previous versions were not dated)
 
   use precision, only: dp
   use sizes, only: mesh
@@ -52,6 +52,13 @@ module nbody
   !> Name of directory with density files
   !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
   character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
+
+  !> Path to directory containing directory with clumping files:
+  character(len=*),parameter,private :: dir_clump_path = "../" 
+  !> Name of directory with files used for clumping
+  !character(len=180),parameter,private :: dir_clump_name= "coarser_densities/"
+  character(len=*),parameter,private :: dir_clump_name= "coarser_densities/halos_included/"
+
   !> Path to directory containing directory with source files:
   character(len=*),parameter,private :: dir_src_path = "../" 
   !> Name of directory with source files
@@ -108,8 +115,9 @@ module nbody
   integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
   character(len=8),public :: id_str       !< resolution dependent string
 
-  character(len=180),public :: dir_dens !< Path to directory with density files
-  character(len=180),public :: dir_src !< Path to directory with source files
+  character(len=480),public :: dir_dens !< Path to directory with density files
+  character(len=480),public :: dir_clump !< Path to directory with density files
+  character(len=480),public :: dir_src !< Path to directory with source files
 
 #ifdef MPI
   integer,private :: mympierror !< MPI error flag variable
@@ -137,15 +145,19 @@ contains
        if (len > 0) then
           dir_dens=value(1:len)//trim(adjustl(dir_dens_path)) &
                //trim(adjustl(dir_dens_name))
+          dir_clump=value(1:len)//trim(adjustl(dir_clump_path)) &
+               //trim(adjustl(dir_clump_name))
           dir_src=value(1:len)//trim(adjustl(dir_src_path)) &
                //trim(adjustl(dir_src_name))
        else
           dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+          dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
           dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
        endif
     elseif (status == 1) then
        ! Assume that the whole path is set in the parameter
        dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+       dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
        dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
     elseif (status == -1) then
        ! Warning
@@ -153,6 +165,7 @@ contains
     endif
 #else
     dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
+    dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
     dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
 #endif
        

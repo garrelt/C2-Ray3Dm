@@ -14,7 +14,7 @@ module material
   use cgsconstants, only: m_p
   use astroconstants, only: M_solar, Mpc
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h
-  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array
+  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array, dir_clump
   use nbody, only: densityformat, densityaccess, densityheader, clumpingformat, clumpingaccess, clumpingheader, density_unit
   use nbody, only: density_convert_particle, density_convert_grid
   use abundances, only: mu
@@ -381,6 +381,7 @@ contains
     real(kind=dp) :: a1
     real(kind=dp) :: a2
     real(kind=dp) :: error
+    real(kind=dp) :: avg_dens !< average density
     integer :: io_status
 
     ! clumping in file is in 4B reals, read in via this array
@@ -392,33 +393,36 @@ contains
     if (rank == 0) then
        ! construct filename
        write(zred_str,"(f6.3)") zred_now
-       ! Allocate array needed to read in data
-       !allocate(clumping_real(mesh(1),mesh(2),mesh(3)))
        write(30,*) "Reading ",id_str," input"
-       clump_file=trim(adjustl(dir_dens))// &
+       clump_file=trim(adjustl(dir_clump))// &
             trim(adjustl(zred_str))// &
-            "c_all.dat"
+            "n_all.dat"
+            !"c_all.dat"
             !"clump_"//trim(adjustl(id_str))//".dat"
-       
+       ! Clumping file should be density with halos included.
+       ! This most likely has an identical file name to density
+       ! with halos excluded, but resides in a different directory.
+       ! GM, 2009-12-09
+
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
             " clumping input from ",trim(clump_file)
-       ! Open clumping file: note that it is in `binary" form
+       ! Open clumping file: note that the format is determined
+       ! by the values of clumpingformat and clumping access,
+       ! both set in the nbody module.
        open(unit=20,file=clump_file,form=clumpingformat, &
             access=clumpingaccess,status="old")
        
        ! Read in data
+       ! Read in header if there is one
        if (clumpingheader) then
           read(20) m1,m2,m3
-          ! disabled because of errors in clumping files
-          ! GM 090324
-          !if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-          !   write(logf,*) "Warning: file with clumping factors unusable"
-          !   write(logf,*) "mesh found in file: ",m1,m2,m3
-          !   stop
-          !endif
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "Warning: file with clumping factors unusable"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+             stop
+          endif
        endif
        ! Read in data and store it in clumping_grid
-       !read(20) clumping_real
        read(20) clumping_grid
        write(logf,*) 'Clumping data read'
        !clumping_grid(:,:,:)=clumping_real(:,:,:)
@@ -426,25 +430,30 @@ contains
        ! close file
        close(20)
        
-       ! Deallocate array needed for reading in the data.
-       !deallocate(clumping_real)
-       
+       ! Normalize to average density
+       avg_dens=sum(clumping_grid)/ &
+            (real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
+       clumping_grid=clumping_grid/avg_dens
+       clumping_grid=log10(clumping_grid*clumping_grid)
        ! Report on data: min, max, total
+       ! Disabled (GM 2009-12-09): if we read in a density field
+       ! there is no sense in reporting these.
        ! assign mean to clumping for reporting in set_clumping
-       clumping=sum(clumping_grid)/(mesh(1)*mesh(2)*mesh(3))
-       write(logf,*) "Statistics BEFORE applying clumping fit"
-       write(logf,*) "minimum: ",minval(clumping_grid)
-       write(logf,*) "maximum: ",maxval(clumping_grid)
-       write(logf,*) "average clumping: ",clumping
+       !clumping=sum(clumping_grid)/(mesh(1)*mesh(2)*mesh(3))
+       !write(logf,*) "Statistics BEFORE applying clumping fit"
+       !write(logf,*) "minimum: ",minval(clumping_grid)
+       !write(logf,*) "maximum: ",maxval(clumping_grid)
+       !write(logf,*) "average clumping: ",clumping
 
        ! Read clumping fit (for clumping based on smaller scales
        ! This file contains the parameters for the fit
        ! y=a0+a1*x+a2*x²
        ! where x is the alog10(<n²>_int) and y is alog10(<n²>_Jeans).
-       open(unit=21,file=trim(adjustl(dir_dens))//clumping_fit_file, &
+       open(unit=21,file=trim(adjustl(dir_clump))//clumping_fit_file, &
           status="old",form="formatted")
        z_read=0.0
        io_status=0
+       ! Read in lines until the correct redshift is found.
        do while(z_read-zred_now > 1e-2 .and. io_status == 0)
           read(unit=21,iostat=io_status) z_read,a0,a1,a2,error
        enddo
@@ -458,9 +467,8 @@ contains
                trim(adjustl(clumping_fit_file))," for redshift ",zred_now
        endif
        clumping_grid(:,:,:)=10.0**(a0+ &
-            a1*log10(clumping_grid(:,:,:)*ndens(:,:,:)/avg_dens)+ &
-            a2*(log10(clumping_grid(:,:,:)*ndens(:,:,:)/avg_dens))**2 - &
-            log10(ndens(:,:,:)/avg_dens))
+            (a1+1.0)*clumping_grid(:,:,:)+ &
+            a2*clumping_grid(:,:,:)*clumping_grid(:,:,:))
     endif
 
 #ifdef MPI       
