@@ -467,7 +467,7 @@ contains
                trim(adjustl(clumping_fit_file))," for redshift ",zred_now
        endif
        clumping_grid(:,:,:)=10.0**(a0+ &
-            (a1+1.0)*clumping_grid(:,:,:)+ &
+            (a1-1.0)*clumping_grid(:,:,:)+ &
             a2*clumping_grid(:,:,:)*clumping_grid(:,:,:))
     endif
 
