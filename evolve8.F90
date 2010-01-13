@@ -183,6 +183,8 @@ contains
        
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
+          write(logf,"(A,F10.3,A)") "Wall clock time for iterations: ", &
+               (wallclock2-wallclock1)/(60.0*countspersec)," minutes"
           if (wallclock2-wallclock1 > 15.0*60.0*countspersec) then
              call write_iteration_dump(niter)
              wallclock1=wallclock2
@@ -216,6 +218,7 @@ contains
        iterfile="iterdump1.bin"
     endif
 
+    write(logf,"(A,A)") "Writing iteration dump file ",iterfile
     open(unit=iterdump,file=iterfile,form="unformatted", &
          status="unknown")
 
