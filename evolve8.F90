@@ -183,8 +183,6 @@ contains
        
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
-          write(logf,"(A,F10.3,A)") "Wall clock time for iterations: ", &
-               (wallclock2-wallclock1)/(60.0*countspersec)," minutes"
           if (wallclock2-wallclock1 > 15.0*60.0*countspersec) then
              call write_iteration_dump(niter)
              wallclock1=wallclock2
@@ -218,7 +216,6 @@ contains
        iterfile="iterdump1.bin"
     endif
 
-    write(logf,"(A,A)") "Writing iteration dump file ",iterfile
     open(unit=iterdump,file=iterfile,form="unformatted", &
          status="unknown")
 
@@ -1349,7 +1346,7 @@ contains
     real(kind=dp) :: avg_temper ! temperature
     real(kind=dp) :: ndens_p ! local number density
 
-    real(kind=dp) :: phih ! local photo-ionization rate
+    real(kind=dp) :: phih ! local H photo-ionization rate (only non-zero when local=.false.!)
     real(kind=dp) :: phih_total ! local total photo-ionization rate (including
                                 ! photon loss term)
 
@@ -1403,18 +1400,18 @@ contains
     use material, only: clumping_point
     use radiation, only: photoion, photrates
 
-    real(kind=dp),intent(in) :: dt ! time step
+    real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),intent(in) :: ndens_p
     real(kind=dp),dimension(0:1),intent(out) :: yh
     real(kind=dp),dimension(0:1),intent(inout) :: yh_av
     real(kind=dp),dimension(0:1),intent(in) :: yh0
-    real(kind=dp),intent(in) :: phih ! local photo-ionization rate
+    real(kind=dp),intent(in) :: phih !< local photo-ionization rate
     real(kind=dp),intent(in) :: coldensh_in
     real(kind=dp),intent(in) :: path
     real(kind=dp),intent(in) :: vol_ph
-    integer,dimension(Ndim),intent(in) :: pos ! position on mesh
-    integer,intent(in)      :: ns ! source number 
-    logical,intent(in) :: local
+    integer,dimension(Ndim),intent(in) :: pos !< position on mesh
+    integer,intent(in)      :: ns !< source number 
+    logical,intent(in) :: local !< true if doing a non-global calculation.
 
     real(kind=dp) :: avg_temper
     real(kind=dp) :: phih_cell
