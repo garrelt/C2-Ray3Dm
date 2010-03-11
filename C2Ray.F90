@@ -32,6 +32,7 @@ Program C2Ray
   ! evolve : evolve grid in time
 
   use precision, only: dp
+  use clocks, only: setup_clocks, update_clocks, report_clocks
   use file_admin, only: stdinput, logf, file_input, flag_for_file_input
   use c2ray_parameters, only: cosmological, type_of_clumping
   use astroconstants, only: YEAR
@@ -56,21 +57,6 @@ Program C2Ray
 #ifdef PGI
   include 'lib3f.h' ! for iargc, getargc
 #endif
-
-  ! Start and end time for CPU report
-  real :: cputime1 !< Start time for CPU report
-  real :: cputime2 !< End time for CPU report
-  real(kind=dp) :: cpu_seconds=0.0
-  integer :: cpu_hours=0
-  integer :: cpu_minutes=0
-
-  ! Wall clock time variables
-  integer :: cntr1 !< Start time wall clock
-  integer :: cntr2 !< End time wall clock
-  integer :: countspersec !< counts per second (for wall clock time)
-  real(kind=dp) :: clock_seconds=0.0
-  integer :: clock_hours=0
-  integer :: clock_minutes=0
 
   integer :: restart=0 !< restart flag
   integer :: iter_restart=0 !< restart from iteration flag
@@ -101,11 +87,8 @@ Program C2Ray
   character(len=512) :: inputfile !< name of input file
   character(len=1) :: answer !< y or n answer
 
-  ! Initialize cpu timer
-  call cpu_time(cputime1)
-
-  ! Initialize wall clock times
-  call system_clock(cntr1)
+  ! Initialize clocks (cpu and wall)
+  call setup_clocks
 
   ! Set up MPI structure
   call mpi_setup()
@@ -306,22 +289,8 @@ Program C2Ray
         call cosmo_evol()
      endif
 
-     ! Find out intermediate CPU time (to avoid overflowing the counter)
-     call cpu_time(cputime2)
-     cpu_seconds=cpu_seconds+real(cputime2-cputime1)
-     cputime1=cputime2
-     cpu_minutes = cpu_minutes + int(cpu_seconds) / 60
-     cpu_seconds = MOD ( cpu_seconds , 60.0 )
-     cpu_hours = cpu_hours + cpu_minutes / 60
-     cpu_minutes = MOD ( cpu_minutes , 60 )
-
-     call system_clock(cntr2,countspersec)
-     clock_seconds=clock_seconds+real(cntr2-cntr1)/real(countspersec)
-     cntr1=cntr2
-     clock_minutes = clock_minutes + int(clock_seconds) / 60
-     clock_seconds = MOD ( clock_seconds , 60.0 )
-     clock_hours = clock_hours + clock_minutes / 60
-     clock_minutes = MOD ( clock_minutes , 60 )
+     ! Update clock counters (cpu + wall, to avoid overflowing the counter)
+     call update_clocks ()
 
   enddo
 
@@ -332,28 +301,8 @@ Program C2Ray
   ! End output streams
   call close_down ()
   
-  ! Find out CPU time
-  call cpu_time(cputime2)
-  cpu_seconds=cpu_seconds+real(cputime2-cputime1,dp)
-  cpu_minutes = cpu_minutes + int(cpu_seconds) / 60
-  cpu_seconds = MOD ( cpu_seconds , 60.0 )
-  cpu_hours = cpu_hours + cpu_minutes / 60
-  cpu_minutes = MOD ( cpu_minutes , 60 )
-
-  ! Find out wall clock time
-  call system_clock(cntr2,countspersec)
-  clock_seconds=clock_seconds+real(cntr2-cntr1,dp)/real(countspersec,dp)
-  clock_minutes = clock_minutes + int(clock_seconds) / 60
-  clock_seconds = MOD ( clock_seconds , 60.0 )
-  clock_hours = clock_hours + clock_minutes / 60
-  clock_minutes = MOD ( clock_minutes , 60 )
-  
-  if (rank == 0) then
-     write(logf,*) "CPU time: ",cpu_hours,' hours',cpu_minutes,' minutes', &
-          cpu_seconds,' seconds.'
-     write(logf,*) "Wall clock time: ",clock_hours,' hours', &
-          clock_minutes,' minutes',clock_seconds,' seconds.'
-  endif
+  ! Report clocks (cpu and wall)
+  call report_clocks ()
 
   ! End the run
   call mpi_end ()
