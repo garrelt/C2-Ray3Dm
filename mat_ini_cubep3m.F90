@@ -317,6 +317,12 @@ contains
 
   subroutine set_clumping(z)
 
+    !! 1: constant clumping (with clumping_factor)\n
+    !! 2: 3.5Mpc PM, WMAP1 clumping\n
+    !! 3: 3.5Mpc PM, WMAP3 clumping\n
+    !! 4: 1 Mpc P3M\n
+    !! 5: position dependent clumping
+
     real(kind=dp),intent(in) :: z
 
     select case (type_of_clumping)
