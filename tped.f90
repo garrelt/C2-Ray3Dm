@@ -6,8 +6,17 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 
+!! \b Date: 2010-Mar-08 (but older)
 !!
+!! \b Doxygen \b note: This module contains "elemental" functions (i.e.
+!! functions without side effects working on scalars). Doxygen does not
+!! recognize these as functions, and therefore does not list them.
+!!
+!! The elemental functions in this module are:
+!! - temper2pressr (calculates pressure from temperature, density and electron density).
+!! - pressr2temper (calculates temperature from pressure, density and electron density).
+!! - rho2n (calculates number density from mass density)
+!! - n2rho (calculates mass density from number density)
 !!
 module tped
 
