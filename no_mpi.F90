@@ -5,22 +5,13 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 2003-06-01
+!! \b Date: 2010-03-04
 !!
 !! \b Version: This is a dummy module for systems where there is no MPI for F90.
+!!
 !! This module is also accepted by the F compiler (Dec 9, 2003)\n
 
 module my_mpi
-
-  ! Module for Capreole (3D)
-  ! Author: Garrelt Mellema
-  ! Date: 2003-06-01
-  ! This module is also accepted by the F compiler (Dec 9, 2003)
- 
-  ! This is a dummy module for systems where there is no MPI
-  ! for F90.
-  !
-  !----------------------------------------------------------------------------
 
   use file_admin, only: logf, results_dir
 
@@ -29,7 +20,7 @@ module my_mpi
 #endif
 
 #ifdef IFORT
-  USE IFPORT, only: hostnm
+  USE IFPORT, only: hostnm, flush
 #ifdef _OPENMP
   USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
@@ -37,21 +28,20 @@ module my_mpi
   
   implicit none
 
-  integer,parameter,public :: NPDIM=3 ! dimension of problem
+  integer,parameter,public :: NPDIM=3 !< dimension of problem
 
-  integer,public :: rank            ! rank of the processor
-  integer,public :: npr             ! number of processors
-  integer,public :: nthreads=1      ! number of threads (per processor)
-  integer,public :: MPI_COMM_NEW    ! the (new) communicator
+  ! All of these are set to be consistent with the MPI version
+  integer,public :: rank              !< rank of the processor
+  integer,public :: npr               !<< number of processors
+  integer,public :: nthreads        !< number of threads (per processor)
+  integer,public :: MPI_COMM_NEW      !< the (new) communicator (dummy)
 
-  integer,dimension(NPDIM),public :: dims ! number of processors in 
-                                             !  each dimension
-  integer,dimension(NPDIM),public :: grid_struct ! coordinates of 
-                                               !the processors in the grid
-  
-  integer,public ::  nbrleft,nbrright  ! left and right neighbours
-  integer,public ::  nbrdown,nbrup     ! up and down neighbours 
-  integer,public ::  nbrabove,nbrbelow ! above and below neighbours 
+  integer,dimension(NPDIM),public :: dims !< number of processors in each dimension (dummy)
+  integer,dimension(NPDIM),public :: grid_struct !< coordinates of the processors in the grid (dummy)
+
+  integer,public ::  nbrleft,nbrright  !< left and right neighbours
+  integer,public ::  nbrdown,nbrup     !< up and down neighbours 
+  integer,public ::  nbrabove,nbrbelow !< above and below neighbours 
 
   integer,parameter,public :: MPI_PROC_NULL=-1
 
@@ -59,9 +49,16 @@ module my_mpi
   integer :: hostnm
 #endif
 
+  public :: mpi_setup,mpi_end
+  private :: mpi_basic,mpi_topology,fnd2dnbrs
+
 contains
 
   !----------------------------------------------------------------------------
+
+  !> Sets up MPI, this routine is normally the one called.\n
+  !! It opens log files, reports on machine name, and calls 
+  !! mpi_basic and mpi_topology to set up the MPI communicator.
 
   subroutine mpi_setup ( )
 
@@ -117,6 +114,8 @@ contains
 
   !----------------------------------------------------------------------------
 
+  !> Sets up basic MPI. Here it just sets the rank and npr variables
+
   subroutine mpi_basic ( )
 
     rank=0 ! Find processor rank
@@ -127,6 +126,9 @@ contains
   end subroutine mpi_basic
 
   !----------------------------------------------------------------------------
+
+  !> Creates a new topology (for domain decomposition). Here (no MPI) it just
+  !! defines the communicator as 0.
 
   subroutine mpi_topology ( )
 
@@ -149,6 +151,8 @@ contains
 
   !----------------------------------------------------------------------------
 
+  !> Ends MPI. Here it just closes the log file.
+
   subroutine mpi_end ( )
 
     ! Close log file
@@ -158,9 +162,12 @@ contains
 
   !----------------------------------------------------------------------------
 
+  !> This routine finds the neighbouring processors in a 3-d decomposition of
+  !! the grid. Here these are just set to zero.
+
   subroutine fnd2dnbrs ( )
     
-    ! This routine determines the neighbours in a 2-d decomposition of
+    ! This routine determines the neighbours in a 3-d decomposition of
     ! the grid. This assumes that MPI_Cart_create has already been called 
 
     ! Single processor version
@@ -175,3 +182,4 @@ contains
   end subroutine fnd2dnbrs
 
 end module my_mpi
+
