@@ -7,23 +7,16 @@
 !!
 !! \b Date:  26-Feb-2008
 !!
-!! \b Version: 
+!! \b Version: 3D
 
 module photonstatistics
   
-  ! This module handles the calculation of the photon statistics
-  ! For: C2-Ray
-
-  ! Author: Garrelt Mellema
-
-  ! Date: 26-Feb-2008
-
   ! Photon statistics
-  ! photon_loss is a sum over all sources, summing is done in evolve0d
-  ! and evolve3d (in case of parallelization).
- 
+  ! photon_loss: this is kept here, but calculated in the evolve module.
+
   use precision, only: dp
   use my_mpi, only: rank
+  use file_admin, only: logf
   use cgsconstants, only: albpow,bh00,colh0,temph0
   use sizes, only: mesh
   use grid, only: vol
@@ -31,13 +24,12 @@ module photonstatistics
   use tped, only: electrondens
   use sourceprops, only: NormFlux, NumSrc
   use radiation, only: S_star, NumFreqBnd
-  use file_admin, only: logf
   use c2ray_parameters, only: type_of_clumping
 
   implicit none
 
   !> true if checking photonstatistics
-  logical,parameter :: do_photonstatistics=.true. 
+  logical,parameter :: do_photonstatistics=.true.
   !> Total number of recombinations
   real(kind=dp) :: totrec
   !> Total number of collisional ionizations
@@ -61,7 +53,7 @@ module photonstatistics
   integer,private :: k !< mesh loop index (z)
 
 contains
-  
+
   !----------------------------------------------------------------------------
 
   !> Initialize the photon statistics
@@ -77,7 +69,7 @@ contains
   !> Call the individual routines needed for photon statistics calculation
   subroutine calculate_photon_statistics (dt,xh_l,xh_r)
 
-    real(kind=dp),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_r
 
@@ -91,7 +83,7 @@ contains
 
   !----------------------------------------------------------------------------
 
-  !> Calculate the state at the start of the time step
+  !> Calculates the number of neutrals and ions at the start of the time step
   subroutine state_before (xh_l)
 
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
@@ -115,10 +107,10 @@ contains
 
   !----------------------------------------------------------------------------
 
-  !> Calculate (sum) all the rates
+  !> Calculates total number of recombinations and collisions
   subroutine total_rates(dt,xh_l)
 
-    real(kind=dp),intent(in) :: dt
+    real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
 
     real(kind=dp),dimension(0:1) :: yh
@@ -155,7 +147,7 @@ contains
   
   !----------------------------------------------------------------------------
 
-  !> Calculate the state at the end of the time step
+  !> Calculates the number of neutrals and ions at the end of the time step
   subroutine state_after(xh_l)
     
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
