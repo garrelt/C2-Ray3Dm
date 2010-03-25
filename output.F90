@@ -299,7 +299,7 @@ contains
           endif
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(ndens)
+          massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
           write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc, &
                volfrac,massfrac
 
