@@ -32,12 +32,12 @@ module evolve
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
-  use sourceprops, only: SrcSeries, NumSrc, srcpos
+  use sourceprops, only: SrcSeries, NumSrc, srcpos, NormFlux
   use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations
-  use c2ray_parameters, only: convergence_fraction, subboxsize
+  use c2ray_parameters, only: convergence_fraction, subboxsize, S_star_nominal
 
   implicit none
 
@@ -73,6 +73,9 @@ module evolve
   integer,dimension(Ndim) :: lastpos_r !< mesh position of right end point for RT
   integer,dimension(Ndim) :: last_l !< mesh position of left end point for RT
   integer,dimension(Ndim) :: last_r !< mesh position of right end point for RT
+
+  integer :: sum_nbox !< sum of all nboxes (on one processor)
+  integer :: sum_nbox_all !< sum of all nboxes (on all processors)
 
 contains
 
@@ -181,6 +184,10 @@ contains
        
        call pass_all_sources (niter,dt)
        
+       ! Report subbox statistics
+       if (rank == 0) &
+            write(logf,*) "Average number of subboxes: ",sum_nbox_all/NumSrc
+
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
           if (wallclock2-wallclock1 > 15.0*60.0*countspersec) then
@@ -294,6 +301,9 @@ contains
     ! reset photon loss counter
     photon_loss(:)=0.0
     
+    ! Reset sum of subboxes counter
+    sum_nbox=0
+
     ! Make a randomized list of sources :: call in serial
     if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
     
@@ -323,7 +333,11 @@ contains
     
     ! Overwrite the processor local values with the accumulated value
     phih_grid(:,:,:)=buffer(:,:,:)
-    
+
+    ! accumulate (sum) the MPI distributed sum of number of boxes
+    call MPI_ALLREDUCE(sum_nbox, sum_nbox_all, 1, &
+         MPI_INTEGER, MPI_SUM, MPI_COMM_NEW, mympierror)
+
     ! Only on the first iteration does evolve2D (evolve0D) change the
     ! ionization fractions
     if (niter == 1) then
@@ -346,6 +360,7 @@ contains
     endif
 #else
     photon_loss_all(:)=photon_loss(:)
+    sum_nbox_all=sum_nbox
 #endif
     
   end subroutine pass_all_sources
@@ -701,14 +716,15 @@ contains
     ! photons are leaving this subbox and we need to do another
     ! one. We also stop once we have done the whole grid.
     nbox=0 ! subbox counter
-    photon_loss_src(:)=-1.0 ! to pass the first while test
+    photon_loss_src(:)=NormFlux(ns)*S_star_nominal !-1.0 ! to pass the first while test
     last_r(:)=srcpos(:,ns) ! to pass the first while test
     last_l(:)=srcpos(:,ns) ! to pass the first while test
 
     ! Loop through boxes of increasing size
     ! NOTE: make this limit on the photon_loss a fraction of
     ! a source flux loss_fraction*NormFlux(ns)*S_star_nominal)
-    do while (all(photon_loss_src(:) /= 0.0) &
+    do while (all(photon_loss_src(:) > 1e-6*NormFlux(ns)*S_star_nominal) &
+    !do while (all(photon_loss_src(:) /= 0.0) &
          .and. last_r(3) < lastpos_r(3) &
          .and. last_l(3) > lastpos_l(3))
        nbox=nbox+1 ! increase subbox counter
@@ -773,6 +789,9 @@ contains
     ! Record the final photon loss, this is the photon loss that leaves
     ! the grid.
     photon_loss(:)=photon_loss(:) + photon_loss_src(:)
+
+    ! Sum the total number of subboxes used for reporting later
+    sum_nbox=sum_nbox+nbox
 
   end subroutine do_source
 
