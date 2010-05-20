@@ -1413,7 +1413,7 @@ contains
        phih, coldensh_in, path, vol_ph, pos, ns, local)
 
     use c2ray_parameters, only: convergence1,convergence2,type_of_clumping, & 
-         convergence_frac
+         convergence_frac, add_photon_losses
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use material, only: clumping_point
@@ -1479,7 +1479,9 @@ contains
           ! DO THIS HERE, yh_av is changing
           ! (if the cell is ionized, add a fraction of the lost photons)
           !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-          phih_cell=phih + photon_loss(1)/(vol*yh_av(0)*ndens_p)
+          phih_cell=phih 
+          if (add_photon_losses) phih_cell=phih_cell + & 
+               photon_loss(1)/(vol*yh_av(0)*ndens_p)
        endif
 
        ! Calculate the new and mean ionization states

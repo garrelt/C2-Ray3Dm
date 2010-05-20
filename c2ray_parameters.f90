@@ -20,7 +20,7 @@ module c2ray_parameters
 
   !> Which fraction of the cells can be left unconverged in order
   !! to improve performance (used in rad_evolve3d)
-  real(kind=dp),parameter :: convergence_fraction=1.0e-5
+  real(kind=dp),parameter :: convergence_fraction=1.0e-4
 
   !> Set to true to let C2-Ray not change the temperature
   logical,parameter :: isothermal=.true.
@@ -35,13 +35,16 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: convergence_frac=1.0e-10
+  real(kind=dp),parameter :: convergence_frac=1.0e-8
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
   !! no photons escape or we reach the edge of the (possibly periodic)
   !! grid
   integer,parameter :: subboxsize=10
+
+  !> Add photon losses back into volume or not
+  logical,parameter :: add_photon_losses=.false.
 
   !> Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
@@ -77,6 +80,9 @@ module c2ray_parameters
   !> Source properties: Upper limit for low mass sources (not used)
   real,parameter :: LowMassLimit=1e9 ! in solar masses
   !> Source properties: Lower limit neutral fraction for suppression criterion
-  real,parameter :: StillNeutral=0.1 ! lower limit of neutral criterium
+  real,parameter :: StillNeutral=0.9 ! lower limit of neutral criterium
+  !real,parameter :: StillNeutral=1.1 ! NEVER suppress
+  !real,parameter :: StillNeutral=-0.1 ! ALWAYS suppress
+  
 
 end module c2ray_parameters
