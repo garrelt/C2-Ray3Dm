@@ -26,7 +26,7 @@ module nbody
   ! Date: 09-Dec-2009 (22-May-2008, previous versions were not dated)
 
   use precision, only: dp
-  use sizes, only: mesh
+  use sizes, only: mesh, meshx
   use file_admin, only: stdinput, logf, file_input
   use cgsconstants, only: m_p
   use astroconstants, only: Mpc, M_SOLAR
@@ -60,7 +60,7 @@ module nbody
   character(len=*),parameter,private :: dir_clump_name= "coarser_densities/halos_included/"
 
   !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "../" 
+  character(len=*),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
   character(len=*),parameter,private :: dir_src_name= "sources/"
 
@@ -100,7 +100,8 @@ module nbody
   real(kind=dp),parameter,public :: M_particle=8.0*M_grid !< mass per particle
 
   !> Conversion factor for comoving gas (number) density (cm^-3)
-  real(kind=dp),parameter,public :: density_convert_grid=rho_crit_0*Omega_B/(mu*m_p)*(real(mesh(1))/real(n_box))**3
+  real(kind=dp),parameter,public :: density_convert_grid=rho_crit_0*Omega_B/(mu*m_p)*real(meshx)**3/(real(n_box)**3)
+  !real(kind=dp),parameter,public :: density_convert_grid=rho_crit_0*Omega_B/(mu*m_p)*(real(mesh(1),dp)/real(n_box,dp))**3
   !> Conversion factor for comoving gas (number) density (cm^-3)
   real(kind=dp),parameter,public :: density_convert_particle=8.0*density_convert_grid
   !> Conversion factor for (comoving) cubep3m lenght scales
