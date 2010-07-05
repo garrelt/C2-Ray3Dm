@@ -8,6 +8,14 @@
 !! \b Date: 22-May-2008 (previous version was not dated)
 !!
 !! \b Version: test simulations
+!!
+!! The test module has a number of parameters hard coded. These are
+!!
+!! Starting redshift: 9
+!!
+!! Number of redshift slices: 5 (separated by 10 million years).
+!!
+!! Box size: 100/h Mpc
 
 module nbody
 
@@ -45,7 +53,7 @@ module nbody
   character(len=8),public :: id_str       !< resolution dependent string
 
   character(len=180),public :: dir_dens !< Path to directory with density files
-  character(len=180),public :: dir_src !< Path to directory with source files
+  character(len=180),public :: dir_src="./" !< Path to directory with source files
 
 #ifdef MPI
   integer,private :: mympierror !< MPI error flag variable
@@ -64,10 +72,17 @@ contains
 
     ! Construct redshift sequence
     if (rank == 0) then
+
+       ! Set the number of redshift slices
        NumZred=5
        allocate(zred_array(NumZred))
+
+       ! Time step
        timestep=1e7*YEAR
+
+       ! Starting redshift
        zred_array(1)=9.
+
        ! Cosmological time corresponding to (initial) redshift
        ! NOTE: Good only for high-z!!!
        t0 = 2.*(1.+zred_array(1))**(-1.5)/(3.*H0*sqrt(Omega0))
