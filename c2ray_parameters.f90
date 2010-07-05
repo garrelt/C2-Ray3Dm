@@ -44,7 +44,7 @@ module c2ray_parameters
   integer,parameter :: subboxsize=10
 
   !> Add photon losses back into volume or not
-  logical,parameter :: add_photon_losses=.false.
+  logical,parameter :: add_photon_losses=.true.
 
   !> Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
@@ -80,9 +80,9 @@ module c2ray_parameters
   !> Source properties: Upper limit for low mass sources (not used)
   real,parameter :: LowMassLimit=1e9 ! in solar masses
   !> Source properties: Lower limit neutral fraction for suppression criterion
-  real,parameter :: StillNeutral=0.9 ! lower limit of neutral criterium
+  real,parameter :: StillNeutral=0.1 ! lower limit of neutral criterium
+  !real,parameter :: StillNeutral=0.9 ! lower limit of neutral criterium
   !real,parameter :: StillNeutral=1.1 ! NEVER suppress
   !real,parameter :: StillNeutral=-0.1 ! ALWAYS suppress
-  
 
 end module c2ray_parameters
