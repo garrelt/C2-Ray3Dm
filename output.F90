@@ -21,8 +21,6 @@ module output_module
   integer,parameter :: max_input_streams=5 !< maximum number of input streams
   integer,dimension(max_input_streams) :: streams !< flag array for input streams
 
-  real(kind=dp) :: grtotalsrc !< grand total of photons put in
-
   public :: setup_output, output, close_down
 
 contains
@@ -97,7 +95,6 @@ contains
     endif
     if (do_photonstatistics) then
        call initialize_photonstatistics ()
-       grtotalsrc=0.0
     endif
 
 #ifdef MPILOG
@@ -146,7 +143,7 @@ contains
     use material, only: xh, temper, ndens
     use evolve, only: phih_grid
     use sourceprops, only: srcpos, NormFlux, NumSrc
-    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss
+    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss, grtotal_src
     use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=dp),intent(in) :: zred_now,time,dt
@@ -283,8 +280,6 @@ contains
                real(mesh(1))*real(mesh(2))*real(mesh(3))
           !total_ion=total_ion + total_photon_loss
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
-          grtotal_ion=grtotal_ion+total_ion-totcollisions
-          grtotalsrc=grtotalsrc+totalsrc
           photcons=(total_ion-totcollisions)/totalsrc
           if (time.gt.0.0) then
              write(90,"(f6.3,8(1pe10.3))") &
@@ -295,12 +290,12 @@ contains
                   totrec/total_ion, &
                   total_photon_loss/totalsrc, &
                   totcollisions/total_ion, &
-                  grtotal_ion/grtotalsrc
+                  grtotal_ion/grtotal_src
           endif
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
-          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotalsrc, &
+          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotal_src, &
                volfrac,massfrac
 
           if (abs(1.0-photcons) > 0.15) then

@@ -36,7 +36,7 @@ module evolve
   use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, report_photonstatistics, state_after, total_rates, &
-       total_ionizations
+       total_ionizations, update_grandtotal_photonstatistics
   use c2ray_parameters, only: convergence_fraction, subboxsize, S_star_nominal
 
   implicit none
@@ -203,6 +203,7 @@ contains
     ! Calculate photon statistics
     call calculate_photon_statistics (dt,xh,xh_av)
     call report_photonstatistics (dt)
+    call update_grandtotal_photonstatistics (dt)
 
   end subroutine evolve3D
 

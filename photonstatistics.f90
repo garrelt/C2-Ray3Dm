@@ -40,6 +40,8 @@ module photonstatistics
   real(kind=dp) :: total_ion
   !> Grand total number of ionizing photons used
   real(kind=dp) :: grtotal_ion
+  !> Grand total number of ionizing photons produced
+  real(kind=dp) :: grtotal_src
   !> Number of photons leaving the grid
   real(kind=dp) :: photon_loss(NumFreqBnd)
 
@@ -61,6 +63,7 @@ contains
 
     ! set total number of ionizing photons used to zero
     grtotal_ion=0.0
+    grtotal_src=0.0
 
   end subroutine initialize_photonstatistics
 
@@ -200,8 +203,21 @@ contains
             totrec/total_ion, &
             total_photon_loss/totalsrc, &
             totcollisions/total_ion
+       write(logf,*) h1_before,h1_after
     endif
     
   end subroutine report_photonstatistics
+
+  !----------------------------------------------------------------------------
+
+  !> Calculate the total number of ionizing photons produced
+  subroutine update_grandtotal_photonstatistics (dt)
+
+    real(kind=dp),intent(in) :: dt !< time step
+
+    grtotal_src=grtotal_src+sum(NormFlux(1:NumSrc))*s_star*dt
+    grtotal_ion=grtotal_ion+total_ion-totcollisions
+
+  end subroutine update_grandtotal_photonstatistics
 
 end module photonstatistics
