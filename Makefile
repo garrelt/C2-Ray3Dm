@@ -49,7 +49,7 @@ F90FLAGS1 = $(GFORTFLAGS)
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 #MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp # For Intel compiler
+#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 # Compiler
@@ -73,7 +73,7 @@ F90FLAGS1 = -xW $(IFORTFLAGS)
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -openmp # For Intel compiler
+OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 
@@ -94,7 +94,7 @@ OPENMP_FLAGS = -openmp # For Intel compiler
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 #MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp # For Sun compiler
+#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Sun compiler
 
 #-------------------------------------------------------
 
@@ -111,7 +111,7 @@ OPENMP_FLAGS = -openmp # For Intel compiler
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -DMPI 
 #MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -mp 
+#OPENMP_FLAGS = -mp -DMY_OPENMP
 
 #-------------------------------------------------------
 

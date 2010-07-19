@@ -43,7 +43,7 @@ module my_mpi
 
 #ifdef IFORT
   USE IFPORT, only: hostnm
-#ifdef _OPENMP
+#ifdef MY_OPENMP
   USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
 #endif
 #endif
@@ -97,13 +97,13 @@ contains
     ! Find number of OpenMP threads (needed to establish OpenMP character
     ! of run (see evolve)
     !$omp parallel default(shared)
-#ifdef _OPENMP
+#ifdef MY_OPENMP
     nthreads=omp_get_num_threads()
 #endif
     !$omp end parallel
 
     ! Report OpenMP usage
-#ifdef _OPENMP
+#ifdef MY_OPENMP
     if (rank == 0) write(logf,*) " Running in OpenMP mode"
 #endif
 
@@ -125,13 +125,13 @@ contains
     endif
 
     ! Report number of OpenMP threads
-#ifdef _OPENMP
+#ifdef MY_OPENMP
     write(logf,*) ' Number of OpenMP threads is ',nthreads
 #endif
 
     ! Let OpenMP threads report
     !$omp parallel default(private)
-#ifdef _OPENMP
+#ifdef MY_OPENMP
     tn=omp_get_thread_num()+1
     write(logf,*) 'Thread number ',tn,' reporting'
 #endif
