@@ -34,7 +34,7 @@ Program C2Ray
   use precision, only: dp
   use clocks, only: setup_clocks, update_clocks, report_clocks
   use file_admin, only: stdinput, logf, file_input, flag_for_file_input
-  use c2ray_parameters, only: cosmological, type_of_clumping
+  use c2ray_parameters, only: cosmological, type_of_clumping, stop_on_photon_violation
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
@@ -271,7 +271,10 @@ Program C2Ray
            if (photcons_flag /= 0 .and. rank == 0) &
                 write(logf,*) &
                 "Exiting because of photon conservation violation"
-           if (photcons_flag /= 0) exit ! photon conservation violated
+           ! GM (110131): Forgot to check here whether we care about photon
+           ! conservations violations; if the code jumps out of the evolution
+           ! here funny things happen to the time step!
+           if (stop_on_photon_violation .and. photcons_flag /= 0) exit ! photon conservation violated
         endif
         ! end time for this redshift interval reached
         if (abs(sim_time-end_time) <= 1e-6*end_time) exit
@@ -279,9 +282,9 @@ Program C2Ray
      enddo
 
      ! Get out: photon conservation violated
-     if (photcons_flag /= 0 .and. rank == 0) &
+     if (stop_on_photon_violation .and. photcons_flag /= 0 .and. rank == 0) &
           write(logf,*) "Exiting because of photon conservation violation"
-     if (photcons_flag /= 0) exit ! photon conservation violated
+     if (stop_on_photon_violation .and. photcons_flag /= 0) exit ! photon conservation violated
 
      ! Scale to the current redshift
      if (cosmological) then
@@ -308,3 +311,4 @@ Program C2Ray
   call mpi_end ()
 
 end Program C2Ray
+

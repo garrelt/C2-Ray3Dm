@@ -61,6 +61,9 @@ module c2ray_parameters
   !> Clumping factor if constant
   real,parameter :: clumping_factor=1.0
 
+  !> Should we stop when photon conservation violation is detected?
+  logical,parameter :: stop_on_photon_violation = .true.
+
   !> Cosmological cooling
   logical,parameter :: cosmological=.true.
 
@@ -86,3 +89,4 @@ module c2ray_parameters
   !real,parameter :: StillNeutral=-0.1 ! ALWAYS suppress
 
 end module c2ray_parameters
+
