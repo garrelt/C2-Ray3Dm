@@ -34,7 +34,8 @@ Program C2Ray
   use precision, only: dp
   use clocks, only: setup_clocks, update_clocks, report_clocks
   use file_admin, only: stdinput, logf, file_input, flag_for_file_input
-  use c2ray_parameters, only: cosmological, type_of_clumping, stop_on_photon_violation
+  use c2ray_parameters, only: cosmological, type_of_clumping, use_LLS, &
+       stop_on_photon_violation
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
@@ -42,7 +43,7 @@ Program C2Ray
   use radiation, only: rad_ini
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
-       time2zred, zred2time, zred
+       time2zred, zred2time, zred, set_LLS
   use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
@@ -252,6 +253,7 @@ Program C2Ray
         ! Do not call in case of position dependent clumping,
         ! the clumping grid should have been initialized above
         if (type_of_clumping /= 5) call set_clumping(zred)
+        if (use_LLS) call set_LLS(zred)
 
         ! Take one time step
         if (NumSrc > 0) call evolve3D(actual_dt,iter_restart)
@@ -311,4 +313,3 @@ Program C2Ray
   call mpi_end ()
 
 end Program C2Ray
-

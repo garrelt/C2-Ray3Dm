@@ -29,13 +29,17 @@ module cosmology
   use my_mpi
   use cosmology_parameters, only: H0,Omega0,cmbtemp,cosmo_id
   use file_admin, only: logf
+  use sizes, only: mesh
+  use cgsconstants, only: c
 
   implicit none
 
   real(kind=dp) :: zred_t0 !< initial redshift
   real(kind=dp) :: t0      !< time of initial redshift
   real(kind=dp) :: zred    !< current redshift
+  real(kind=dp) :: Hz      !< Hubble constant at current redshift
   real(kind=dp),private :: zfactor !< scaling factor between two redshifts
+  real(kind=dp) :: coldensh_LL = 0.0_dp ! Column density of LLSs per cell.
 
 contains
   ! =======================================================================
@@ -142,6 +146,8 @@ contains
     ! Take the average zfactor between zred_prev and zred
     zfactor=(1.0+zred_prev)/(1.+zred)
 
+    Hz=H0*(1.+zred)**(1.5)*sqrt(Omega0) ! Hubble constant at current redshift (cgs)
+
   end subroutine redshift_evol
 
   ! =======================================================================
@@ -189,6 +195,45 @@ contains
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
 
   end subroutine cosmo_evol
+
+  ! ===========================================================================                       
+
+  subroutine set_LLS(z)
+
+    use cgsphotoconstants, only: sigh
+    use grid, only: dr
+!    use cosmology, only: Hz                                                                       
+
+    ! LLS parameters
+    ! a) Model Prochaska et al. (2010)
+    !real(kind=dp),parameter :: C_LLS = 1.9
+    !real(kind=dp),parameter :: z_x = 3.7
+    !real(kind=dp),parameter :: y_LLS = 5.1
+    ! a) Model Songaila & Cowie (2010)
+    real(kind=dp),parameter :: C_LLS = 2.84
+    real(kind=dp),parameter :: z_x = 3.5
+    real(kind=dp),parameter :: y_LLS = 2.04
+
+    ! Other parameters
+    real(kind=dp),parameter :: opdepth_LL = 2 !< typical optical depth of LLS
+    real(kind=dp),parameter :: N_1 = opdepth_LL / sigh !< typical column density of LLS
+
+    real(kind=dp),intent(in) :: z
+
+
+    real(kind=dp) :: n_LLS
+
+    ! 1/distance between LLSs expressed in grid cells
+    n_LLS = C_LLS * ((1 + z)/(1 + z_x)) ** y_LLS * dr(1) * (1.0+z) * Hz / c
+
+    ! Column density per cell due to LLSs
+    coldensh_LL = N_1 * n_LLS
+
+    if (rank == 0) then
+       write(logf,*) "Optical depth per cell due to LLSs: ",coldensh_LL*sigh
+    endif
+
+  end subroutine set_LLS
 
   ! =======================================================================
 

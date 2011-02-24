@@ -35,7 +35,7 @@ module evolve
   use sourceprops, only: SrcSeries, NumSrc, srcpos, NormFlux
   use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
-       photon_loss, report_photonstatistics, state_after, total_rates, &
+       photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations, update_grandtotal_photonstatistics
   use c2ray_parameters, only: convergence_fraction, subboxsize, S_star_nominal
 
@@ -291,6 +291,8 @@ contains
     integer,intent(in) :: niter  ! iteration counter
     real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
 
+    real(kind=dp) :: LLS_loss_all
+
 #ifdef MPI
     integer :: mympierror
 #endif
@@ -299,9 +301,10 @@ contains
     ! reset global rates to zero for this iteration
     phih_grid(:,:,:)=0.0
     
-    ! reset photon loss counter
-    photon_loss(:)=0.0
-    
+    ! reset photon loss counters
+    photon_loss(:) = 0.0
+    LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
+
     ! Reset sum of subboxes counter
     sum_nbox=0
 
@@ -327,7 +330,13 @@ contains
     ! accumulate (sum) the MPI distributed photon losses
     call MPI_ALLREDUCE(photon_loss, photon_loss_all, NumFreqBnd, &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
-    
+
+    ! accumulate (sum) the MPI distributed photon losses
+    call MPI_ALLREDUCE(LLS_loss, LLS_loss_all, 1, &
+         MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
+    ! Put LLS_loss_all back in the LLS variable
+    LLS_loss = LLS_loss_all
+
     ! accumulate (sum) the MPI distributed phih_grid
     call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
@@ -384,7 +393,7 @@ contains
     
     ! Turn total photon loss into a mean per cell (used in evolve0d_global)
     photon_loss(:)=photon_loss_all(:)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
-    
+ 
     ! Report minimum value of xh_av(0) to check for zeros
     if (rank == 0) then
        write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
@@ -1191,10 +1200,12 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
-    use material, only: clumping_point
+    use material, only: clumping_point !,coldensh_LL
     use c2ray_parameters, only: epsilon,convergence1,convergence2, &
          type_of_clumping, convergence_frac
     use mathconstants, only: pi
+    use cosmology, only: coldensh_LL
+    use photonstatistics, only: total_LLS_loss
 
     ! column density for stopping chemisty
     real(kind=dp),parameter :: max_coldensh=2e19_dp 
@@ -1272,6 +1283,14 @@ contains
           ! Find the volume of the shell this cell is part of 
           ! (dilution factor).
           vol_ph=4.0*pi*dist2*path
+
+          ! Add LLS opacity
+          ! GM/110224: previously we added this to coldensh_out,
+          ! but this gives funny results for the photo-ionization
+          ! rate which is based on the difference between the
+          ! in and out column density. To mimick a LLS fog, it
+          ! may be better to add it here.
+          coldensh_in = coldensh_in + coldensh_LL * path/dr(1)
           
        endif
        
@@ -1305,14 +1324,22 @@ contains
           
        ! Add the (time averaged) column density of this cell
        ! to the total column density (for this source)
+       ! and add the LLS column density to this.
+       ! GM/110224: No! This messes up phi since phi is based
+       !  upon the difference between the in and out column density.
+       !  Instead add the LLS to coldensh_in, see above
        coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + &
-            coldens(path,yh_av(0),ndens_p)
+            coldens(path,yh_av(0),ndens_p) !+ coldensh_LL * path/dr(1)
+       !###################################################################
        
        ! Calculate (photon-conserving) photo-ionization rate
        if (coldensh_in < max_coldensh) then
           call photoion(phi,coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
                vol_ph,ns)
           phi%h=phi%h/(yh_av(0)*ndens_p)
+          ! GM/110224: Add the factor vol/vol_ph to phi, just as we do for
+          ! the photon losses.
+          call total_LLS_loss(phi%h_out*vol/vol_ph, coldensh_LL * path/dr(1))
        else
           phi%h=0.0
           phi%h_out=0.0

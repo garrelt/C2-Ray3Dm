@@ -143,7 +143,7 @@ contains
     use material, only: xh, temper, ndens
     use evolve, only: phih_grid
     use sourceprops, only: srcpos, NormFlux, NumSrc
-    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss, grtotal_src
+    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss, LLS_loss, grtotal_src
     use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=dp),intent(in) :: zred_now,time,dt
@@ -152,7 +152,7 @@ contains
     integer :: i,j,k,ns
     character(len=6) :: zred_str
     character(len=40) :: file1,file2,file3,file4,file5,file6
-    real(kind=dp) :: totalsrc,photcons,total_photon_loss
+    real(kind=dp) :: totalsrc,photcons,total_photon_loss,total_LLS_loss
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
 
@@ -278,16 +278,18 @@ contains
           ! multiply by this again.
           total_photon_loss=sum(photon_loss)*dt* &
                real(mesh(1))*real(mesh(2))*real(mesh(3))
+          total_LLS_loss = LLS_loss*dt
           !total_ion=total_ion + total_photon_loss
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
-          photcons=(total_ion-totcollisions)/totalsrc
-          if (time.gt.0.0) then
-             write(90,"(f6.3,8(1pe10.3))") &
+          photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
+          if (time > 0.0) then
+             write(90,"(f6.3,9(1pe10.3))") &
                   zred_now, &
                   total_ion, totalsrc, &
                   photcons, &
                   dh0/total_ion, &
                   totrec/total_ion, &
+                  total_LLS_loss/totalsrc, &
                   total_photon_loss/totalsrc, &
                   totcollisions/total_ion, &
                   grtotal_ion/grtotal_src
