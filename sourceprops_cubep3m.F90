@@ -123,7 +123,7 @@ contains
        allocate(srcpos(3,NumSrc))
        allocate(rsrcpos(3,NumSrc))
        allocate(SrcMass(NumSrc,0:Number_Sourcetypes))
-       allocate(NormFlux(NumSrc))
+       allocate(NormFlux(0:NumSrc)) ! 0 will hold lost photons
        allocate(SrcSeries(NumSrc))
 
        ! Fill in the source arrays
@@ -147,7 +147,7 @@ contains
 
        if (rank == 0) then
           write(logf,*) 'Source lifetime=', lifetime2/(1e6*YEAR),' Myr'
-          write(logf,*) 'Total flux= ',sum(NormFlux)*S_star_nominal,' s^-1'
+          write(logf,*) 'Total flux= ',sum(NormFlux(1:NumSrc)*S_star_nominal,' s^-1'
           ! Create array of source numbers for generating random order
           do ns=1,NumSrc
              SrcSeries(ns)=ns

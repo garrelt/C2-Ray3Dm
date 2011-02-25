@@ -392,6 +392,13 @@ contains
     if (rank == 0) write(logf,*) 'photon loss counter: ',photon_loss_all(:)
     
     ! Turn total photon loss into a mean per cell (used in evolve0d_global)
+    ! GM/110225: Possibly this should be 
+    ! photon_loss_all(:)/(real(mesh(1))*real(mesh(2))
+    ! Since this is the correct answer for an optically thin volume
+    ! Compromise: photon_loss_all(:)/(real(mesh(1))**3)*sum(xh_av(:,:,:,1))
+    ! then if the box is fully ionized the optically thin 1/N^2 is used
+    ! and if the box is more neutral something close to 1/N^3 is used.
+    ! Not sure
     photon_loss(:)=photon_loss_all(:)/(real(mesh(1))*real(mesh(2))*real(mesh(3)))
  
     ! Report minimum value of xh_av(0) to check for zeros
@@ -1510,6 +1517,15 @@ contains
           phih_cell=phih 
           if (add_photon_losses) phih_cell=phih_cell + & 
                photon_loss(1)/(vol*yh_av(0)*ndens_p)
+          ! GM/110225: New approach to lost photons, taking into
+          ! account optical depth of cells. See notes.
+          if (add_photon_losses) then
+             NormFlux(0)=sum(photon_loss(:))/S_star_nominal
+             ! Calculate (time averaged) column density of cell
+             coldensh_cell=coldens(dr(1),yh_av(0),ndens_p)
+             call photoion(phi,0.0d0,coldensh_cell,vol,0)
+             phih_cell=phih_cell + phi%h/(yh_av(0)*ndens_p)
+          endif
        endif
 
        ! Calculate the new and mean ionization states
