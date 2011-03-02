@@ -25,6 +25,10 @@ module sourceprops
 
   implicit none
 
+  !> base name of source list files
+  character(len=100),private :: sourcelistfile_base="_sources.dat"
+  character(len=100),private :: sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
+
   !> maximum increase in uv to use up cumulated photons
   real(kind=dp),parameter,private :: cumfrac_max=0.15 
 
@@ -100,10 +104,12 @@ contains
        
        ! Construct the file names
        sourcelistfile=trim(adjustl(dir_src))//&
-            trim(adjustl(z_str))//"-"//trim(adjustl(id_str))//"_sources.dat"
+            trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
+            trim(adjustl(sourcelistfile_base))
        sourcelistfilesuppress=trim(adjustl(dir_src))//&
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
-            "_sources_used_wfgamma.dat"
+            trim(adjustl(sourcelistfilesuppress_base))
+
 
        call establish_number_of_active_sources (restart)
 
