@@ -43,8 +43,13 @@ module c2ray_parameters
   !! grid
   integer,parameter :: subboxsize=10
 
+  !> The maximum number	of cells on EITHER side	of the	source for which
+  !! ray tracing is done. This	is a very crude	mean free path parameter
+  !! which sets	up a photon wall at exactly this distance.
+  integer,parameter :: max_subbox=50
+
   !> Add photon losses back into volume or not
-  logical,parameter :: add_photon_losses=.true.
+  logical,parameter :: add_photon_losses=.false.
 
   !> Parameters for nominal SED
   real(kind=dp),parameter :: teff_nominal=50000.0
@@ -62,10 +67,10 @@ module c2ray_parameters
   real,parameter :: clumping_factor=1.0
 
   !> Include LLS?
-  logical,parameter :: use_LLS=.true.
+  logical,parameter :: use_LLS=.false.
 
   !> Should we stop when photon conservation violation is detected?
-  logical,parameter :: stop_on_photon_violation = .true.
+  logical,parameter :: stop_on_photon_violation = .false.
 
   !> Cosmological cooling
   logical,parameter :: cosmological=.true.

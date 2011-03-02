@@ -37,7 +37,7 @@ module evolve
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations, update_grandtotal_photonstatistics
-  use c2ray_parameters, only: convergence_fraction, subboxsize, S_star_nominal
+  use c2ray_parameters, only: convergence_fraction, subboxsize, max_subbox, S_star_nominal
 
   implicit none
 
@@ -714,12 +714,18 @@ contains
     coldensh_out(:,:,:)=0.0
     
     ! Find the mesh position for the end points of the loop
+    ! We trace until we reach max_subbox (set in c2ray_parameters)
+    ! or the end of the grid. In the periodic case the end of the
+    ! grid is always mesh/2 away from the source. If the grid is
+    ! even-sized we trave mesh/2 cells to the left and mesh/2-1
+    ! cell to the right. If it is odd, it is mesh/2 in either direction.
+    ! The mod(mesh,2) takes care of handling this.
     if (periodic_bc) then
-       lastpos_r(:)=srcpos(:,ns)+mesh(:)/2-1+mod(mesh(:),2)
-       lastpos_l(:)=srcpos(:,ns)-mesh(:)/2
+       lastpos_r(:)=srcpos(:,ns)+min(max_subbox,mesh(:)/2-1+mod(mesh(:),2))
+       lastpos_l(:)=srcpos(:,ns)-min(max_subbox,mesh(:)/2)
     else
-       lastpos_r(:)=mesh(:)
-       lastpos_l(:)=1
+       lastpos_r(:)=min(srcpos(:,ns)+max_subbox,mesh(:))
+	lastpos_l(:)=max(srcpos(:,ns)-max_subbox,1)
     endif
 
     ! Loop through grid in the order required by 
