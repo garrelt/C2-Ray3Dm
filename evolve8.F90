@@ -1346,7 +1346,9 @@ contains
           phi%h=phi%h/(yh_av(0)*ndens_p)
           ! GM/110224: Add the factor vol/vol_ph to phi, just as we do for
           ! the photon losses.
-          call total_LLS_loss(phi%h_out*vol/vol_ph, coldensh_LL * path/dr(1))
+          ! GM/110302: Use phi%h_in (not out) here since this is where we draw the
+          ! photons from, above.
+          call total_LLS_loss(phi%h_in*vol/vol_ph, coldensh_LL * path/dr(1))
        else
           phi%h=0.0
           phi%h_out=0.0
