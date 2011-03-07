@@ -26,7 +26,7 @@ module sourceprops
   implicit none
 
   !> base name of source list files
-  character(len=100),private :: sourcelistfile_base="_sources.dat"
+  character(len=100),private :: sourcelistfile_base="_wsubgrid_sources.dat"
   character(len=100),private :: sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
   !> maximum increase in uv to use up cumulated photons
@@ -104,6 +104,7 @@ contains
        
        ! Construct the file names
        sourcelistfile=trim(adjustl(dir_src))//&
+!            trim(adjustl(z_str))//"-"//trim(adjustl(id_str))//"_wsubgrid_sources.dat"
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
             trim(adjustl(sourcelistfile_base))
        sourcelistfilesuppress=trim(adjustl(dir_src))//&
@@ -185,6 +186,8 @@ contains
 
     integer,intent(in) :: restart
 
+    real :: odens	
+
     integer :: ns0
     integer :: ns
 
@@ -204,7 +207,7 @@ contains
        NumSupprbleSrc = 0
        NumSupprsdSrc = 0
        do ns0=1,NumSrc0
-          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
+          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
           ! Massive sources are never suppressed.
           if (SrcMass00 /= 0.0) then
              NumSrc=NumSrc+1
