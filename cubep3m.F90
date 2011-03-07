@@ -38,8 +38,11 @@ module nbody
 
   character(len=10),parameter :: nbody_type="cubep3m" !< ID of Nbody type
 
-  real(kind=dp),parameter :: boxsize=37.0  !< Box size in Mpc/h comoving
-  integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)
+  real(kind=dp),parameter :: boxsize=425.0  !< Box size in Mpc/h comoving
+  integer,parameter :: n_box=10976  !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=37.0  !< Box size in Mpc/h comoving
+  !integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=64.0  !< Box size in Mpc/h comoving
   !integer,parameter :: n_box=3456  !< cells/side (in N-body,fine grid)
@@ -50,8 +53,8 @@ module nbody
   !> Path to directory containing directory with density files:
   character(len=*),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
-  !character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
+  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  !character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
 
   !> Path to directory containing directory with clumping files:
   character(len=*),parameter,private :: dir_clump_path = "../" 
@@ -60,7 +63,7 @@ module nbody
   character(len=*),parameter,private :: dir_clump_name= "coarser_densities/halos_included/"
 
   !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "./" 
+  character(len=*),parameter,private :: dir_src_path = "../" 
   !> Name of directory with source files
   character(len=*),parameter,private :: dir_src_name= "sources/"
 
@@ -134,7 +137,7 @@ contains
     integer :: nz ! loop counter
     character(len=20) :: dataroot="DEISA_DATA"
     character(len=256) :: value
-    integer :: len, status
+    integer :: len, status, asubbox
 
     ! In some cases a special file system is used, and its name is
     ! found from an environment variable.
@@ -212,6 +215,18 @@ contains
        case(16) 
           id_str="coarser"
        case(12) 
+          id_str="coarse"
+       end select
+    case(425)
+    ! Note that n_box/mesh is no longer an integer quantity for this
+    ! run. The numbers below are the integer parts of the division 
+       asubbox=int(n_box/meshx)
+       select case (asubbox)
+       case(43)
+          id_str="coarsest"
+       case(21,22)
+          id_str="coarser"
+       case(14)
           id_str="coarse"
        end select
     end select
