@@ -23,11 +23,14 @@ module material
   implicit none
 
   ! ndens - number density (cm^-3) of a cell
+  ! SINGLE PRECISION! Be careful when passing this as argument to
+  ! functions and subroutines.
+  real(kind=si),dimension(:,:,:),allocatable :: ndens
   ! temper - temperature (K) of a cell
-  ! xh - ionization fractions for one cell
-  real(kind=dp),dimension(:,:,:),allocatable :: ndens
   real(kind=dp) :: temper
+  ! xh - ionization fractions for one cell
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
+  !real(kind=dp),dimension(:,:,:),allocatable :: xh
   logical isothermal
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
@@ -128,10 +131,12 @@ contains
        
        ! Allocate density array
        allocate(xh(mesh(1),mesh(2),mesh(3),0:1))
+       !allocate(xh(mesh(1),mesh(2),mesh(3)))
        ! Assign ionization fractions (completely neutral)
        ! In case of a restart this will be overwritten in xfrac_ini
        xh(:,:,:,0)=1.0
        xh(:,:,:,1)=0.0
+       !xh(:,:,:)=1e-5
 
     endif
 
@@ -164,6 +169,7 @@ contains
     character(len=1) :: nfile_str
     real(kind=dp) :: convert ! conversion factor
     real(kind=dp) :: summed_density
+    real(kind=si),dimension(:),allocatable :: partial_sum_ndens
     integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
@@ -194,19 +200,22 @@ contains
        endif
        ! Read in data and store it in ndens
        ! Allocate array needed to read in data
-       allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
-       read(20) ndens_real
-       ndens(:,:,:)=ndens_real(:,:,:)
+       ! GM/110308: Disabled now that ndens is single precision
+       !allocate(ndens_real(mesh(1),mesh(2),mesh(3)))
+       !read(20) ndens_real
+       !ndens(:,:,:)=ndens_real(:,:,:)
+       read(20) ndens
           
        ! close file
        close(20)
        
        ! Deallocate array needed for reading in the data.
-       deallocate(ndens_real)
+       !deallocate(ndens_real)
     endif
 #ifdef MPI       
     ! Distribute the density to the other nodes
-    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+    !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
          MPI_COMM_NEW,mympierror)
 #endif
        
@@ -235,8 +244,16 @@ contains
     enddo
     
     ! Find summed and average density
-    avg_dens=sum(ndens)/(real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
-    
+    ! GM/110208: Make this a partial sum (since we are dealing
+    ! with bigger meshes now.
+    allocate(partial_sum_ndens(mesh(3)))
+    do k=1,mesh(3)
+       partial_sum_ndens(k)=sum(ndens(:,:,k))
+    enddo
+    avg_dens=sum(partial_sum_ndens)/ &
+         (real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
+    deallocate(partial_sum_ndens)
+
     ! Report density field properties
     if (rank == 0) then
        write(logf,*) "Raw density diagnostics (cm^-3)"
@@ -275,6 +292,11 @@ contains
     !real(kind=si),dimension(:,:,:),allocatable :: xh1_real
 
     if (rank == 0) then
+       ! GM/110308: If we only work with ionized fractions, do not use 
+       ! this anymore (ionized fractions are saved as dp). If we are
+       ! working with both neutral and ionized fraction, we need this
+       ! since one cannot read in partial arrays. Perhaps some pointer
+       ! would help?
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
        write(zred_str,"(f6.3)") zred_now
 !       xfrac_file= "./xfrac3d_"//trim(adjustl(zred_str))//".bin"
@@ -294,10 +316,12 @@ contains
           write(logf,*) "mesh found in file: ",m1,m2,m3
        else
           read(20) xh1_real
+          !read(20) xh
           ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
-          xh(:,:,:,1)=xh1_real(:,:,:)
           !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
-          xh(:,:,:,0)=1.0-xh(:,:,:,1)
+          xh(:,:,:,1)=xh1_real(:,:,:)
+          !xh(:,:,:)=xh1_real(:,:,:)
+          xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
        endif
 
        ! close file
@@ -308,6 +332,7 @@ contains
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3)*2,MPI_DOUBLE_PRECISION,0,&
+    !call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,mympierror)
 #endif
     
