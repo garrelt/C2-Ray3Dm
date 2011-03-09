@@ -214,6 +214,7 @@ contains
           ! if the cell is still neutral, no suppression (if we use the Iliev
           ! et al source model)   
           elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral .and. &
+          !elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral .and. &
                UV_Model == "Iliev et al") then
              NumSrc=NumSrc+1
           endif
@@ -224,6 +225,7 @@ contains
           ! How many suppressed?
           if (SrcMass01 /= 0.0) then
              if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) > StillNeutral .or. &
+             !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
                UV_Model /= "Iliev et al") NumSupprsdSrc=NumSupprsdSrc+1
           endif
        enddo
@@ -265,6 +267,7 @@ contains
                SrcMass00,SrcMass01
           
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
+          !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
              if (UV_Model == "Iliev et al" .or. SrcMass00 > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1

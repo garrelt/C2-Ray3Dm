@@ -78,6 +78,8 @@ contains
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_r
+    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_r
 
     ! Call the individual routines needed for this calculation
 
@@ -93,6 +95,7 @@ contains
   subroutine state_before (xh_l)
 
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
+    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
 
     ! Photon statistics: calculate the number of neutrals before integration
     h0_before=0.0
@@ -101,7 +104,9 @@ contains
        do j=1,mesh(2)
           do i=1,mesh(1)
              h0_before=h0_before+ndens(i,j,k)*xh_l(i,j,k,0)
+             !h0_before=h0_before+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
              h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k,1)
+             !h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k)
           enddo
        enddo
     enddo
@@ -118,6 +123,7 @@ contains
 
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
+    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
 
     real(kind=dp),dimension(0:1) :: yh
     real(kind=dp) :: ndens_p ! needed because ndens may be single precision
@@ -131,16 +137,18 @@ contains
        do j=1,mesh(2)
           do i=1,mesh(1)
              yh(0)=xh_l(i,j,k,0)
+             !yh(0)=1.0_dp-xh_l(i,j,k)
              yh(1)=xh_l(i,j,k,1)
+             !yh(1)=xh_l(i,j,k)
              ndens_p=ndens(i,j,k)
              ! Set clumping to local value if we have a clumping grid
              if (type_of_clumping == 5) &
                   call clumping_point (i,j,k)
-             totrec=totrec+ndens_p*xh_l(i,j,k,1)*    &
+             totrec=totrec+ndens_p*yh(1)*    &
                   electrondens(ndens_p,yh)*  &
                   clumping*bh00*(temper/1e4)**albpow
              totcollisions=totcollisions+ndens_p*   &
-                  xh_l(i,j,k,0)*electrondens(ndens_p,yh)* &
+                  yh(0)*electrondens(ndens_p,yh)* &
                   colh0*sqrt(temper)*exp(-temph0/temper)
           enddo
        enddo
@@ -157,6 +165,7 @@ contains
   subroutine state_after(xh_l)
     
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
+    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
 
     ! Photon statistics: Calculate the number of neutrals after the integration
     h0_after=0.0
@@ -166,6 +175,8 @@ contains
           do i=1,mesh(1)
              h0_after=h0_after+ndens(i,j,k)*xh_l(i,j,k,0)
              h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k,1)
+             !h0_after=h0_after+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
+             !h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k)
           enddo
        enddo
     enddo
