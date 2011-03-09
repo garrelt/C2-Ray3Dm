@@ -195,14 +195,27 @@ contains
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
 
   end subroutine cosmo_evol
-
+  
   ! ===========================================================================                       
-
+  
   subroutine set_LLS(z)
-
+    
+#ifdef IFORT
+    !For gamma function
+    use ISO_C_BINDING
+#endif
     use cgsphotoconstants, only: sigh
     use grid, only: dr
-
+    
+#ifdef IFORT
+    !For gamma function
+    interface
+       real(c_double) function tgamma (y) bind(c)
+         use iso_c_binding
+         real(c_double), value :: y
+       end function tgamma
+    end interface
+#endif
     ! LLS parameters
     ! a) Model Prochaska et al. (2010)
     !real(kind=dp),parameter :: C_LLS = 1.9
