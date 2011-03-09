@@ -42,7 +42,7 @@
 # F90 options (ifort)
 #GFORTFLAGS = -O3 -DGFORT -DMPILOG
 # Processor dependent optimization
-F90FLAGS1 = $(GFORTFLAGS) 
+#F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
@@ -125,7 +125,7 @@ OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
 OPTIONS = $(F90FLAGS)
 
 LDFLAGS = $(OPTIONS) -L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
-LIBS = -lirc
+LIBS = -lirc -limf
 
 #-------------------------------------------------------
 
