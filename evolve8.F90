@@ -268,7 +268,8 @@ contains
        write(logf,*) "Read iteration ",niter," from dump file"
        write(logf,*) 'photon loss counter: ',photon_loss_all
        write(logf,*) "Intermediate result for mean ionization fraction: ", &
-            sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+            sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+            !sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
     endif
 
 #ifdef MPI       
