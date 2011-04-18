@@ -303,8 +303,8 @@ Program C2Ray
   ! GM/110414: Bug, this statement previously overwrote the previous
   ! output (from the redshift list, so with multiple outputs per
   ! slice it could be the previous previous one). Fixed by writing
-  ! the output for the last redshift: zred_array(NumRed)
-  if (photcons_flag == 0) call output(zred_array(NumRed), &
+  ! the output for the last redshift: zred_array(NumZRed)
+  if (photcons_flag == 0) call output(zred_array(NumZRed), &
        sim_time,actual_dt,photcons_flag)
 
   ! End output streams
