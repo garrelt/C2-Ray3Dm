@@ -300,8 +300,12 @@ Program C2Ray
   enddo
 
   ! Write final output
-
-  if (photcons_flag == 0) call output(zred,sim_time,actual_dt,photcons_flag)
+  ! GM/110414: Bug, this statement previously overwrote the previous
+  ! output (from the redshift list, so with multiple outputs per
+  ! slice it could be the previous previous one). Fixed by writing
+  ! the output for the last redshift: zred_array(NumRed)
+  if (photcons_flag == 0) call output(zred_array(NumRed), &
+       sim_time,actual_dt,photcons_flag)
 
   ! End output streams
   call close_down ()
