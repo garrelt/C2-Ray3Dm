@@ -23,7 +23,7 @@ module material
   ! ndens - number density (cm^-3) of a cell
   ! temper - temperature (K) of a cell
   ! xh - ionization fractions for one cell
-  real(kind=dp) :: ndens(mesh(1),mesh(2),mesh(3))
+  real(kind=si) :: ndens(mesh(1),mesh(2),mesh(3))
   real(kind=dp) :: temper
   real(kind=dp) :: xh(mesh(1),mesh(2),mesh(3),0:1)
   logical isothermal
