@@ -785,7 +785,7 @@ contains
           endif
 
           ! do independent areas of the mesh in parallel using OpenMP
-          !$omp parallel default(shared)
+          !$omp parallel default(shared) reduction(+:photon_loss_src)
           
           ! Then do the the axes
           !$omp do schedule(dynamic,1)
