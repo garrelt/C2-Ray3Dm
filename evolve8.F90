@@ -1556,8 +1556,8 @@ contains
           ! (if the cell is ionized, add a fraction of the lost photons)
           !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
           phih_cell=phih 
-          if (add_photon_losses) phih_cell=phih_cell + & 
-               photon_loss(1)/(vol*yh_av(0)*ndens_p)
+          !if (add_photon_losses) phih_cell=phih_cell + & 
+          !     photon_loss(1)/(vol*yh_av(0)*ndens_p)
           ! GM/110225: New approach to lost photons, taking into
           ! account optical depth of cells. See notes.
           if (add_photon_losses) then
