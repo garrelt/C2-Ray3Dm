@@ -48,6 +48,12 @@ module my_mpi
 #endif
 #endif
 
+#ifdef PGI
+#ifdef MY_OPENMP
+  USE OMP_LIB, only: omp_get_num_threads, omp_get_thread_num
+#endif
+#endif
+
   implicit none
 
   include 'mpif.h'
