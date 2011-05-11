@@ -50,7 +50,7 @@ module sourceprops
   integer,private :: NumSrc0=0 !< intermediate source count
   integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: srcMass00,srcMass01,total_SrcMass
-  character(len=6) :: z_str !< string value of redshift
+  character(len=6),private :: z_str !< string value of redshift
   integer,private :: NumMassiveSrc !< counter: number of massive sources
   integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
   integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
@@ -67,7 +67,6 @@ contains
   !! Update: 30-Jan-2008 (20-Sep-2006 (3-jan-2005, 15-Apr-2004))
 
   subroutine source_properties(zred_now,nz,lifetime2,restart)
-
 
     ! For random permutation of sources
     use  m_ctrper
@@ -105,13 +104,11 @@ contains
        
        ! Construct the file names
        sourcelistfile=trim(adjustl(dir_src))//&
-!            trim(adjustl(z_str))//"-"//trim(adjustl(id_str))//"_wsubgrid_sources.dat"
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
             trim(adjustl(sourcelistfile_base))
        sourcelistfilesuppress=trim(adjustl(dir_src))//&
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
             trim(adjustl(sourcelistfilesuppress_base))
-
 
        call establish_number_of_active_sources (restart)
 
@@ -208,8 +205,11 @@ contains
        NumSupprbleSrc = 0
        NumSupprsdSrc = 0
        do ns0=1,NumSrc0
+          ! If you change the following lines, also change it below in
+          ! read_in_sources
           read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
 	  !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
+
           ! Massive sources are never suppressed.
           if (SrcMass00 /= 0.0) then
              NumSrc=NumSrc+1
@@ -265,10 +265,10 @@ contains
        ! Read in source positions and mass
        ns=0
        do ns0=1,NumSrc0
-          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
-               SrcMass00,SrcMass01
-          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
-          !     SrcMass00,SrcMass01,0dens
+          ! If you change the following lines, also change it above in
+          ! establish_number_of_active_sources
+          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
+          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
           
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
           !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
