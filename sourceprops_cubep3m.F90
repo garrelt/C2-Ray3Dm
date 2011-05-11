@@ -26,7 +26,8 @@ module sourceprops
   implicit none
 
   !> base name of source list files
-  character(len=100),private :: sourcelistfile_base="_wsubgrid_sources.dat"
+  character(len=100),private :: sourcelistfile_base="_sources.dat"
+  !character(len=100),private :: sourcelistfile_base="_wsubgrid_sources.dat"
   character(len=100),private :: sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
   !> maximum increase in uv to use up cumulated photons
@@ -207,7 +208,8 @@ contains
        NumSupprbleSrc = 0
        NumSupprsdSrc = 0
        do ns0=1,NumSrc0
-          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
+          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
+	  !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
           ! Massive sources are never suppressed.
           if (SrcMass00 /= 0.0) then
              NumSrc=NumSrc+1
@@ -265,6 +267,8 @@ contains
        do ns0=1,NumSrc0
           read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
                SrcMass00,SrcMass01
+          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3), &
+          !     SrcMass00,SrcMass01,0dens
           
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
           !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
@@ -457,11 +461,14 @@ contains
     endif
 #ifdef MPI
     ! Distribute the input parameters to the other nodes
+    call MPI_BCAST(uv_answer,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(UV_Model,30,MPI_CHARACTER,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(NumZred_uv,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-    if (rank /= 0) allocate(uv_array(NumZred_uv))
-    call MPI_BCAST(uv_array,NumZred_uv,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,&
-         mympierror)
+    if (uv_answer > 0) then
+       call MPI_BCAST(NumZred_uv,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       if (rank /= 0) allocate(uv_array(NumZred_uv))
+       call MPI_BCAST(uv_array,NumZred_uv,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,&
+            mympierror)
+    endif
 #endif
     
   end subroutine source_properties_ini
