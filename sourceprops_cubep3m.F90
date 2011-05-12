@@ -26,9 +26,14 @@ module sourceprops
   implicit none
 
   !> base name of source list files
-  character(len=100),private :: sourcelistfile_base="_sources.dat"
-  !character(len=100),private :: sourcelistfile_base="_wsubgrid_sources.dat"
-  character(len=100),private :: sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
+  character(len=100),parameter,private :: &
+       sourcelistfile_base="_wsubgrid_sources.dat"
+  character(len=100),parameter,private :: &
+       sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
+
+  !> number of columns in source list
+  integer,parameter,private :: ncolumns_srcfile=5
+  real,dimension(ncolumns_srcfile),private :: srclist
 
   !> maximum increase in uv to use up cumulated photons
   real(kind=dp),parameter,private :: cumfrac_max=0.15 
@@ -36,10 +41,9 @@ module sourceprops
   integer :: NumSrc=0 !< Number of sources
   integer :: Prev_NumSrc !< Previous number of sources
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
-  real(kind=dp),dimension(:,:),allocatable :: rsrcpos !< grid position of sources
-  real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
+  !real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
   real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
-  integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
+  !integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
   real(kind=dp),dimension(:),allocatable :: uv_array  !< list of UV flux evolution (for some sources models)
   !> The cumulative number of uv photons. We save this number so we can add it
   !! to the uv luminosity the first time sources appear.
@@ -88,10 +92,9 @@ contains
     
     ! Deallocate source arrays
     if (allocated(srcpos)) deallocate(srcpos)
-    if (allocated(rsrcpos)) deallocate(rsrcpos)
-    if (allocated(srcMass)) deallocate(srcMass)
+    !if (allocated(srcMass)) deallocate(srcMass)
     if (allocated(NormFlux)) deallocate(NormFlux)
-    if (allocated(srcSeries)) deallocate(srcSeries)
+    !if (allocated(srcSeries)) deallocate(srcSeries)
     
     Prev_NumSrc=NumSrc
 
@@ -126,45 +129,42 @@ contains
     ! Allocate arrays for this NumSrc
     if (NumSrc > 0) then
        allocate(srcpos(3,NumSrc))
-       allocate(rsrcpos(3,NumSrc))
-       allocate(SrcMass(NumSrc,0:Number_Sourcetypes))
+       !allocate(SrcMass(NumSrc,0:Number_Sourcetypes))
        allocate(NormFlux(0:NumSrc)) ! 0 will hold lost photons
-       allocate(SrcSeries(NumSrc))
+       !allocate(SrcSeries(NumSrc))
 
        ! Fill in the source arrays
        if (rank == 0) then
           call read_in_sources (restart)
-       endif ! of rank 0 test
     
-#ifdef MPI
-       ! Distribute the source parameters to the other nodes
-       call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(rsrcpos,3*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(SrcMass,(1+Number_Sourcetypes)*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-#endif
-    
-       ! Set cumulative number of uv photons to zero if this is not the
-       ! first redshift for which sources are active (this way cumulative_uv
-       ! can be used in all cases).
-       ! New version: cumulative_uv is slowly reduced
-       !if (Prev_NumSrc /= 0) cumulative_uv=0.0
-       call assign_uv_luminosities (lifetime2,nz)
+          ! Set cumulative number of uv photons to zero if this is not the
+          ! first redshift for which sources are active (this way cumulative_uv
+          ! can be used in all cases).
+          ! New version: cumulative_uv is slowly reduced
+          !if (Prev_NumSrc /= 0) cumulative_uv=0.0
+          call assign_uv_luminosities (lifetime2,nz)
 
-       if (rank == 0) then
           write(logf,*) 'Source lifetime=', lifetime2/(1e6*YEAR),' Myr'
           write(logf,*) 'Total flux= ',sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1'
           ! Create array of source numbers for generating random order
-          do ns=1,NumSrc
-             SrcSeries(ns)=ns
-          enddo
+          !do ns=1,NumSrc
+          !   SrcSeries(ns)=ns
+          !enddo
           
           ! Make a random order
-          call ctrper(SrcSeries(1:NumSrc),1.0)
+          !call ctrper(SrcSeries(1:NumSrc),1.0)
        endif
 
 #ifdef MPI
+       ! Distribute the source parameters to the other nodes
+       call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       !call MPI_BCAST(SrcMass,(1+Number_Sourcetypes)*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(NormFlux,NumSrc+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+#endif
+    
+#ifdef MPI
        ! Distribute the source series to the other nodes
-       call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       !call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
       
     else
@@ -207,8 +207,11 @@ contains
        do ns0=1,NumSrc0
           ! If you change the following lines, also change it below in
           ! read_in_sources
-          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
-	  !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
+          read(50) srclist(1:ncolumns_srcfile)
+          srcpos0(1:3)=int(srclist(1:3))
+          srcMass00=srclist(4)
+          srcMass01=srclist(5)
+          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
 
           ! Massive sources are never suppressed.
           if (SrcMass00 /= 0.0) then
@@ -216,7 +219,6 @@ contains
           ! if the cell is still neutral, no suppression (if we use the Iliev
           ! et al source model)   
           elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral .and. &
-          !elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral .and. &
                UV_Model == "Iliev et al") then
              NumSrc=NumSrc+1
           endif
@@ -267,11 +269,13 @@ contains
        do ns0=1,NumSrc0
           ! If you change the following lines, also change it above in
           ! establish_number_of_active_sources
+          read(50) srclist(1:ncolumns_srcfile)
+          srcpos0(1:3)=int(srclist(1:3))
+          srcMass00=srclist(4)
+          srcMass01=srclist(5)
           !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
-          read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01
           
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
-          !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
              if (UV_Model == "Iliev et al" .or. SrcMass00 > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1
@@ -279,15 +283,13 @@ contains
                 srcpos(1,ns)=srcpos0(1)
                 srcpos(2,ns)=srcpos0(2)
                 srcpos(3,ns)=srcpos0(3)
-                ! Source is always at cell centre!!
-                rsrcpos(1,ns)=x(srcpos(1,ns))
-                rsrcpos(2,ns)=y(srcpos(2,ns))
-                rsrcpos(3,ns)=z(srcpos(3,ns))
-                SrcMass(ns,1)=SrcMass00
+                ! Collect total source mass (weigthed with efficiency factor
+                ! in case of the Iliev et al source model).
                 if (UV_Model == "Iliev et al") then
-                   SrcMass(ns,2)=SrcMass01
+                   NormFlux(ns)=SrcMass00*phot_per_atom(1)  & !massive sources
+                        + SrcMass01*phot_per_atom(2)      !small sources  
                 else
-                   SrcMass(ns,2)=0.0
+                   NormFlux(ns)=SrcMass00!+SrcMass01
                 endif
              endif
           elseif (SrcMass00 > 0.0d0) then
@@ -298,29 +300,23 @@ contains
              srcpos(1,ns)=srcpos0(1)
              srcpos(2,ns)=srcpos0(2)
              srcpos(3,ns)=srcpos0(3)
-             ! Source is always at cell centre!!
-             rsrcpos(1,ns)=x(srcpos(1,ns))
-             rsrcpos(2,ns)=y(srcpos(2,ns))
-             rsrcpos(3,ns)=z(srcpos(3,ns))
-             SrcMass(ns,1)=SrcMass00
-             SrcMass(ns,2)=0.0
+             ! Collect total source mass (weigthed with efficiency factor
+             ! in case of the Iliev et al source model), used in 
+             ! assign_uv_luminosities to calculate ionizing photon rates
+             if (UV_Model == "Iliev et al") then
+                NormFlux(ns)=SrcMass00*phot_per_atom(1)  !massive sources
+             else
+                NormFlux(ns)=SrcMass00
+             endif
           endif
        enddo
        
-       ! Collect total source mass (weigthed with efficiency factor
-       ! in case of the Iliev et al source model).
-       if (UV_Model == "Iliev et al") then
-          SrcMass(:,0)=SrcMass(:,1)*phot_per_atom(1)  & !massive sources
-               +SrcMass(:,2)*phot_per_atom(2)      !small sources  
-       else
-          SrcMass(:,0)=SrcMass(:,1)!+SrcMass(:,2)
-       endif
        ! Save new source list, without the suppressed ones
        open(unit=49,file=sourcelistfilesuppress,status='unknown')
        write(49,*) NumSrc
        do ns0=1,NumSrc
           write(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-               SrcMass(ns0,0)
+               NormFlux(ns0)
        enddo
        close(49)
     else ! of restart test
@@ -331,11 +327,7 @@ contains
        read(49,*) NumSrc
        do ns0=1,NumSrc
           read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-               SrcMass(ns0,0)
-          ! Source is always at cell centre!!
-          rsrcpos(1,ns0)=x(srcpos(1,ns0))
-          rsrcpos(2,ns0)=y(srcpos(2,ns0))
-          rsrcpos(3,ns0)=z(srcpos(3,ns0))
+                NormFlux(ns0)
        enddo
        close(49)
     endif ! of restart test
@@ -355,8 +347,8 @@ contains
     select case (UV_Model)
     case ("Iliev et al")
        do ns=1,NumSrc
-          !note that now photons/atom are included in SrcMass
-          NormFlux(ns)=SrcMass(ns,0)*M_grid*  &
+          !note that now photons/atom are already included in NormFlux
+          NormFlux(ns)=NormFlux(ns)*M_grid*  &
                Omega_B/(Omega0*m_p)/S_star_nominal
           !NormFlux(ns)=NormFlux(ns)/lifetime
           NormFlux(ns)=NormFlux(ns)/lifetime2
@@ -369,10 +361,10 @@ contains
                   cumulative_uv,uv_array(nz),cumulative_uv/uv_array(nz)
              write(logf,*) 'Cumulative fraction used: ', cumfrac
           endif
-          total_SrcMass=sum(SrcMass(:,0))
+          total_SrcMass=sum(NormFlux(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
+             NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2*NormFlux(ns)/total_SrcMass/S_star_nominal
              !NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
           ! Subtract extra photons from cumulated photons
@@ -384,10 +376,10 @@ contains
        endif
     case ("Fixed Ndot_gamma")
        if (nz <= NumZred_uv) then
-          total_SrcMass=sum(SrcMass(:,0))
+          total_SrcMass=sum(NormFlux(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux(ns)=uv_array(nz)*SrcMass(ns,0)/total_SrcMass/S_star_nominal
+             NormFlux(ns)=uv_array(nz)*NormFlux(ns)/total_SrcMass/S_star_nominal
           enddo
        else
           NormFlux(:)=0.0

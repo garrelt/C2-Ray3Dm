@@ -68,6 +68,12 @@ module c2ray_parameters
 
   !> Include LLS?
   logical,parameter :: use_LLS=.false.
+  !> Type of LLS approach
+  !! 0: no LLS
+  !! 1: homogeneous optical depth due to LLS
+  !! 2: position dependent optical depth due to LLS (requires LLS input
+  !!     files)
+  integer,parameter :: type_of_LLS=1
 
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.

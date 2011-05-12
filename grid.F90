@@ -27,6 +27,7 @@ module grid
   real(kind=dp),dimension(:),allocatable :: y !< spatial coordinate y
   real(kind=dp),dimension(:),allocatable :: z !< spatial coordinate z
   real(kind=dp) :: vol !< volume of grid cell
+  real(kind=dp) :: sim_volume !< volume of entire simulation box
   
 contains
 
@@ -56,6 +57,9 @@ contains
 #ifdef MPI
     integer :: ierror
 #endif
+
+    ! Simulation volume (comoving)
+    sim_volume=(boxsize/h*Mpc)**3
 
     ! Ask for grid size (if rank 0 and not set in nbody module)
     if (rank == 0) then

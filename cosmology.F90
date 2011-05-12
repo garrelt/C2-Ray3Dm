@@ -39,7 +39,6 @@ module cosmology
   real(kind=dp) :: zred    !< current redshift
   real(kind=dp) :: Hz      !< Hubble constant at current redshift
   real(kind=dp),private :: zfactor !< scaling factor between two redshifts
-  real(kind=dp) :: coldensh_LL = 0.0_dp ! Column density of LLSs per cell.
 
 contains
   ! =======================================================================
@@ -167,8 +166,7 @@ contains
 
     !use sizes
     use grid, only: x,y,z,dr,vol
-    use sourceprops, only: rsrcpos
-    use material, only: ndens
+    use material, only: ndens, n_LLS, y_LLS
     
     real(kind=dp) :: zfactor3
 
@@ -183,9 +181,6 @@ contains
     
     vol=vol*zfactor3
 
-    ! Source positions (multiple source version)
-    if (allocated(rsrcpos)) rsrcpos(:,:)=rsrcpos(:,:)*zfactor
-
     ! Change the densities
     ndens(:,:,:)=ndens(:,:,:)/zfactor3
 
@@ -194,78 +189,11 @@ contains
     ! voly(i,j,k)=voly(i,j,k)*zfactor3
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
 
+    ! Evolution of LLS
+    n_LLS=n_LLS * zfactor**(-y_LLS-1.5)
+
   end subroutine cosmo_evol
   
-  ! ===========================================================================                       
-  
-  subroutine set_LLS(z)
-    
-#ifdef IFORT
-    !For gamma function
-    use ISO_C_BINDING
-#endif
-    use cgsphotoconstants, only: sigh
-    use grid, only: dr
-    
-#ifdef IFORT
-    !For gamma function
-    interface
-       real(c_double) function tgamma (y) bind(c)
-         use iso_c_binding
-         real(c_double), value :: y
-       end function tgamma
-    end interface
-#endif
-    ! LLS parameters
-    ! a) Model Prochaska et al. (2010)
-    !real(kind=dp),parameter :: C_LLS = 1.9
-    !real(kind=dp),parameter :: z_x = 3.7
-    !real(kind=dp),parameter :: y_LLS = 5.1
-    ! b) Model Songaila & Cowie (2010)
-    real(kind=dp),parameter :: C_LLS = 2.84
-    real(kind=dp),parameter :: z_x = 3.5
-    real(kind=dp),parameter :: y_LLS = 2.04
-    real(kind=dp),parameter :: beta=1.28
-    ! c) Model McQuinn et al. (2011)
-    !real(kind=dp),parameter :: C_LLS = 2.34
-    !real(kind=dp),parameter :: z_x = 3.5
-    !real(kind=dp),parameter :: y_LLS = 2.85
-    !real(kind=dp),parameter :: beta=1.3
-
-    ! Other parameters
-    real(kind=dp),parameter :: opdepth_LL = 2.0 !< typical optical depth of LLS
-    real(kind=dp),parameter :: N_1 = opdepth_LL / sigh !< typical column density of LLS
-
-    real(kind=dp),intent(in) :: z
-
-
-    real(kind=dp) :: n_LLS
-
-    ! 1/distance between LLSs expressed in grid cells
-    n_LLS = C_LLS * ((1 + z)/(1 + z_x)) ** y_LLS * dr(1) * (1.0+z) * Hz / c
-
-    ! Add the beta correction as explained in Songaila & Cowie (2010).
-    ! This corrects for the fact that not all LLS have the same
-    ! column density. beta is the slope of the distribution function
-    ! of LLS over column densities.
-    ! This expression needs the gamma function. For the intel compiler
-    ! this is tgamma(). For other compilers (Fortran 2008 standard) this
-    ! is gamma().
-#ifdef IFORT    
-    n_LLS=n_LLS*tgamma(2.0-beta)/(opdepth_LL**(1.0-beta))
-#else
-    n_LLS=n_LLS*gamma(2.0-beta)/(opdepth_LL**(1.0-beta))
-#endif
-
-    ! Column density per cell due to LLSs
-    coldensh_LL = N_1 * n_LLS
-
-    if (rank == 0) then
-       write(logf,*) "Optical depth per cell due to LLSs: ",coldensh_LL*sigh
-    endif
-
-  end subroutine set_LLS
-
   ! =======================================================================
 
   !> Calculates the cosmological adiabatic cooling

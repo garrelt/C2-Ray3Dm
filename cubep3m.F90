@@ -62,6 +62,11 @@ module nbody
   !character(len=180),parameter,private :: dir_clump_name= "coarser_densities/"
   character(len=*),parameter,private :: dir_clump_name= "coarser_densities/halos_included/"
 
+  !> Path to directory containing directory with LLS files:
+  character(len=*),parameter,private :: dir_LLS_path = "../" 
+  !> Name of directory with files used for LLS
+  character(len=*),parameter,private :: dir_LLS_name= "halos/"
+
   !> Path to directory containing directory with source files:
   character(len=*),parameter,private :: dir_src_path = "../" 
   !> Name of directory with source files
@@ -85,10 +90,20 @@ module nbody
   character(len=15),parameter :: clumpingformat="unformatted"
   character(len=*),parameter :: clumpingaccess="stream"
 #endif
+  !> Format of LLS file (unformatted or binary)
+#ifdef IFORT
+  character(len=*),parameter :: LLSformat="binary"
+  character(len=*),parameter :: LLSaccess="sequential"
+#else
+  character(len=15),parameter :: LLSformat="unformatted"
+  character(len=*),parameter :: LLSaccess="stream"
+#endif
   !> density file with header?
   logical,parameter :: densityheader=.true.
   !> clumping file with header?
   logical,parameter :: clumpingheader=.true.
+  !> LLS file with header?
+  logical,parameter :: LLSheader=.true.
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
   character(len=*),parameter :: density_unit="grid"
@@ -120,7 +135,8 @@ module nbody
   character(len=8),public :: id_str       !< resolution dependent string
 
   character(len=480),public :: dir_dens !< Path to directory with density files
-  character(len=480),public :: dir_clump !< Path to directory with density files
+  character(len=480),public :: dir_clump !< Path to directory with clump files
+  character(len=480),public :: dir_LLS !< Path to directory with LLS files
   character(len=480),public :: dir_src !< Path to directory with source files
 
 #ifdef MPI
@@ -151,17 +167,21 @@ contains
                //trim(adjustl(dir_dens_name))
           dir_clump=value(1:len)//trim(adjustl(dir_clump_path)) &
                //trim(adjustl(dir_clump_name))
+          dir_LLS=value(1:len)//trim(adjustl(dir_LLS_path)) &
+               //trim(adjustl(dir_LLS_name))
           dir_src=value(1:len)//trim(adjustl(dir_src_path)) &
                //trim(adjustl(dir_src_name))
        else
           dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
           dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
+          dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
           dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
        endif
     elseif (status == 1) then
        ! Assume that the whole path is set in the parameter
        dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
        dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
+       dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
        dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
     elseif (status == -1) then
        ! Warning
@@ -170,6 +190,7 @@ contains
 #else
     dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
     dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
+    dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
     dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
 #endif
        
