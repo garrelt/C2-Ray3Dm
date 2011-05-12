@@ -32,7 +32,7 @@ module evolve
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper
-  use sourceprops, only: SrcSeries, NumSrc, srcpos, NormFlux
+  use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
@@ -319,11 +319,13 @@ contains
     sum_nbox=0
 
     ! Make a randomized list of sources :: call in serial
-    if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
+    ! disabled / GM110512
+    !if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
     
 #ifdef MPI
     ! Distribute the source list to the other nodes
-    call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+    ! disabled / GM110512
+    !call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
     
     ! Ray trace the whole grid for all sources.
@@ -612,7 +614,7 @@ contains
 #ifdef MPILOG
           ! Report
           write(logf,*) 'Processor ',rank,' received: ',ns1
-          write(logf,*) ' that is source ',SrcSeries(ns1)
+          write(logf,*) ' that is source ',ns1 !SrcSeries(ns1)
           write(logf,*) ' at:',srcpos(:,ns1)
           flush(logf)
 #endif
@@ -725,7 +727,8 @@ contains
     integer,dimension(Ndim) :: rtpos
       
     ! Pick up source number from the source list
-    ns=SrcSeries(ns1)
+    !ns=SrcSeries(ns1)
+    ns=ns1
     
     ! reset column densities for new source point
     ! coldensh_out is unique for each source point
@@ -1231,11 +1234,11 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
-    use material, only: clumping_point !,coldensh_LL
+    use material, only: clumping_point !,coldensh_LLS
     use c2ray_parameters, only: epsilon,convergence1,convergence2, &
-         type_of_clumping, convergence_frac
+         type_of_clumping, convergence_frac,use_LLS,type_of_LLS
     use mathconstants, only: pi
-    use cosmology, only: coldensh_LL
+    use material, only: coldensh_LLS, LLS_point
     use photonstatistics, only: total_LLS_loss
 
     ! column density for stopping chemisty
@@ -1325,8 +1328,11 @@ contains
           ! rate which is based on the difference between the
           ! in and out column density. To mimick a LLS fog, it
           ! may be better to add it here.
-          coldensh_in = coldensh_in + coldensh_LL * path/dr(1)
-          
+          ! Initialize local LLS (if type of LLS is appropriate)
+          if (use_LLS) then
+             if (type_of_LLS == 2) call LLS_point (pos(1),pos(2),pos(3))
+             coldensh_in = coldensh_in + coldensh_LLS * path/dr(1)
+          endif
        endif
        
        ! Only ray trace and exit. Do not touch the ionization
@@ -1368,7 +1374,7 @@ contains
        !  upon the difference between the in and out column density.
        !  Instead add the LLS to coldensh_in, see above
        coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + &
-            coldens(path,yh_av(0),ndens_p) !+ coldensh_LL * path/dr(1)
+            coldens(path,yh_av(0),ndens_p) !+ coldensh_LLS * path/dr(1)
        !###################################################################
        
        ! Calculate (photon-conserving) photo-ionization rate
@@ -1380,7 +1386,7 @@ contains
           ! the photon losses.
           ! GM/110302: Use phi%h_in (not out) here since this is where we draw the
           ! photons from, above.
-          call total_LLS_loss(phi%h_in*vol/vol_ph, coldensh_LL * path/dr(1))
+          call total_LLS_loss(phi%h_in*vol/vol_ph, coldensh_LLS * path/dr(1))
        else
           phi%h=0.0
           phi%h_out=0.0
