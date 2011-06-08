@@ -40,10 +40,11 @@ module clocks
   real :: cpu_seconds=0.0 !< accumulates the CPU seconds
   
   ! Wall clock time variables
-  integer :: cntr1 !< Start time for call to wall clock routine
-  integer :: cntr2 !< End time for call to wall clock routine
+  ! (use 8 byte integers to avoid the clock reset)
+  integer(kind=8) :: cntr1 !< Start time for call to wall clock routine
+  integer(kind=8) :: cntr2 !< End time for call to wall clock routine
 
-  integer :: countspersec !< counts per second (for wall clock time)
+  integer(kind=8) :: countspersec !< counts per second (for wall clock time)
 
   integer :: clock_hours=0 !< accumulates the wall clock hours
   integer :: clock_minutes=0 !< accumulates the wall clock minutes

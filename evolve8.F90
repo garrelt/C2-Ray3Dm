@@ -68,6 +68,7 @@ module evolve
   !> Photon loss from the grid
   real(kind=dp) :: photon_loss_all(1:NumFreqBnd)
   !> Photon loss from one source
+  real(kind=dp),dimension(:,:),allocatable :: photon_loss_src_thread
   real(kind=dp) :: photon_loss_src(1:NumFreqBnd)
 
   ! mesh positions of end points for RT
@@ -78,6 +79,8 @@ module evolve
 
   integer :: sum_nbox !< sum of all nboxes (on one processor)
   integer :: sum_nbox_all !< sum of all nboxes (on all processors)
+
+  integer :: tn !< thread number
 
 contains
 
@@ -93,6 +96,7 @@ contains
     !allocate(xh_intermed(mesh(1),mesh(2),mesh(3)))
     allocate(coldensh_out(mesh(1),mesh(2),mesh(3)))
     allocate(buffer(mesh(1),mesh(2),mesh(3)))
+    allocate(photon_loss_src_thread(1:NumFreqBnd,nthreads))
 
   end subroutine evolve_ini
 
@@ -130,9 +134,10 @@ contains
     integer :: niter  ! iteration counter
 
     ! Wall clock counting
-    integer :: wallclock1
-    integer :: wallclock2
-    integer :: countspersec
+    ! 8 bytes to beat the maxcount
+    integer(kind=8) :: wallclock1
+    integer(kind=8) :: wallclock2
+    integer(kind=8) :: countspersec
 
     ! Flag variable (passed back from evolve0D_global)
     integer :: conv_flag
@@ -197,7 +202,12 @@ contains
 
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
-          if (wallclock2-wallclock1 > 15.0*60.0*countspersec) then
+          ! Write iteration dump if more than 15 minutes have passed.
+          ! system_clock starts counting at 0 when it reaches
+          ! a max value. To catch this, test also for negative
+          ! values of wallclock2-wallclock1
+          if (wallclock2-wallclock1 > 15*60*countspersec .or. &
+               wallclock2-wallclock1 < 0 ) then
              call write_iteration_dump(niter)
              wallclock1=wallclock2
           endif
@@ -722,6 +732,7 @@ contains
     integer :: ns
     integer :: k
     integer :: nbox
+    integer ::nnt
 
     ! Mesh position of the cell being treated
     integer,dimension(Ndim) :: rtpos
@@ -773,6 +784,7 @@ contains
          .and. last_l(3) > lastpos_l(3))
        nbox=nbox+1 ! increase subbox counter
        photon_loss_src(:) = 0.0 ! reset photon_loss_src to zero
+       photon_loss_src_thread(:,:) = 0.0 ! reset photon_loss_src to zero
        last_r(:)=min(srcpos(:,ns)+subboxsize*nbox,lastpos_r(:))
        last_l(:)=max(srcpos(:,ns)-subboxsize*nbox,lastpos_l(:))
 
@@ -788,7 +800,15 @@ contains
           endif
 
           ! do independent areas of the mesh in parallel using OpenMP
-          !$omp parallel default(shared) reduction(+:photon_loss_src)
+          !$omp parallel default(shared) private(tn)
+          !!!reduction(+:photon_loss_src)
+
+          ! Find out your thread number
+#ifdef MY_OPENMP
+          tn=omp_get_thread_num()+1
+#else
+          tn=1
+#endif
           
           ! Then do the the axes
           !$omp do schedule(dynamic,1)
@@ -812,6 +832,11 @@ contains
           !$omp end do
           
           !$omp end parallel
+          ! Collect photon losses for each thread
+          do nnt=1,nthreads
+             photon_loss_src(:)=photon_loss_src(:) + &
+                  photon_loss_src_thread(:,nnt)
+          enddo
 
        else ! No OpenMP parallelization
 
@@ -827,6 +852,9 @@ contains
              rtpos(3)=k
              call evolve2D(dt,rtpos,ns,niter)
           end do
+          ! No OpenMP threads so we use position 1
+          photon_loss_src(:)=photon_loss_src_thread(:,1)
+
        endif
     enddo
     
@@ -1251,7 +1279,7 @@ contains
     integer,dimension(Ndim),intent(in) :: rtpos ! cell position (for RT)
     integer,intent(in)      :: ns ! source number 
     integer,intent(in)      :: niter ! global iteration number
-    
+
     integer :: nx,nd,idim ! loop counters
     integer,dimension(Ndim) :: pos
     integer,dimension(Ndim) :: srcpos1
@@ -1400,7 +1428,9 @@ contains
        ! Photon statistics: register number of photons leaving the grid
        if ( (any(rtpos(:) == last_l(:))) .or. &
             (any(rtpos(:) == last_r(:))) ) then
-          photon_loss_src(1)=photon_loss_src(1) + phi%h_out*vol/vol_ph
+          photon_loss_src_thread(1,tn)=photon_loss_src_thread(1,tn) + &
+               phi%h_out*vol/vol_ph
+          !photon_loss_src(1,tn)=photon_loss_src(1,tn) + phi%h_out*vol/vol_ph
        endif
 
     endif ! end of coldens test
