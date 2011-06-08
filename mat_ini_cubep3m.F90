@@ -29,9 +29,14 @@ module material
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
+  ! temper - temperature of grid cell under consideration
+  ! temperature_grid - temperature (K) of entire grid (only used if not isothermal)
+  ! temper_val - initial temperature and the one used if isothermal
   real(kind=si),dimension(:,:,:),allocatable :: ndens
   ! temper - temperature (K) of a cell
   real(kind=dp) :: temper
+  real(kind=dp) :: temper_val
+  real(kind=si),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
   !real(kind=dp),dimension(:,:,:),allocatable :: xh
@@ -101,7 +106,6 @@ contains
     integer,intent(out) :: ierror ! will be /=0 if an error occurred
 
     integer :: i,j,k,n ! loop counters
-    real(kind=dp) :: temper_val
     character(len=1) :: answer
 
     ierror=0
@@ -149,17 +153,29 @@ contains
        call MPI_BCAST(nz0,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
        
-       ! Scalar version for constant temperature
-       isothermal=.true.
-       temper=temper_val
-       
        ! Allocate density array
        allocate(ndens(mesh(1),mesh(2),mesh(3)))
        ! Assign dummy density to the grid
        ! This should be overwritten later (in dens_ini)
        ndens(:,:,:)=1.0
        
-       ! Allocate density array
+       ! Allocate temperature array and initialize if the run is not
+       ! isothermal
+       if (.not.isothermal) then
+          allocate(temperature_grid(mesh(1),mesh(2),mesh(3)))
+          temperature_grid(:,:,:)=temper_val
+       endif
+       ! Report on temperature situation
+       if (rank == 0) then
+          if (isothermal) then
+             write(logf,"(A)") "Thermal conditions: isothermal"
+          else
+             write(logf,"(A)") &
+                  "Thermal conditions: applying heating and cooling"
+          endif
+       endif
+
+       ! Allocate ionization fraction array
        allocate(xh(mesh(1),mesh(2),mesh(3),0:1))
        !allocate(xh(mesh(1),mesh(2),mesh(3)))
        ! Assign ionization fractions (completely neutral)
@@ -369,6 +385,90 @@ contains
 #endif
     
   end subroutine xfrac_ini
+
+  ! ===========================================================================
+
+  subroutine temper_ini (zred_now)
+
+    ! Initializes temperature on the grid (at redshift zred_now).
+    ! They are read from an "Temper3D" file which should have been created
+    ! by an earlier run. This file is read when in restart mode.
+
+    ! Author: Garrelt Mellema
+
+    ! Date: 02-June-2011
+
+    real(kind=dp),intent(in) :: zred_now
+    
+    character(len=512) :: temper_file
+    character(len=6) :: zred_str
+    integer :: m1,m2,m3
+
+    if (isothermal) then
+       if (rank == 0) write(logf,"(A)") &
+            "Incorrect call to temper_ini in isothermal case"
+    else
+       if (rank == 0) then
+          write(zred_str,"(f6.3)") zred_now
+          temper_file= trim(adjustl(results_dir))// &
+               "temper3d_"//trim(adjustl(zred_str))//".bin"
+          
+          write(unit=logf,fmt="(2A)") "Reading temperature from ", &
+               trim(temper_file)
+          ! Open ionization fractions file
+          open(unit=20,file=temper_file,form="unformatted",status="old")
+          
+          ! Read in data
+          read(20) m1,m2,m3
+          if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+             write(logf,*) "WARNING: file with temperatures unusable, as"
+             write(logf,*) "mesh found in file: ",m1,m2,m3
+          else
+             read(20) temperature_grid
+          endif
+          
+          ! close file
+          close(20)
+       endif
+       
+#ifdef MPI       
+       ! Distribute the input parameters to the other nodes
+       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*2,MPI_REAL,0,&
+            MPI_COMM_NEW,mympierror)
+#endif
+    endif
+
+  end subroutine temper_ini
+
+  ! ===========================================================================
+
+  subroutine get_temperature_point (i,j,k)
+
+    ! Puts value of temperature (from grid or initial condition value)
+    ! in the module variable temper
+
+    integer,intent(in) :: i,j,k
+
+    if (isothermal) then
+       temper = temper_val
+    else
+       temper = temperature_grid(i,j,k)
+    endif
+
+  end subroutine get_temperature_point
+
+  ! ===========================================================================
+
+  subroutine set_temperature_point (i,j,k)
+    
+    ! Puts value of module variable temper back in temperature grid
+    ! (if running not isothermal)
+
+    integer,intent(in) :: i,j,k
+
+    if (.not.isothermal) temperature_grid(i,j,k)=temper
+    
+  end subroutine set_temperature_point
 
   ! ===========================================================================
 

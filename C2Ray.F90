@@ -34,8 +34,8 @@ Program C2Ray
   use precision, only: dp
   use clocks, only: setup_clocks, update_clocks, report_clocks
   use file_admin, only: stdinput, logf, file_input, flag_for_file_input
-  use c2ray_parameters, only: cosmological, type_of_clumping, use_LLS, &
-       type_of_LLS,stop_on_photon_violation
+  use c2ray_parameters, only: cosmological, isothermal, type_of_clumping, &
+       use_LLS, type_of_LLS,stop_on_photon_violation
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
@@ -179,7 +179,10 @@ Program C2Ray
   endif
 
   ! If a restart, read ionization fractions from file
-  if (restart == 1) call xfrac_ini(zred_array(nz0))
+  if (restart == 1) then
+     call xfrac_ini(zred_array(nz0))
+     if (.not.isothermal) call temper_ini(zred_array(nz0))
+  endif
   if (restart == 2) then
      if (rank == 0) then
         if (.not.file_input) &
@@ -191,6 +194,7 @@ Program C2Ray
           mympierror)
 #endif
      call xfrac_ini(zred_interm)
+     if (.not.isothermal) call temper_ini(zred_interm)
   end if
   
   ! Loop over redshifts

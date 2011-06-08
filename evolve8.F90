@@ -31,7 +31,7 @@ module evolve
   use file_admin, only: logf,iterdump
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
-  use material, only: ndens, xh, temper
+  use material, only: ndens, xh, temper, get_temperature_point
   use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
   use photonstatistics, only: state_before, calculate_photon_statistics, &
@@ -1316,7 +1316,8 @@ contains
        
        ! Initialize local density and temperature
        ndens_p=ndens(pos(1),pos(2),pos(3))
-       
+       call get_temperature_point(pos(1),pos(2),pos(3))
+
        ! Find the column density at the entrance point of the cell (short
        ! characteristics)
        
@@ -1491,6 +1492,7 @@ contains
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
+    call get_temperature_point(pos(1),pos(2),pos(3))
     avg_temper=temper
 
     ! Use the collected photo-ionization rates
