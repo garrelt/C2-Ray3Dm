@@ -44,7 +44,8 @@ Program C2Ray
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini, xfrac_ini, dens_ini, set_clumping, set_LLS
+  use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
+       set_LLS
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve_ini,evolve3D

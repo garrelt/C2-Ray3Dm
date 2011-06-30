@@ -21,7 +21,7 @@ module material
   use nbody, only: LLSformat, LLSaccess, LLSheader
   use nbody, only: density_convert_particle, density_convert_grid, density_unit
   use abundances, only: mu
-  use c2ray_parameters, only: type_of_clumping,clumping_factor
+  use c2ray_parameters, only: type_of_clumping,clumping_factor,isothermal
   use c2ray_parameters, only: type_of_LLS
 
   implicit none
@@ -40,7 +40,6 @@ module material
   ! xh - ionization fractions for one cell
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
   !real(kind=dp),dimension(:,:,:),allocatable :: xh
-  logical isothermal
   ! Clumping data
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
