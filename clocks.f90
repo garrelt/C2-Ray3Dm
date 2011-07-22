@@ -1,5 +1,5 @@
 !>
-!! \brief This module contains variables and routines for dealing with 
+!! \short This module contains variables and routines for dealing with 
 !!   cpu and wall clocks
 !!
 !! This module uses calls to the Fortran 2003 internal routines cpu_time
