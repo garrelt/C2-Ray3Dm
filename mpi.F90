@@ -1,5 +1,5 @@
 !>
-!! \Brief This module contains data and routines for MPI parallelization
+!! \brief This module contains data and routines for MPI parallelization
 !!
 !! Module for C2Ray / Capreole (3D)
 !!
