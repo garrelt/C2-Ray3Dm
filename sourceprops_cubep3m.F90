@@ -207,7 +207,7 @@ contains
        do ns0=1,NumSrc0
           ! If you change the following lines, also change it below in
           ! read_in_sources
-          read(50) srclist(1:ncolumns_srcfile)
+          read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
           srcMass00=srclist(4)
           srcMass01=srclist(5)
@@ -269,7 +269,7 @@ contains
        do ns0=1,NumSrc0
           ! If you change the following lines, also change it above in
           ! establish_number_of_active_sources
-          read(50) srclist(1:ncolumns_srcfile)
+          read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
           srcMass00=srclist(4)
           srcMass01=srclist(5)
