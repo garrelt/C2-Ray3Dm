@@ -280,9 +280,8 @@ Program C2Ray
                 photcons_flag)
            next_output_time=next_output_time+output_time
            if (photcons_flag /= 0 .and. stop_on_photon_violation) then
-              if (rank == 0) &
-                   write(logf,*) &
-                   "Exiting because of photon conservation violation"
+              if (rank == 0) write(logf,*) &
+                "Exiting because of photon conservation violation"
            ! GM (110131): Forgot to check here whether we care about photon
            ! conservations violations; if the code jumps out of the evolution
            ! here funny things happen to the time step!
