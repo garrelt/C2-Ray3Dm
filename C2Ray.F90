@@ -19,6 +19,9 @@ Program C2Ray
   ! Assumes constant time step
 
   ! Needs following `modules'
+  ! precision: definition of single and double precision
+  ! clocks: data and routines related to clocks (cpu and wall clocks)
+  ! file_admin: parameters related to file I/O
   ! c2ray_parameters : all the tunable parameters for the code
   ! my_mpi : sets up the MPI parallel environment
   ! output_module : output routines
