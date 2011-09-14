@@ -34,18 +34,18 @@ module sizes
   integer,dimension(Ndim),parameter,public :: mesh=(/ 504, 504, 504 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 784, 784, 784 /)
 
-  !for 3072^3 particles, 6144^3 grid, 114/h Mpc box
+  !for 1024^3 particles, 2048^3 grid, 37/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 256, 256, 256 /)
-  !integer,dimension(Ndim),parameter,public :: mesh=(/ 384, 384, 384 /)
-  !integer,dimension(Ndim),parameter,public :: mesh=(/ 512, 512, 512 /)
 
   !for 1728^3 particles, 3456^3 grid, 64/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 216, 216, 216 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 432, 432, 432 /)
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 864, 864, 864 /)
 
-  !for 1024^3 particles, 2048^3 grid, 37/h Mpc box
+  !for 3072^3 particles, 6144^3 grid, 114/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 256, 256, 256 /)
+  !integer,dimension(Ndim),parameter,public :: mesh=(/ 384, 384, 384 /)
+  !integer,dimension(Ndim),parameter,public :: mesh=(/ 512, 512, 512 /)
 
   !for LG simulation: 1024^3 particles, 1024^3 grid, 64/h Mpc box
   !integer,dimension(Ndim),parameter,public :: mesh=(/ 512, 512, 512 /)
