@@ -279,13 +279,14 @@ Program C2Ray
            if (NumSrc > 0) call output(time2zred(sim_time),sim_time,actual_dt, &
                 photcons_flag)
            next_output_time=next_output_time+output_time
-           if (photcons_flag /= 0 .and. rank == 0) &
-                write(logf,*) &
+           if (photcons_flag /= 0 .and. stop_on_photon_violation) then
+              if (rank == 0) write(logf,*) &
                 "Exiting because of photon conservation violation"
            ! GM (110131): Forgot to check here whether we care about photon
            ! conservations violations; if the code jumps out of the evolution
            ! here funny things happen to the time step!
-           if (stop_on_photon_violation .and. photcons_flag /= 0) exit ! photon conservation violated
+              exit ! photon conservation violated
+           endif
         endif
         ! end time for this redshift interval reached
         if (abs(sim_time-end_time) <= 1e-6*end_time) exit
