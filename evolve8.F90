@@ -206,6 +206,8 @@ contains
           ! system_clock starts counting at 0 when it reaches
           ! a max value. To catch this, test also for negative
           ! values of wallclock2-wallclock1
+          write(logf,*) "Time and limit are: ", &
+               wallclock2-wallclock1, 15.0*60.0*countspersec
           if (wallclock2-wallclock1 > 15*60*countspersec .or. &
                wallclock2-wallclock1 < 0 ) then
              call write_iteration_dump(niter)
