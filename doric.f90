@@ -55,7 +55,7 @@ contains
     real(kind=dp),intent(in) :: temp0 !< local temperature
     real(kind=dp),intent(inout) :: rhe !< electron density
     real(kind=dp),intent(in) :: rhh !< H density (or total density?)
-    real(kind=dp),dimension(0:1),intent(out) :: xfh !< H ionization fractions
+    real(kind=dp),dimension(0:1),intent(inout) :: xfh !< H ionization fractions
     real(kind=dp),dimension(0:1),intent(inout) :: xfh_av !< H ionization fractions (time-averaged)
     real(kind=dp),intent(in) :: phih !< photo-ionization rate
     
