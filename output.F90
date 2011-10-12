@@ -143,7 +143,9 @@ contains
     use material, only: xh, temper, ndens
     use evolve, only: phih_grid
     use sourceprops, only: srcpos, NormFlux, NumSrc
-    use photonstatistics, only: do_photonstatistics, total_ion, totrec, totcollisions, dh0, grtotal_ion, photon_loss, LLS_loss, grtotal_src
+    use photonstatistics, only: do_photonstatistics, total_ion, totrec
+    use photonstatistics, only: totcollisions, dh0, grtotal_ion, photon_loss
+    use photonstatistics, only: LLS_loss, grtotal_src
     use radiation, only: teff,rstar,lstar,S_star
 
     real(kind=dp),intent(in) :: zred_now,time,dt
