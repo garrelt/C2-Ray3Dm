@@ -170,7 +170,8 @@ contains
        ! Stream 1
        if (streams(1).eq.1) then
           write(file1,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))//"Ifront1_"//trim(adjustl(file1))//".dat"
+          file1=trim(adjustl(results_dir))// &
+               "Ifront1_"//trim(adjustl(file1))//".dat"
           open(unit=51,file=file1,form="formatted",status="unknown")
           do i=1,mesh(1)
              write(51,"(5(1pe10.3,1x))") x(i), &
@@ -187,7 +188,8 @@ contains
        ! Stream 2
        if (streams(2).eq.1) then
           write(file1,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))//"xfrac3d_"//trim(adjustl(file1))//".bin"
+          file1=trim(adjustl(results_dir))// &
+               "xfrac3d_"//trim(adjustl(file1))//".bin"
           open(unit=52,file=file1,form="unformatted",status="unknown")
           write(52) mesh(1),mesh(2),mesh(3)
           write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
@@ -209,7 +211,8 @@ contains
        ! Stream 3
        if (streams(3).eq.1) then
           write(file1,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))//"IonRates3_"//trim(adjustl(file1))//".bin"
+          file1=trim(adjustl(results_dir))// &
+               "IonRates3_"//trim(adjustl(file1))//".bin"
           open(unit=53,file=file1,form="unformatted",status="unknown")
           write(53) mesh(1),mesh(2),mesh(3)
           write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
@@ -220,9 +223,12 @@ contains
        ! Stream 4
        if (streams(4).eq.1) then
           write(zred_str,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))//"Ifront2_xy_"//trim(adjustl(zred_str))//".bin"
-          file2=trim(adjustl(results_dir))//"Ifront2_xz_"//trim(adjustl(zred_str))//".bin"
-          file3=trim(adjustl(results_dir))//"Ifront2_yz_"//trim(adjustl(zred_str))//".bin"
+          file1=trim(adjustl(results_dir))// &
+               "Ifront2_xy_"//trim(adjustl(zred_str))//".bin"
+          file2=trim(adjustl(results_dir))// &
+               "Ifront2_xz_"//trim(adjustl(zred_str))//".bin"
+          file3=trim(adjustl(results_dir))// &
+               "Ifront2_yz_"//trim(adjustl(zred_str))//".bin"
           open(unit=54,file=file1,form="unformatted",status="unknown")
           open(unit=55,file=file2,form="unformatted",status="unknown")
           open(unit=56,file=file3,form="unformatted",status="unknown")
@@ -252,9 +258,12 @@ contains
        ! Stream 5
        if (streams(5).eq.1) then
           write(zred_str,"(f6.3)") zred_now
-          file4=trim(adjustl(results_dir))//"ndens_xy_"//trim(adjustl(zred_str))//".bin"
-          file5=trim(adjustl(results_dir))//"ndens_xz_"//trim(adjustl(zred_str))//".bin"
-          file6=trim(adjustl(results_dir))//"ndens_yz_"//trim(adjustl(zred_str))//".bin"
+          file4=trim(adjustl(results_dir))// &
+               "ndens_xy_"//trim(adjustl(zred_str))//".bin"
+          file5=trim(adjustl(results_dir))// &
+               "ndens_xz_"//trim(adjustl(zred_str))//".bin"
+          file6=trim(adjustl(results_dir))// &
+               "ndens_yz_"//trim(adjustl(zred_str))//".bin"
           open(unit=57,file=file4,form="unformatted",status="unknown")
           open(unit=58,file=file5,form="unformatted",status="unknown")
           open(unit=59,file=file6,form="unformatted",status="unknown")
