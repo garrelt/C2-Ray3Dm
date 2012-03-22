@@ -66,6 +66,8 @@ contains
 
   !>
   !!  Sets the time steps for the interval zred0-zred_end
+  !!  The time steps are constant, given by dividing the redshift
+  !! range into equal time intervals (number_timesteps)
   !<
   subroutine set_timesteps (zred0,zred_end,end_time,dt,output_dt)
 
