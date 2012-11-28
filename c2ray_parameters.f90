@@ -46,7 +46,7 @@ module c2ray_parameters
   !> The maximum number	of cells on EITHER side	of the	source for which
   !! ray tracing is done. This	is a very crude	mean free path parameter
   !! which sets	up a photon wall at exactly this distance.
-  integer,parameter :: max_subbox=50
+  integer,parameter :: max_subbox=1000
 
   !> Add photon losses back into volume or not
   logical,parameter :: add_photon_losses=.false.

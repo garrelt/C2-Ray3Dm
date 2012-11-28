@@ -80,7 +80,9 @@ module evolve
   integer :: sum_nbox !< sum of all nboxes (on one processor)
   integer :: sum_nbox_all !< sum of all nboxes (on all processors)
 
-  integer :: tn !< thread number
+  ! GM/121127: This variable should always be set. If not running OpenMP
+  ! it should be equal to 1. We initialize it to 1 here.
+  integer :: tn=1 !< thread number
 
 contains
 
@@ -855,6 +857,10 @@ contains
              call evolve2D(dt,rtpos,ns,niter)
           end do
           ! No OpenMP threads so we use position 1
+          ! GM/121127: previous versions of the code did not have
+          ! the variable tn set to 1 if we were not running OpenMP.
+          ! This led to non-photon-conservations (and should have
+          ! led to memory errors...)
           photon_loss_src(:)=photon_loss_src_thread(:,1)
 
        endif
@@ -1431,6 +1437,8 @@ contains
        ! Photon statistics: register number of photons leaving the grid
        if ( (any(rtpos(:) == last_l(:))) .or. &
             (any(rtpos(:) == last_r(:))) ) then
+          ! GM/121127: Make sure that tn is always set, even when we
+          ! are not running OpenMP. In that case tn should be 1.
           photon_loss_src_thread(1,tn)=photon_loss_src_thread(1,tn) + &
                phi%h_out*vol/vol_ph
           !photon_loss_src(1,tn)=photon_loss_src(1,tn) + phi%h_out*vol/vol_ph
