@@ -1682,8 +1682,6 @@ contains
     real(kind=dp) :: w1,w2,w3,w4
     real(kind=dp) :: di,dj,dk
 
-
-    !DEC$ ATTRIBUTES FORCEINLINE :: weightf
     ! map to local variables (should be pointers ;)
     i=rtpos(1)
     j=rtpos(2)
@@ -1751,10 +1749,10 @@ contains
        c4=coldensh_out(ip,jp,kmp)
        
        ! extra weights for better fit to analytical solution
-       w1=s1*weightf(c1)
-       w2=s2*weightf(c2)
-       w3=s3*weightf(c3)
-       w4=s4*weightf(c4)
+       w1=s1*weight_function(c1)
+       w2=s2*weight_function(c2)
+       w3=s3*weight_function(c3)
+       w4=s4*weight_function(c4)
        ! column density at the crossing point
        cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4) 
 
@@ -1810,10 +1808,10 @@ contains
        c4=coldensh_out(ip,jmp,kp)
 
        ! extra weights for better fit to analytical solution
-       w1=s1*weightf(c1)
-       w2=s2*weightf(c2)
-       w3=s3*weightf(c3)
-       w4=s4*weightf(c4)
+       w1=s1*weight_function(c1)
+       w2=s2*weight_function(c2)
+       w3=s3*weight_function(c3)
+       w4=s4*weight_function(c4)
        
        cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4)
        
@@ -1859,10 +1857,10 @@ contains
        c3=coldensh_out(imp,jmp,kp)
        c4=coldensh_out(imp,jp,kp)
        ! extra weights for better fit to analytical solution
-       w1=s1*weightf(c1)
-       w2=s2*weightf(c2)
-       w3=s3*weightf(c3)
-       w4=s4*weightf(c4)
+       w1=s1*weight_function(c1)
+       w2=s2*weight_function(c2)
+       w3=s3*weight_function(c3)
+       w4=s4*weight_function(c4)
        
        cdensi=(c1*w1+c2*w2+c3*w3+c4*w4)/(w1+w2+w3+w4)
        
@@ -1886,7 +1884,7 @@ contains
   ! =========================================================================
 
   !> Weight function for interpolation in cinterp
-  real(kind=dp) function weightf (cd)
+  real(kind=dp) function weight_function (cd)
 
     use cgsphotoconstants, only: sigh
 
@@ -1894,13 +1892,13 @@ contains
 
     real(kind=dp),parameter :: minweight=1.0_dp/0.6_dp
 
-    !weightf=1.0
-    ! weightf=1.0/max(1.0d0,cd**0.54)
-    ! weightf=exp(-min(700.0,cd*0.15*6.3d-18))
-    weightf=1.0/max(0.6_dp,cd*sigh)
+    !weight_function=1.0
+    ! weight_function=1.0/max(1.0d0,cd**0.54)
+    ! weight_function=exp(-min(700.0,cd*0.15*6.3d-18))
+    weight_function=1.0/max(0.6_dp,cd*sigh)
 
-    ! weightf=1.0/log(max(e_ln,cd))
+    ! weight_function=1.0/log(max(e_ln,cd))
 
-  end function weightf
+  end function weight_function
 
 end module evolve
