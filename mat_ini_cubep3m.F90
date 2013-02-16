@@ -53,7 +53,12 @@ module material
   real(kind=dp),public :: coldensh_LLS = 0.0_dp ! Column density of LLSs per cell
   real(kind=dp),public :: mfp_LLS_pMpc
   real,dimension(:,:,:),allocatable :: LLS_grid
+
   ! LLS parameters
+  !> Do not use the LLSs if the mfp is smaller than this.
+  real,parameter :: limit_mfp_LLS_pMpc=0.2
+  
+  ! Different models for LLS redshift evolution
   ! a) Model Prochaska et al. (2010)
   !real(kind=dp),parameter :: C_LLS = 1.9
   !real(kind=dp),parameter :: z_x = 3.7
@@ -709,9 +714,14 @@ contains
 
     select case (type_of_LLS)
     case(1)
+       ! Calculate the mean free path in pMpc
+       mfp_LLS_pMpc=dr(1)/n_LLS/Mpc
        ! Column density per cell due to LLSs
-       coldensh_LLS = N_1 * n_LLS
-       mfp_LLS_pMpc=dr(1)/n_LLS
+       if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
+          coldensh_LLS = N_1 * n_LLS
+       else
+          coldensh_LLS = 0.0
+       endif
     case(2) 
        call read_lls_grid (z)
     end select
