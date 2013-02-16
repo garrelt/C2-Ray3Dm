@@ -35,8 +35,10 @@ Program C2Ray
   ! evolve : evolve grid in time
 
   use precision, only: dp
-  use clocks, only: setup_clocks, update_clocks, report_clocks
-  use file_admin, only: stdinput, logf, file_input, flag_for_file_input
+  use clocks, only: setup_clocks, update_clocks, report_clocks, &
+       timestamp_wallclock
+  use file_admin, only: stdinput, logf, timefile, file_input, &
+       flag_for_file_input
   use c2ray_parameters, only: cosmological, isothermal, type_of_clumping, &
        use_LLS, type_of_LLS,stop_on_photon_violation
   use astroconstants, only: YEAR
@@ -123,14 +125,24 @@ Program C2Ray
 #ifdef MPILOG
   write(logf,*) "Before rad_ini"
 #endif
+
+  if (rank == 0) &
+       write(timefile,"(A,F8.1)") "Time after grid_ini: ",timestamp_wallclock ()
+
   ! Initialize photo-ionization calculation
   call rad_ini ( )
+
+  if (rank == 0) &
+       write(timefile,"(A,F8.1)") "Time after rad_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
   write(logf,*) "Before mat_ini"
 #endif
   ! Initialize the material properties
   call mat_ini (restart, nz0, ierror)
+
+  if (rank == 0) &
+       write(timefile,"(A,F8.1)") "Time after mat_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
   write(logf,*) "Before nbody_ini"
@@ -162,6 +174,10 @@ Program C2Ray
 
   ! Initialize cosmology
   call cosmology_init(zred_array(nz0),sim_time)
+
+  if (rank == 0) &
+       write(timefile,"(A,F8.1)") "Time after cosmology_init: ", &
+       timestamp_wallclock ()
 
   ! If a restart, inquire whether to restart from iteration
   if (restart /= 0) then
@@ -204,6 +220,10 @@ Program C2Ray
   ! Loop over redshifts
   do nz=nz0,NumZred-1
 
+     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+          "Time before starting redshift evolution step ",nz," :", &
+          timestamp_wallclock ()
+
      zred=zred_array(nz)
      if (rank == 0) write(logf,*) "Doing redshift: ",zred," to ", &
           zred_array(nz+1)
@@ -222,12 +242,20 @@ Program C2Ray
 #endif 
      call source_properties(zred,nz,end_time-sim_time,restart)
 
+     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+          "Time after setting sources for step ",nz," :", &
+          timestamp_wallclock ()
+
      ! Initialize density field
      call dens_ini(zred,nz)
      ! Set clumping and LLS in the case of position dependent values
      ! (read in the grid values)
      if (type_of_clumping == 5) call set_clumping(zred)
      if (use_LLS .and. type_of_LLS == 2) call set_LLS(zred)
+
+     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+          "Time after setting material properties for step ",nz," :", &
+          timestamp_wallclock ()
 
      ! Set time if restart at intermediate time
      ! Set next output time
@@ -296,6 +324,10 @@ Program C2Ray
         if (rank == 0) flush(logf)
      enddo
 
+     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+          "Time after finishing step ",nz," :", &
+          timestamp_wallclock ()
+
      ! Get out: photon conservation violated
      if (stop_on_photon_violation .and. photcons_flag /= 0 .and. rank == 0) &
           write(logf,*) "Exiting because of photon conservation violation"
@@ -323,6 +355,9 @@ Program C2Ray
   ! End output streams
   call close_down ()
   
+  if (rank == 0) write(timefile,"(A,F8.1)") &
+       "Time at end of simulation: ", timestamp_wallclock ()
+
   ! Report clocks (cpu and wall)
   call report_clocks ()
 

@@ -26,7 +26,7 @@
 
 module clocks
 
-  use file_admin, only: logf
+  use file_admin, only: logf, timefile, results_dir
   use my_mpi, only: rank
 
   implicit none
@@ -43,6 +43,7 @@ module clocks
   ! (use 8 byte integers to avoid the clock reset)
   integer(kind=8) :: cntr1 !< Start time for call to wall clock routine
   integer(kind=8) :: cntr2 !< End time for call to wall clock routine
+  integer(kind=8) :: absolute_cntr1 !< Asbolute start time wall clock
 
   integer(kind=8) :: countspersec !< counts per second (for wall clock time)
 
@@ -57,9 +58,18 @@ contains
   !> Sets up all the clocks (initialization routine)
   subroutine setup_clocks
     
+    character(len=512) :: filename        ! name of the time file
+
     call setup_cpuclock()
     call setup_wallclock()
-    
+
+    if (rank == 0) then
+       filename=trim(adjustl(trim(adjustl(results_dir))//"Timings.log"))
+       open(unit=timefile,file=filename,status="unknown",action="write",&
+            position="append")
+       write(unit=timefile,fmt="(A)") "Timings file for C2-Ray run"
+    endif
+
   end subroutine setup_clocks
   
   !=======================================================================
@@ -79,6 +89,9 @@ contains
     
     ! Initialize wall cock timer
     call system_clock(cntr1)
+    
+    ! Save initial value
+    absolute_cntr1=cntr1
     
   end subroutine setup_wallclock
   
@@ -122,6 +135,16 @@ contains
     clock_minutes = MOD ( clock_minutes , 60 )
     
   end subroutine update_wallclock
+  
+  !=======================================================================
+
+  !> Return number of seconds wall clock since start of program
+  real function timestamp_wallclock ()
+    
+    call system_clock(cntr2,countspersec)
+    timestamp_wallclock=real(cntr2-absolute_cntr1)/real(countspersec)
+
+  end function timestamp_wallclock
   
   !=======================================================================
 

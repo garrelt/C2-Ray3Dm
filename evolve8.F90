@@ -28,7 +28,8 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI and OpenMP definitions and variables
-  use file_admin, only: logf,iterdump
+  use file_admin, only: logf,timefile,iterdump
+  use clocks, only: timestamp_wallclock
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper, get_temperature_point
@@ -178,6 +179,10 @@ contains
     conv_criterion=min(int(convergence_fraction*mesh(1)*mesh(2)*mesh(3)), &
          (NumSrc-1)/3)
 
+    ! Report time
+    if (rank == 0) write(timefile,"(A,F8.1)") &
+         "Time before starting iteration: ", timestamp_wallclock ()
+
     ! Iterate to reach convergence for multiple sources
     do
        ! Update xh if converged and exit
@@ -219,6 +224,9 @@ contains
 
        call global_pass (conv_flag,dt)
        
+       ! Report time
+       if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+            "Time after iteration ",niter," : ", timestamp_wallclock ()
     enddo
 
     ! Calculate photon statistics
@@ -238,6 +246,10 @@ contains
     
     character(len=20) :: iterfile
 
+    ! Report time
+    write(timefile,"(A,F8.1)") &
+         "Time before writing iterdump: ", timestamp_wallclock ()
+
     ndump=ndump+1
     if (mod(ndump,2) == 0) then
        iterfile="iterdump2.bin"
@@ -256,6 +268,10 @@ contains
 
     close(iterdump)
 
+    ! Report time
+    write(timefile,"(A,F8.1)") &
+         "Time after writing iterdump: ", timestamp_wallclock ()
+
   end subroutine write_iteration_dump
 
   ! ===========================================================================
@@ -269,6 +285,11 @@ contains
 #endif
 
     if (rank == 0) then
+
+       ! Report time
+       write(timefile,"(A,F8.1)") &
+            "Time before reading iterdump: ", timestamp_wallclock ()
+
        open(unit=iterdump,file="iterdump.bin",form="unformatted", &
             status="old")
        
@@ -303,6 +324,10 @@ contains
          MPI_COMM_NEW,mympierror)
 #endif
     
+    ! Report time
+    write(timefile,"(A,F8.1)") &
+         "Time after reading iterdump: ", timestamp_wallclock ()
+
   end subroutine start_from_dump
 
   ! ===========================================================================
