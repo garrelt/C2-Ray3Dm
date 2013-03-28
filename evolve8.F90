@@ -28,13 +28,14 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI and OpenMP definitions and variables
-  use file_admin, only: logf,timefile,iterdump
+  use file_admin, only: logf,timefile,iterdump, results_dir
   use clocks, only: timestamp_wallclock
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh, temper, get_temperature_point
   use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
+  use cosmology, only: time2zred
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations, update_grandtotal_photonstatistics
@@ -60,7 +61,7 @@ module evolve
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh_av
   !real(kind=dp),dimension(:,:,:),allocatable :: xh_av
   !> Intermediate result for H ionization fraction
-  real(kind=dp),dimension(:,:,:,:),allocatable :: xh_intermed
+  real(kind=dp),dimension(:,:,:,:),allocatable,public :: xh_intermed
   !real(kind=dp),dimension(:,:,:),allocatable :: xh_intermed
   !> H0 Column density (outgoing)
   real(kind=dp),dimension(:,:,:),allocatable :: coldensh_out
@@ -106,7 +107,7 @@ contains
   ! ===========================================================================
 
   !> Evolve the entire grid over a time step dt
-  subroutine evolve3D (dt,restart)
+  subroutine evolve3D (time,dt,restart)
 
     ! Calculates the evolution of the hydrogen ionization state
      
@@ -130,6 +131,7 @@ contains
     !                    model to use.
 
     ! The time step
+    real(kind=dp),intent(in) :: time !< time 
     real(kind=dp),intent(in) :: dt !< time step
     integer,intent(in) :: restart !< restart flag
 
@@ -205,7 +207,8 @@ contains
        
        ! Report subbox statistics
        if (rank == 0) &
-            write(logf,*) "Average number of subboxes: ",sum_nbox_all/NumSrc
+            write(logf,*) "Average number of subboxes: ", &
+	    real(sum_nbox_all)/real(NumSrc)
 
        if (rank == 0) then
           call system_clock(wallclock2,countspersec)
@@ -224,6 +227,9 @@ contains
 
        call global_pass (conv_flag,dt)
        
+       ! Write intermediate result to file (for convergence checking)
+       !call output_intermediate(time2zred(time+dt),niter)
+
        ! Report time
        if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
             "Time after iteration ",niter," : ", timestamp_wallclock ()
@@ -1925,5 +1931,40 @@ contains
     ! weight_function=1.0/log(max(e_ln,cd))
 
   end function weight_function
+
+  !----------------------------------------------------------------------------
+
+  !> Produce intermediate output for a time frame
+  subroutine output_intermediate(zred_now,niter)
+
+    ! Simple output routine. Outputs intermediate result for ionization
+    ! fraction for checking convergence
+
+    ! Output format:
+    ! SM3D
+
+    real(kind=dp),intent(in) :: zred_now
+    integer,intent(in) :: niter
+
+    integer :: i,j,k
+    character(len=6) :: zred_str
+    character(len=3) :: niter_string
+    character(len=40) :: file1
+
+    ! Only produce output on rank 0
+    if (rank == 0) then
+
+       write(file1,"(f6.3)") zred_now
+       write(niter_string,"(i3.3)") niter
+       file1=trim(adjustl(results_dir))// &
+            "xfrac3d_"//trim(adjustl(file1))//"_"//niter_string//".bin"
+       open(unit=52,file=file1,form="unformatted",status="unknown")
+       write(52) mesh(1),mesh(2),mesh(3)
+       write(52) (((xh_intermed(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
+       close(52)
+
+    endif
+
+  end subroutine output_intermediate
 
 end module evolve

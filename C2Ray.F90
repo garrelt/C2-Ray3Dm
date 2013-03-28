@@ -296,7 +296,7 @@ Program C2Ray
         if (use_LLS .and. type_of_LLS /= 2) call set_LLS(zred)
 
         ! Take one time step
-        if (NumSrc > 0) call evolve3D(actual_dt,iter_restart)
+        if (NumSrc > 0) call evolve3D(sim_time,actual_dt,iter_restart)
 
         ! Reset flag for restart from iteration 
         ! (evolve3D is the last routine affected by this)
