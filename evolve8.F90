@@ -186,7 +186,7 @@ contains
        rel_change_sum_xh=1.0 ! initialize non-convergence 
     else
        ! Reload xh_av,xh_intermed,photon_loss,niter
-       call start_from_dump(niter)
+       call start_from_dump(restart,niter)
        call global_pass (conv_flag,dt)
     endif
 
@@ -315,60 +315,78 @@ contains
 
   ! ===========================================================================
 
-  subroutine start_from_dump(niter)
+  subroutine start_from_dump(restart,niter)
 
+    integer,intent(in) :: restart  ! restart flag
     integer,intent(out) :: niter  ! iteration counter
+
+    character(len=20) :: iterfile
 
 #ifdef MPI
     integer :: mympierror
 #endif
 
-    if (rank == 0) then
+    if (restart == 0) then
+       if (rank == 0) &
+            write(logf,*) "Warning: start_from_dump called incorrectly"
+    else
+       if (rank == 0) then
 
+          ! Report time
+          write(timefile,"(A,F8.1)") &
+               "Time before reading iterdump: ", timestamp_wallclock ()
+
+          ! Set file to read (depending on restart flag)
+          select case (restart)
+          case (1) 
+             iterfile="iterdump1.bin"
+          case (2) 
+             iterfile="iterdump2.bin"
+          case (3) 
+             iterfile="iterdump.bin"
+          end select
+
+          open(unit=iterdump,file="iterdump.bin",form="unformatted", &
+               status="old")
+       
+          read(iterdump) niter,prev_sum_xh_int
+          read(iterdump) photon_loss_all
+          read(iterdump) phih_grid
+          read(iterdump) xh_av
+          read(iterdump) xh_intermed
+          
+          close(iterdump)
+          write(logf,*) "Read iteration ",niter," from dump file"
+          write(logf,*) 'photon loss counter: ',photon_loss_all
+          write(logf,*) "Intermediate result for mean ionization fraction: ", &
+               sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          !sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+       endif
+       
+#ifdef MPI       
+       ! Distribute the input parameters to the other nodes
+       call MPI_BCAST(niter,1, &
+            MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(photon_loss_all,NumFreqBnd, &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
+            !call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3)*2, &
+            !call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,&
+            MPI_COMM_NEW,mympierror)
+#endif
+       
        ! Report time
        write(timefile,"(A,F8.1)") &
-            "Time before reading iterdump: ", timestamp_wallclock ()
-
-       open(unit=iterdump,file="iterdump.bin",form="unformatted", &
-            status="old")
+            "Time after reading iterdump: ", timestamp_wallclock ()
        
-       read(iterdump) niter,prev_sum_xh_int
-       read(iterdump) photon_loss_all
-       read(iterdump) phih_grid
-       read(iterdump) xh_av
-       read(iterdump) xh_intermed
-       
-       close(iterdump)
-       write(logf,*) "Read iteration ",niter," from dump file"
-       write(logf,*) 'photon loss counter: ',photon_loss_all
-       write(logf,*) "Intermediate result for mean ionization fraction: ", &
-            sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-            !sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
     endif
-
-#ifdef MPI       
-    ! Distribute the input parameters to the other nodes
-    call MPI_BCAST(niter,1, &
-         MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(photon_loss_all,NumFreqBnd, &
-         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
-         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
-    !call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
-         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3)*2, &
-    !call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
-         MPI_DOUBLE_PRECISION,0,&
-         MPI_COMM_NEW,mympierror)
-#endif
-    
-    ! Report time
-    write(timefile,"(A,F8.1)") &
-         "Time after reading iterdump: ", timestamp_wallclock ()
-
   end subroutine start_from_dump
-
+     
   ! ===========================================================================
 
   subroutine pass_all_sources(niter,dt)

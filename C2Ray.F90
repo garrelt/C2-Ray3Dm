@@ -183,14 +183,23 @@ Program C2Ray
   if (restart /= 0) then
      if (rank == 0) then
         if (.not.file_input) &
-             write(*,"(A,$)") "Restart from iteration dump (y/n)? : "
+             write(*,"(A,$)") "Restart from iteration dump (y/n) or (0/1/2)? : "
         read(stdinput,*) answer
         write(logf,*) "restart from iteration answer: ",answer
-        if (answer == "y" .or. answer == "Y") then
+        select case (answer)
+        case("y", "Y") 
+           ! Set flag, this is passed to evolve3d
+           iter_restart=3
+           write(logf,*) "Restarting from generic iteration dump."
+        case("1") 
            ! Set flag, this is passed to evolve3d
            iter_restart=1
-           write(logf,*) "Restarting from iteration dump."
-        endif
+           write(logf,*) "Restarting from iteration dump 1."
+        case("2") 
+           ! Set flag, this is passed to evolve3d
+           iter_restart=2
+           write(logf,*) "Restarting from iteration dump 2."
+        end select
      endif
 #ifdef MPI
      call MPI_BCAST(iter_restart,1,MPI_INTEGER,0,MPI_COMM_NEW, &
