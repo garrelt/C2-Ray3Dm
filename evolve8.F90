@@ -43,6 +43,8 @@ module evolve
 
   implicit none
 
+  save
+
   private
 
   public :: evolve3D, phih_grid, evolve_ini
@@ -52,6 +54,16 @@ module evolve
 
   !> Minimum number of MPI processes for using the master-slave setup 
   integer, parameter ::  min_numproc_master_slave=10
+
+  ! Variables connected to checking converge of global average ionization
+  ! fraction
+  ! Sum of intermediate ionization fraction xh_intermed(*,1)
+  ! (used for convergence checking)
+  real(kind=dp) :: sum_xh_int
+  ! Previous value of this sum
+  real(kind=dp) :: prev_sum_xh_int
+  ! Relative change in this sum (between iteration steps)
+  real(kind=dp) :: rel_change_sum_xh
 
   ! Grid variables
 
@@ -170,6 +182,8 @@ contains
        !xh_intermed(:,:,:)=xh(:,:,:,1)
        niter=0 ! iteration starts at zero
        conv_flag=mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
+       prev_sum_xh_int=2.0*mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
+       rel_change_sum_xh=1.0 ! initialize non-convergence 
     else
        ! Reload xh_av,xh_intermed,photon_loss,niter
        call start_from_dump(niter)
@@ -188,9 +202,25 @@ contains
     ! Iterate to reach convergence for multiple sources
     do
        ! Update xh if converged and exit
-       if (conv_flag <= conv_criterion) then
+       sum_xh_int=sum(xh_intermed(:,:,:,1))
+       !sum_xh_int=sum(xh_intermed(:,:,:))
+       if (sum_xh_int > 0.0) then
+          rel_change_sum_xh=abs(sum_xh_int-prev_sum_xh_int)/sum_xh_int
+       else
+          rel_change_sum_xh=1.0
+       endif
+
+       if (conv_flag <= conv_criterion .or. & 
+            rel_change_sum_xh < convergence_fraction) then
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
           !xh(:,:,:)=xh_intermed(:,:,:)
+          ! Report
+          if (rank == 0) then
+             write(logf,*) "Multiple sources convergence reached"
+             write(logf,*) "Test 1 values: ",conv_flag, conv_criterion
+             write(logf,*) "Test 2 values: ",rel_change_sum_xh, &
+                  convergence_fraction
+          endif
           exit
        else
           if (niter > 100) then
@@ -200,6 +230,9 @@ contains
           endif
        endif
        
+       ! Save current value of mean ionization fraction
+       prev_sum_xh_int=sum_xh_int
+
        ! Iteration loop counter
        niter=niter+1
        
@@ -266,7 +299,7 @@ contains
     open(unit=iterdump,file=iterfile,form="unformatted", &
          status="unknown")
 
-    write(iterdump) niter
+    write(iterdump) niter,prev_sum_xh_int
     write(iterdump) photon_loss_all
     write(iterdump) phih_grid
     write(iterdump) xh_av
@@ -299,7 +332,7 @@ contains
        open(unit=iterdump,file="iterdump.bin",form="unformatted", &
             status="old")
        
-       read(iterdump) niter
+       read(iterdump) niter,prev_sum_xh_int
        read(iterdump) photon_loss_all
        read(iterdump) phih_grid
        read(iterdump) xh_av
