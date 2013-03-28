@@ -185,7 +185,7 @@ Program C2Ray
         if (.not.file_input) &
              write(*,"(A,$)") "Restart from iteration dump (y/n)? : "
         read(stdinput,*) answer
-        write(logf,*) "restart answer: ",answer
+        write(logf,*) "restart from iteration answer: ",answer
         if (answer == "y" .or. answer == "Y") then
            ! Set flag, this is passed to evolve3d
            iter_restart=1
