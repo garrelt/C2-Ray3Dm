@@ -38,8 +38,11 @@ module material
   real(kind=dp) :: temper_val
   real(kind=si),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
+#ifdef ALLFRAC
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
-  !real(kind=dp),dimension(:,:,:),allocatable :: xh
+#else
+  real(kind=dp),dimension(:,:,:),allocatable :: xh
+#endif
   ! Clumping data
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
@@ -180,13 +183,19 @@ contains
        endif
 
        ! Allocate ionization fraction array
+#ifdef ALLFRAC
        allocate(xh(mesh(1),mesh(2),mesh(3),0:1))
-       !allocate(xh(mesh(1),mesh(2),mesh(3)))
+#else
+       allocate(xh(mesh(1),mesh(2),mesh(3)))
+#endif
        ! Assign ionization fractions (completely neutral)
        ! In case of a restart this will be overwritten in xfrac_ini
+#ifdef ALLFRAC
        xh(:,:,:,0)=1.0
        xh(:,:,:,1)=0.0
-       !xh(:,:,:)=1e-5
+#else
+       xh(:,:,:)=1e-5
+#endif
 
        ! Initialize LLS parametets
        call LLS_init ()
@@ -371,9 +380,12 @@ contains
           !read(20) xh
           ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
           !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
+#ifdef ALLFRAC
           xh(:,:,:,1)=xh1_real(:,:,:)
-          !xh(:,:,:)=xh1_real(:,:,:)
           xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
+#else
+          xh(:,:,:)=xh1_real(:,:,:)
+#endif
        endif
 
        ! close file
@@ -383,9 +395,13 @@ contains
 
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
+#ifdef ALLFRAC
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3)*2,MPI_DOUBLE_PRECISION,0,&
-    !call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,mympierror)
+#else
+    call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+         MPI_COMM_NEW,mympierror)
+#endif
 #endif
     
   end subroutine xfrac_ini

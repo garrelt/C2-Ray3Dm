@@ -218,7 +218,11 @@ contains
              NumSrc=NumSrc+1
           ! if the cell is still neutral, no suppression (if we use the Iliev
           ! et al source model)   
+#ifdef ALLFRAC
           elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral .and. &
+#else
+          elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral .and. &
+#endif
                UV_Model == "Iliev et al") then
              NumSrc=NumSrc+1
           endif
@@ -228,8 +232,11 @@ contains
           if (SrcMass01 /= 0.0) NumSupprbleSrc=NumSupprbleSrc+1
           ! How many suppressed?
           if (SrcMass01 /= 0.0) then
+#ifdef ALLFRAC
              if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) > StillNeutral .or. &
-             !if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
+#else
+             if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
+#endif
                UV_Model /= "Iliev et al") NumSupprsdSrc=NumSupprsdSrc+1
           endif
        enddo
@@ -275,7 +282,11 @@ contains
           srcMass01=srclist(5)
           !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
           
+#ifdef ALLFRAC
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
+#else
+          if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
+#endif
              if (UV_Model == "Iliev et al" .or. SrcMass00 > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1
