@@ -27,7 +27,8 @@ module sourceprops
 
   !> base name of source list files
   character(len=100),parameter,private :: &
-       sourcelistfile_base="_wsubgrid_sources.dat"
+       sourcelistfile_base="_sources.dat"
+       !sourcelistfile_base="_wsubgrid_sources.dat"
   character(len=100),parameter,private :: &
        sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 

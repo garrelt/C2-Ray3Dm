@@ -297,7 +297,8 @@ contains
           total_LLS_loss = LLS_loss*dt
           !total_ion=total_ion + total_photon_loss
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
-          photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
+          !photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
+          photcons=(total_ion-totcollisions)/totalsrc
           if (time > 0.0) then
              write(90,"(f6.3,9(1pe10.3))") &
                   zred_now, &
