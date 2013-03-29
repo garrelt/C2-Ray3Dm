@@ -175,10 +175,13 @@ contains
           open(unit=51,file=file1,form="formatted",status="unknown")
           do i=1,mesh(1)
              write(51,"(5(1pe10.3,1x))") x(i), &
+#ifdef ALLFRAC
                   xh(i,srcpos(2,1),srcpos(3,1),0), &
                   xh(i,srcpos(2,1),srcpos(3,1),1), &
-                  !1.0_dp-xh(i,srcpos(2,1),srcpos(3,1)), &
-                  !xh(i,srcpos(2,1),srcpos(3,1)), &
+#else
+                  1.0_dp-xh(i,srcpos(2,1),srcpos(3,1)), &
+                  xh(i,srcpos(2,1),srcpos(3,1)), &
+#endif
                   temper, &
                   ndens(i,srcpos(2,1),srcpos(3,1))
           enddo
@@ -192,8 +195,11 @@ contains
                "xfrac3d_"//trim(adjustl(file1))//".bin"
           open(unit=52,file=file1,form="unformatted",status="unknown")
           write(52) mesh(1),mesh(2),mesh(3)
+#ifdef ALLFRAC
           write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
-          !write(52) xh
+#else
+          write(52) xh
+#endif
           close(52)
        endif
        
@@ -234,21 +240,27 @@ contains
           open(unit=56,file=file3,form="unformatted",status="unknown")
           ! xy cut through source 
           write(54) mesh(1),mesh(2)
-          !        write(54) ((real(xh(i,j,srcpos(3,1),1)),i=1,mesh(1)),
+#ifdef ALLFRAC
           write(54) ((real(xh(i,j,mesh(3)/2,1)),i=1,mesh(1)), &
-          !write(54) ((real(xh(i,j,mesh(3)/2)),i=1,mesh(1)), &
+#else
+          write(54) ((real(xh(i,j,mesh(3)/2)),i=1,mesh(1)), &
+#endif
                j=1,mesh(2))
           ! xz cut through source 
           write(55) mesh(1),mesh(3)
-          !        write(55) ((real(xh(i,srcpos(2,1),k,1)),i=1,mesh(1)),
+#ifdef ALLFRAC
           write(55) ((real(xh(i,mesh(2)/2,k,1)),i=1,mesh(1)), &
-          !write(55) ((real(xh(i,mesh(2)/2,k)),i=1,mesh(1)), &
+#else
+          write(55) ((real(xh(i,mesh(2)/2,k)),i=1,mesh(1)), &
+#endif
                k=1,mesh(3))
           ! yz cut through source 
           write(56) mesh(2),mesh(3)
-          !        write(56) ((real(xh(srcpos(1,1),j,k,1)),j=1,mesh(2)),
+#ifdef ALLFRAC
           write(56) ((real(xh(mesh(1)/2,j,k,1)),j=1,mesh(2)), &
-          !write(56) ((real(xh(mesh(1)/2,j,k)),j=1,mesh(2)), &
+#else
+          write(56) ((real(xh(mesh(1)/2,j,k)),j=1,mesh(2)), &
+#endif
                k=1,mesh(3))
           close(54)
           close(55)
@@ -311,12 +323,15 @@ contains
                   totcollisions/total_ion, &
                   grtotal_ion/grtotal_src
           endif
+#ifdef ALLFRAC
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
-          !totions=sum(ndens(:,:,:)*xh(:,:,:))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          !volfrac=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
-          !massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
+#else
+          totions=sum(ndens(:,:,:)*xh(:,:,:))*vol
+          volfrac=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
+#endif
           write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotal_src, &
                volfrac,massfrac
 

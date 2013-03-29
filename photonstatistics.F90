@@ -76,10 +76,13 @@ contains
   subroutine calculate_photon_statistics (dt,xh_l,xh_r)
 
     real(kind=dp),intent(in) :: dt !< time step
+#ifdef ALLFRAC
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_r
-    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
-    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_r
+#else
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_r
+#endif
 
     ! Call the individual routines needed for this calculation
 
@@ -94,8 +97,11 @@ contains
   !> Calculates the number of neutrals and ions at the start of the time step
   subroutine state_before (xh_l)
 
+#ifdef ALLFRAC
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
-    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#else
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#endif
 
     ! Photon statistics: calculate the number of neutrals before integration
     h0_before=0.0
@@ -103,10 +109,13 @@ contains
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
+#ifdef ALLFRAC
              h0_before=h0_before+ndens(i,j,k)*xh_l(i,j,k,0)
-             !h0_before=h0_before+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
              h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k,1)
-             !h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k)
+#else
+             h0_before=h0_before+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
+             h1_before=h1_before+ndens(i,j,k)*xh_l(i,j,k)
+#endif
           enddo
        enddo
     enddo
@@ -122,8 +131,11 @@ contains
   subroutine total_rates(dt,xh_l)
 
     real(kind=dp),intent(in) :: dt !< time step
+#ifdef ALLFRAC
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
-    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#else
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#endif
 
     real(kind=dp),dimension(0:1) :: yh
     real(kind=dp) :: ndens_p ! needed because ndens may be single precision
@@ -136,10 +148,13 @@ contains
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
+#ifdef ALLFRAC             
              yh(0)=xh_l(i,j,k,0)
-             !yh(0)=1.0_dp-xh_l(i,j,k)
              yh(1)=xh_l(i,j,k,1)
-             !yh(1)=xh_l(i,j,k)
+#else
+             yh(0)=1.0_dp-xh_l(i,j,k)
+             yh(1)=xh_l(i,j,k)
+#endif
              ndens_p=ndens(i,j,k)
              ! Set clumping to local value if we have a clumping grid
              if (type_of_clumping == 5) &
@@ -164,8 +179,11 @@ contains
   !> Calculates the number of neutrals and ions at the end of the time step
   subroutine state_after(xh_l)
     
+#ifdef ALLFRAC
     real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),0:1),intent(in) :: xh_l
-    !real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#else
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3)),intent(in) :: xh_l
+#endif
 
     ! Photon statistics: Calculate the number of neutrals after the integration
     h0_after=0.0
@@ -173,10 +191,13 @@ contains
     do k=1,mesh(3)
        do j=1,mesh(2)
           do i=1,mesh(1)
+#ifdef ALLFRAC
              h0_after=h0_after+ndens(i,j,k)*xh_l(i,j,k,0)
              h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k,1)
-             !h0_after=h0_after+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
-             !h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k)
+#else
+             h0_after=h0_after+ndens(i,j,k)*(1.0_dp-xh_l(i,j,k))
+             h1_after=h1_after+ndens(i,j,k)*xh_l(i,j,k)
+#endif
           enddo
        enddo
     enddo

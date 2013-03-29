@@ -69,12 +69,15 @@ module evolve
 
   !> H Photo-ionization rate on the entire grid
   real(kind=dp),dimension(:,:,:),allocatable :: phih_grid
+#ifdef ALLFRAC
   !> Time-averaged H ionization fraction
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh_av
-  !real(kind=dp),dimension(:,:,:),allocatable :: xh_av
   !> Intermediate result for H ionization fraction
   real(kind=dp),dimension(:,:,:,:),allocatable,public :: xh_intermed
-  !real(kind=dp),dimension(:,:,:),allocatable :: xh_intermed
+#else
+  real(kind=dp),dimension(:,:,:),allocatable :: xh_av
+  real(kind=dp),dimension(:,:,:),allocatable :: xh_intermed
+#endif
   !> H0 Column density (outgoing)
   real(kind=dp),dimension(:,:,:),allocatable :: coldensh_out
   !> Buffer for MPI communication
@@ -106,10 +109,13 @@ contains
   subroutine evolve_ini ()
     
     allocate(phih_grid(mesh(1),mesh(2),mesh(3)))
+#ifdef ALLFRAC
     allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
-    !allocate(xh_av(mesh(1),mesh(2),mesh(3)))
     allocate(xh_intermed(mesh(1),mesh(2),mesh(3),0:1))
-    !allocate(xh_intermed(mesh(1),mesh(2),mesh(3)))
+#else
+    allocate(xh_av(mesh(1),mesh(2),mesh(3)))
+    allocate(xh_intermed(mesh(1),mesh(2),mesh(3)))
+#endif
     allocate(coldensh_out(mesh(1),mesh(2),mesh(3)))
     allocate(buffer(mesh(1),mesh(2),mesh(3)))
     allocate(photon_loss_src_thread(1:NumFreqBnd,nthreads))
@@ -176,10 +182,13 @@ contains
 
     ! initialize average and intermediate results to initial values
     if (restart == 0) then
+#ifdef ALLFRAC
        xh_av(:,:,:,:)=xh(:,:,:,:)
        xh_intermed(:,:,:,:)=xh(:,:,:,:)
-       !xh_av(:,:,:)=xh(:,:,:,1)
-       !xh_intermed(:,:,:)=xh(:,:,:,1)
+#else
+       xh_av(:,:,:)=xh(:,:,:)
+       xh_intermed(:,:,:)=xh(:,:,:)
+#endif       
        niter=0 ! iteration starts at zero
        conv_flag=mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
        prev_sum_xh_int=2.0*mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
@@ -202,8 +211,11 @@ contains
     ! Iterate to reach convergence for multiple sources
     do
        ! Update xh if converged and exit
+#ifdef ALLFRAC       
        sum_xh_int=sum(xh_intermed(:,:,:,1))
-       !sum_xh_int=sum(xh_intermed(:,:,:))
+#else
+       sum_xh_int=sum(xh_intermed(:,:,:))
+#endif
        if (sum_xh_int > 0.0) then
           rel_change_sum_xh=abs(sum_xh_int-prev_sum_xh_int)/sum_xh_int
        else
@@ -212,8 +224,11 @@ contains
 
        if (conv_flag <= conv_criterion .or. & 
             rel_change_sum_xh < convergence_fraction) then
+#ifdef ALLFRAC
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
-          !xh(:,:,:)=xh_intermed(:,:,:)
+#else
+          xh(:,:,:)=xh_intermed(:,:,:)
+#endif
           ! Report
           if (rank == 0) then
              write(logf,*) "Multiple sources convergence reached"
@@ -359,8 +374,11 @@ contains
           write(logf,*) "Read iteration ",niter," from dump file"
           write(logf,*) 'photon loss counter: ',photon_loss_all
           write(logf,*) "Intermediate result for mean ionization fraction: ", &
+#ifdef ALLFRAC
                sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          !sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#else
+               sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#endif
        endif
        
 #ifdef MPI       
@@ -371,13 +389,20 @@ contains
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+#ifdef ALLFRAC
        call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
-            !call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3)*2, &
-            !call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,&
             MPI_COMM_NEW,mympierror)
+#else
+            call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+            call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,&
+            MPI_COMM_NEW,mympierror)
+#endif
+
 #endif
        
        ! Report time
@@ -459,26 +484,39 @@ contains
     ! Only on the first iteration does evolve2D (evolve0D) change the
     ! ionization fractions
     if (niter == 1) then
+#ifdef ALLFRAC
        ! accumulate (max) MPI distributed xh_av
        call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
-       !call MPI_ALLREDUCE(xh_av(:,:,:), buffer, mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
        
        ! Overwrite the processor local values with the accumulated value
        xh_av(:,:,:,1) = buffer(:,:,:)
        xh_av(:,:,:,0) = max(0.0_dp,min(1.0_dp,1.0-xh_av(:,:,:,1)))
-       !xh_av(:,:,:) = buffer(:,:,:)
        
        ! accumulate (max) MPI distributed xh_intermed
        call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
-       !call MPI_ALLREDUCE(xh_intermed(:,:,:), buffer, &
             mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
             MPI_COMM_NEW, mympierror)
        
        ! Overwrite the processor local values with the accumulated value
        xh_intermed(:,:,:,1)=buffer(:,:,:)
        xh_intermed(:,:,:,0)=max(0.0_dp,min(1.0_dp,1.0-xh_intermed(:,:,:,1)))
-       !xh_intermed(:,:,:)=buffer(:,:,:)
+#else
+       ! accumulate (max) MPI distributed xh_av
+       call MPI_ALLREDUCE(xh_av(:,:,:), buffer, mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
+       
+       ! Overwrite the processor local values with the accumulated value
+       xh_av(:,:,:) = buffer(:,:,:)
+       
+       ! accumulate (max) MPI distributed xh_intermed
+       call MPI_ALLREDUCE(xh_intermed(:,:,:), buffer, &
+            mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
+            MPI_COMM_NEW, mympierror)
+       
+       ! Overwrite the processor local values with the accumulated value
+       xh_intermed(:,:,:)=buffer(:,:,:)
+#endif
     endif
 #else
     photon_loss_all(:)=photon_loss(:)
@@ -515,8 +553,11 @@ contains
  
     ! Report minimum value of xh_av(0) to check for zeros
     if (rank == 0) then
+#ifdef ALLFRAC
        write(logf,*) "min xh_av(0): ",minval(xh_av(:,:,:,0))
-       !write(logf,*) "min xh_av(0): ",minval(1.0_dp-xh_av(:,:,:))
+#else
+       write(logf,*) "min xh_av(0): ",minval(1.0_dp-xh_av(:,:,:))
+#endif
     endif
     
     ! Apply total photo-ionization rates from all sources (phih_grid)
@@ -537,8 +578,11 @@ contains
     if (rank == 0) then
        write(logf,*) "Number of non-converged points: ",conv_flag
        write(logf,*) "Intermediate result for mean H ionization fraction: ", &
+#ifdef ALLFRAC
             sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-            !sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#else
+            sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#endif
     endif
     
     ! Report on photon conservation
@@ -722,11 +766,15 @@ contains
           
 #ifdef MPILOG
           ! Report ionization fractions
+#ifdef ALLFRAC
           write(logf,*) sum(xh_intermed(:,:,:,1))/ &
-          !write(logf,*) sum(xh_intermed(:,:,:))/ &
                real(mesh(1)*mesh(2)*mesh(3))
           write(logf,*) sum(xh_av(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          !write(logf,*) sum(xh_av(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#else
+          write(logf,*) sum(xh_intermed(:,:,:))/ &
+               real(mesh(1)*mesh(2)*mesh(3))
+          write(logf,*) sum(xh_av(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#endif
           write(logf,*) local_count
 #endif
           ! Send 'answer'
@@ -1395,15 +1443,17 @@ contains
     ! yet, so do it. Otherwise do nothing.
     if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then
        ! Initialize local ionization states to the global ones
+#ifdef ALLFRAC
        yh0(1)=xh(pos(1),pos(2),pos(3),1)
-       !yh0(1)=xh(pos(1),pos(2),pos(3))
        yh0(0)=xh(pos(1),pos(2),pos(3),0)
-       !yh0(0)=1.0_dp-yh0(1)
        yh_av(1)=xh_av(pos(1),pos(2),pos(3),1)
-       !yh_av(1)=xh_av(pos(1),pos(2),pos(3))
        yh_av(0)=xh_av(pos(1),pos(2),pos(3),0)
-       !yh_av(0)=1.0_dp-yh_av(1)
-       
+#else
+       yh0(1)=xh(pos(1),pos(2),pos(3))
+       yh0(0)=1.0_dp-yh0(1)
+       yh_av(1)=xh_av(pos(1),pos(2),pos(3))
+       yh_av(0)=1.0_dp-yh_av(1)
+#endif       
        ! Initialize local density and temperature
        ndens_p=ndens(pos(1),pos(2),pos(3))
        call get_temperature_point(pos(1),pos(2),pos(3))
@@ -1471,16 +1521,19 @@ contains
           ! This will speed up convergence if
           ! the sources are isolated and only ionizing up.
           ! In other cases it does not make a difference.
+#ifdef ALLFRAC
           xh_intermed(pos(1),pos(2),pos(3),1)=max(yh(1), &
                xh_intermed(pos(1),pos(2),pos(3),1))
-          !xh_intermed(pos(1),pos(2),pos(3))=max(yh(1), &
-          !     xh_intermed(pos(1),pos(2),pos(3)))
-          !xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
-          !     xh_intermed(pos(1),pos(2),pos(3),1)
           xh_av(pos(1),pos(2),pos(3),1)=max(yh_av(1), &
                xh_av(pos(1),pos(2),pos(3),1))
-          !xh_av(pos(1),pos(2),pos(3))=max(yh_av(1), &
-          !     xh_av(pos(1),pos(2),pos(3)))
+#else
+          xh_intermed(pos(1),pos(2),pos(3))=max(yh(1), &
+               xh_intermed(pos(1),pos(2),pos(3)))
+          xh_av(pos(1),pos(2),pos(3))=max(yh_av(1), &
+               xh_av(pos(1),pos(2),pos(3)))
+#endif
+          !xh_intermed(pos(1),pos(2),pos(3),0)=1.0- &
+          !     xh_intermed(pos(1),pos(2),pos(3),1)
           !xh_av(pos(1),pos(2),pos(3),0)=1.0- &
           !     xh_av(pos(1),pos(2),pos(3),1)
           
@@ -1573,14 +1626,17 @@ contains
     convergence=convergence2
 
     ! Initialize local ionization states to global ones
-    yh0(1)=xh(pos(1),pos(2),pos(3),1)
-    !yh0(1)=xh(pos(1),pos(2),pos(3))
-    yh0(0)=xh(pos(1),pos(2),pos(3),0)
-    !yh0(0)=1.0_dp-yh0(1)
-    yh_av(1)=xh_av(pos(1),pos(2),pos(3),1) ! use calculated xh_av
-    !yh_av(1)=xh_av(pos(1),pos(2),pos(3))
-    yh_av(0)=xh_av(pos(1),pos(2),pos(3),0)
-    !yh_av(0)=1.0_dp-yh_av(1)
+#ifdef ALLFRAC
+       yh0(1)=xh(pos(1),pos(2),pos(3),1)
+       yh0(0)=xh(pos(1),pos(2),pos(3),0)
+       yh_av(1)=xh_av(pos(1),pos(2),pos(3),1)
+       yh_av(0)=xh_av(pos(1),pos(2),pos(3),0)
+#else
+       yh0(1)=xh(pos(1),pos(2),pos(3))
+       yh0(0)=1.0_dp-yh0(1)
+       yh_av(1)=xh_av(pos(1),pos(2),pos(3))
+       yh_av(0)=1.0_dp-yh_av(1)
+#endif       
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -1595,8 +1651,11 @@ contains
 
     ! Test for global convergence using the time-averaged neutral fraction.
     ! For low values of this number assume convergence
+#ifdef ALLFRAC
     yh_av0=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
-    !yh_av0=1.0_dp-xh_av(pos(1),pos(2),pos(3)) ! use previously calculated xh_av
+#else
+    yh_av0=1.0_dp-xh_av(pos(1),pos(2),pos(3)) ! use previously calculated xh_av
+#endif
     if (abs((yh_av(0)-yh_av0)) > convergence2 .and. &
          (abs((yh_av(0)-yh_av0)/yh_av(0)) > convergence2 .and. &
          (yh_av(0) > convergence_frac))) then
@@ -1604,12 +1663,15 @@ contains
     endif
 
     ! Copy ion fractions to the global arrays.
+#ifdef ALLFRAC
     xh_intermed(pos(1),pos(2),pos(3),0)=yh(0)
     xh_intermed(pos(1),pos(2),pos(3),1)=yh(1)
     xh_av(pos(1),pos(2),pos(3),0)=yh_av(0)
     xh_av(pos(1),pos(2),pos(3),1)=yh_av(1)
-    !xh_intermed(pos(1),pos(2),pos(3))=yh(1)
-    !xh_av(pos(1),pos(2),pos(3))=yh_av(1)
+#else
+    xh_intermed(pos(1),pos(2),pos(3))=yh(1)
+    xh_av(pos(1),pos(2),pos(3))=yh_av(1)
+#endif
 
   end subroutine evolve0D_global
 
@@ -2011,7 +2073,11 @@ contains
             "xfrac3d_"//trim(adjustl(file1))//"_"//niter_string//".bin"
        open(unit=52,file=file1,form="unformatted",status="unknown")
        write(52) mesh(1),mesh(2),mesh(3)
+#ifdef ALLFRAC
        write(52) (((xh_intermed(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
+#else
+       write(52) (((xh_intermed(i,j,k),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
+#endif
        close(52)
 
     endif
