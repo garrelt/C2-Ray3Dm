@@ -66,6 +66,7 @@ module material
   !real(kind=dp),parameter :: C_LLS = 1.9
   !real(kind=dp),parameter :: z_x = 3.7
   !real(kind=dp),parameter,public :: y_LLS = 5.1
+  !real(kind=dp),parameter :: beta=1.28 ! not clear what to use here.
   ! b) Model Songaila & Cowie (2010)
   real(kind=dp),parameter :: C_LLS = 2.84
   real(kind=dp),parameter :: z_x = 3.5
