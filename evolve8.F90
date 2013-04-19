@@ -361,7 +361,7 @@ contains
              iterfile="iterdump.bin"
           end select
 
-          open(unit=iterdump,file="iterdump.bin",form="unformatted", &
+          open(unit=iterdump,file=iterfile,form="unformatted", &
                status="old")
        
           read(iterdump) niter,prev_sum_xh_int
