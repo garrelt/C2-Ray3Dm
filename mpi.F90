@@ -110,7 +110,10 @@ contains
 
     ! Report OpenMP usage
 #ifdef MY_OPENMP
-    if (rank == 0) write(logf,*) " Running in OpenMP mode"
+    if (rank == 0) then
+       write(logf,*) " Running in OpenMP mode"
+       write(logf,*) ' Number of OpenMP threads on MPI rank 0 is ',nthreads
+    endif
 #endif
 
 #ifdef MPILOG
