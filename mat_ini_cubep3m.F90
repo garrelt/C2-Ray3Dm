@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for handling the material properties on the grid (3D)
+!!
+!! These properties are; density, temperature, clumping, ionization fractions
+!! 
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 27-Jun-2013 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!!
+!! \b Version: cubep3m simulations.
+
 module material
 
   ! This module contains the grid data and routines for initializing them.

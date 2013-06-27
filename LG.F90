@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for handling the data from
+!! the Nbody simulations which provide the basis for C2Ray simulations
+!! of Reionization.
+!! 
+!! \b Author: Garrelt Mellema, Ilian Iliev
+!!
+!! \b Date: 25-Jun-2013 (09-Dec-2009 (22-May-2008, previous versions were not dated)
+!!
+!! \b Version: LG simulations
+
 module nbody
 
   ! This file contains routine having to do with the LG constrained IC's 
@@ -26,22 +37,57 @@ module nbody
   real(kind=dp),parameter :: boxsize=64.0  ! Box size in Mpc/h comoving
 
   !> Path to directory containing directory with density files:
-  character(len=180),parameter,private :: dir_dens_path = "../" 
+  character(len=*),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
-  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
-  !> Path to directory containing directory with source files:
-  character(len=180),parameter,private :: dir_src_path = "./" 
-  !> Name of directory with source files
-  character(len=180),parameter,private :: dir_src_name= "sources/"
+  character(len=*),parameter,private :: dir_dens_name= "coarser_densities/"
 
-  !> Format of density file (unformatted or binary)
-  character(len=15),parameter :: densityformat="unformatted"
+  !> Path to directory containing directory with clumping files:
+  character(len=*),parameter,private :: dir_clump_path = "../" 
+  !> Name of directory with files used for clumping
+  !character(len=180),parameter,private :: dir_clump_name= "coarser_densities/"
+  character(len=*),parameter,private :: dir_clump_name= "coarser_densities/halos_included/"
+
+  !> Path to directory containing directory with LLS files:
+  character(len=*),parameter,private :: dir_LLS_path = "../" 
+  !> Name of directory with files used for LLS
+  character(len=*),parameter,private :: dir_LLS_name= "halos/"
+
+  !> Path to directory containing directory with source files:
+  character(len=*),parameter,private :: dir_src_path = "./" 
+  !> Name of directory with source files
+  character(len=*),parameter,private :: dir_src_name= "sources/"
+
+#ifdef IFORT
+  ! ifort standard for "unformatted"
+  character(len=*),parameter :: densityformat="unformatted"
+  character(len=*),parameter :: densityaccess="sequential"
+#else
+  ! Fortran2003 standard for "binary"
+  character(len=*),parameter :: densityformat="unformatted"
+  character(len=*),parameter :: densityaccess="sequential"
+#endif
   !> Format of clumping file (unformatted or binary)
+#ifdef IFORT
+  character(len=*),parameter :: clumpingformat="unformatted"
+  character(len=*),parameter :: clumpingaccess="sequential"
+#else
   character(len=15),parameter :: clumpingformat="unformatted"
+  character(len=*),parameter :: clumpingaccess="sequential"
+#endif
+  !> Format of LLS file (unformatted or binary)
+#ifdef IFORT
+  character(len=*),parameter :: LLSformat="unformatted"
+  character(len=*),parameter :: LLSaccess="sequential"
+#else
+  character(len=15),parameter :: LLSformat="unformatted"
+  character(len=*),parameter :: LLSaccess="sequential"
+#endif
   !> density file with header?
   logical,parameter :: densityheader=.true.
   !> clumping file with header?
   logical,parameter :: clumpingheader=.true.
+  !> LLS file with header?
+  logical,parameter :: LLSheader=.true.
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
   character(len=20),parameter :: density_unit="M0Mpc3"
@@ -53,6 +99,8 @@ module nbody
   character(len=8),public :: id_str       !< resolution dependent string
 
   character(len=180),public :: dir_dens !< Path to directory with density files
+  character(len=480),public :: dir_clump !< Path to directory with clump files
+  character(len=480),public :: dir_LLS !< Path to directory with LLS files
   character(len=180),public :: dir_src !< Path to directory with source files
 
 #ifdef MPI
