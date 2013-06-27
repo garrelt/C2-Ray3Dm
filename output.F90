@@ -13,6 +13,7 @@ module output_module
   use precision, only: dp
   use my_mpi
   use file_admin, only: stdinput, results_dir, file_input, logf
+  use c2ray_parameters, only: isothermal
 
   implicit none
   
@@ -34,11 +35,11 @@ contains
     ! Version: Five streams
     ! Stream1:
     ! Ifront1.out contains a line of constant y and z going through the
-    ! source for all timesteps. (formatted)
+    ! centre of the grid for all timesteps. (formatted)
     
     ! Stream2: 
     ! Ionization fractions for the full data cube (unformatted)
-    ! Ifront3",f5.3,".bin"
+    ! xfrac3d_",f5.3,".bin"
     
     ! Stream3: 
     ! Temperature for the full data cube (unformatted)
@@ -204,18 +205,8 @@ contains
        endif
        
        ! Stream 3
-!       if (streams(3).eq.1) then
-!          write(file1,"(f6.3)") zred_now
-!          file1="Temper3_"//trim(adjustl(file1))//".bin"
-!          open(unit=53,file=file1,form="unformatted",status="unknown")
-!          write(53) mesh(1),mesh(2),mesh(3)
-!          write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
-!               k=1,mesh(3))
-!          close(53)
-!       endif
-       
-       ! Stream 3
        if (streams(3).eq.1) then
+
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "IonRates3_"//trim(adjustl(file1))//".bin"
@@ -224,6 +215,14 @@ contains
           write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
           close(53)
+ 
+          if (.not.isothermal) then
+             file1="Temper3d_"//trim(adjustl(file1))//".bin"
+             open(unit=53,file=file1,form="unformatted",status="unknown")
+             write(53) mesh(1),mesh(2),mesh(3)
+             write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
+                  k=1,mesh(3))
+             close(53)
        endif
        
        ! Stream 4
