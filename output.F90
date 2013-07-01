@@ -42,8 +42,10 @@ contains
     ! xfrac3d_",f5.3,".bin"
     
     ! Stream3: 
-    ! Temperature for the full data cube (unformatted)
-    ! temper3",f5.3,".bin"
+    ! Ionization rate for the full data cube (unformatted)
+    ! "Ionrates3_",f5.3,".bin"
+    ! If non-isothermal: Temperature for the full data cube (unformatted)
+    ! "Temper3d_",f5.3,".bin"
     
     ! Stream 4:
     ! Ionization fractions in a plane for one time step
@@ -168,8 +170,9 @@ contains
 
     ! Only produce output on rank 0
     if (rank == 0) then
+
        ! Stream 1
-       if (streams(1).eq.1) then
+       if (streams(1) == 1) then
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "Ifront1_"//trim(adjustl(file1))//".dat"
@@ -190,7 +193,7 @@ contains
        endif
        
        ! Stream 2
-       if (streams(2).eq.1) then
+       if (streams(2) == 1) then
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "xfrac3d_"//trim(adjustl(file1))//".bin"
@@ -205,7 +208,7 @@ contains
        endif
        
        ! Stream 3
-       if (streams(3).eq.1) then
+       if (streams(3) == 1) then
 
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
@@ -223,10 +226,11 @@ contains
              write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
                   k=1,mesh(3))
              close(53)
+          endif
        endif
        
        ! Stream 4
-       if (streams(4).eq.1) then
+       if (streams(4) == 1) then
           write(zred_str,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "Ifront2_xy_"//trim(adjustl(zred_str))//".bin"
@@ -267,7 +271,7 @@ contains
        endif
        
        ! Stream 5
-       if (streams(5).eq.1) then
+       if (streams(5) == 1) then
           write(zred_str,"(f6.3)") zred_now
           file4=trim(adjustl(results_dir))// &
                "ndens_xy_"//trim(adjustl(zred_str))//".bin"
