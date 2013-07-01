@@ -2,16 +2,18 @@ Check list for changing simulations
 - mesh size (sizes.f90)
 - cosmological parameters (cosmoparms.f90)
 - abundances (abundances.f90)
-- clumping (c2ray-parameters.f90)
 - grey opacity (radiation.F90)
 - boxsize (module nbody (pmfast.F90, cubep3m.F90, LG.F90)
 - photon efficiencies (c2ray-parameters.f90)
 - fix max_subbox (c2ray_parameters.f90)
+- clumping (c2ray-parameters.f90)
 - should photons leaving the grid be put back? (c2ray-parameters.f90)
 - input directories: density, sources (module nbody)
 - output directory (file-admin.f90)
 - RT grid resolutions in 'case' (module nbody (pmfast.F90, cubep3m.F90, LG.F90))
 - check if density files have a header or not and fix code accordingly (mat_ini_*.f90)
-- Check source list file name string for correct source lists (sourceprop_nnnn.F
+- Check source list file name string for correct source lists (sourceprops_nnnn.F
 90) 
+- Check number of columns in the source lists and set ncolumns_srcfile 
+   parameter accordingly (sourceprops_nnnn.F90) 
 - do 'make clean' !!
