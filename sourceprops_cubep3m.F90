@@ -210,12 +210,12 @@ contains
           ! read_in_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          srcMass00=srclist(4)
-          srcMass01=srclist(5)
+          srcMass00=srclist(4) !massive sources (HMACHs)
+          srcMass01=srclist(5) !low-mass sources (LMACHs)
           !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
 
           ! Massive sources are never suppressed.
-          if (SrcMass00 /= 0.0) then
+          if (SrcMass00 /= 0.0 .or. UV_Model == "Iliev et al partial supp.") then
              NumSrc=NumSrc+1
           ! if the cell is still neutral, no suppression (if we use the Iliev
           ! et al source model)   
@@ -238,7 +238,8 @@ contains
 #else
              if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
 #endif
-               UV_Model /= "Iliev et al") NumSupprsdSrc=NumSupprsdSrc+1
+               (UV_Model /= "Iliev et al" .and. &
+               UV_Model /= "Iliev et al partial supp.")) NumSupprsdSrc=NumSupprsdSrc+1
           endif
        enddo
        close(50)
@@ -279,8 +280,8 @@ contains
           ! establish_number_of_active_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          srcMass00=srclist(4)
-          srcMass01=srclist(5)
+          srcMass00=srclist(4) !massive sources (HMACHs)
+          srcMass01=srclist(5) !low-mass sources (LMACHs)
           !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
           
 #ifdef ALLFRAC
@@ -288,7 +289,9 @@ contains
 #else
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
 #endif
-             if (UV_Model == "Iliev et al" .or. SrcMass00 > 0.0d0) then
+             if (UV_Model == "Iliev et al" .or. &
+                  UV_Model == "Iliev et al partial supp." .or. &
+                  SrcMass00 > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1
                 ! Source positions in file start at 1!
@@ -297,16 +300,18 @@ contains
                 srcpos(3,ns)=srcpos0(3)
                 ! Collect total source mass (weigthed with efficiency factor
                 ! in case of the Iliev et al source model).
-                if (UV_Model == "Iliev et al") then
+                if (UV_Model == "Iliev et al" .or. &
+                     UV_Model == "Iliev et al partial supp." ) then
                    NormFlux(ns)=SrcMass00*phot_per_atom(1)  & !massive sources
                         + SrcMass01*phot_per_atom(2)      !small sources  
                 else
                    NormFlux(ns)=SrcMass00!+SrcMass01
                 endif
              endif
-          elseif (SrcMass00 > 0.0d0) then
+          elseif (SrcMass00 > 0.0d0 .or. (UV_Model == "Iliev et al partial supp." .and. SrcMass01 > 0.0d0)) then
              !the cell is ionized but source is massive enough to survive
-             !and is assumed Pop. II 
+             !and is assumed Pop. II, or source is low-mass, but we assume
+             !partial suppression, tuning down its efficiency  
              ns=ns+1
              ! Source positions in file start at 1!
              srcpos(1,ns)=srcpos0(1)
@@ -317,6 +322,9 @@ contains
              ! assign_uv_luminosities to calculate ionizing photon rates
              if (UV_Model == "Iliev et al") then
                 NormFlux(ns)=SrcMass00*phot_per_atom(1)  !massive sources
+             elseif (UV_Model == "Iliev et al partial supp.") then !make low-mass sources less efficient
+                NormFlux(ns)=SrcMass00*phot_per_atom(1)  & !massive sources
+                     + SrcMass01*phot_per_atom(1)      !low-mass sources
              else
                 NormFlux(ns)=SrcMass00
              endif
@@ -357,7 +365,7 @@ contains
 
     ! Turn masses into luminosities
     select case (UV_Model)
-    case ("Iliev et al")
+    case ("Iliev et al", "Iliev et al partial supp.")
        do ns=1,NumSrc
           !note that now photons/atom are already included in NormFlux
           NormFlux(ns)=NormFlux(ns)*M_grid*  &
@@ -412,6 +420,8 @@ contains
   !! 0: Iliev et al source, Ndot_gamma= f*M_halo/timestep
   !! 1: Fixed total N_gamma, still need to divide by time step
   !! 2: Fixed total Ndot_gamma.
+  !! 3: Iliev et al source as above, but partial suppression of LMACHs
+  !!    by tuning them down to lower efficiency 
   subroutine source_properties_ini ()
     
 
@@ -426,7 +436,7 @@ contains
 
     ! Ask for redshift file
     if (rank == 0) then
-       if (.not.file_input) write(*,"(A,$)") "UV Luminosity recipe (0,1,2): "
+       if (.not.file_input) write(*,"(A,$)") "UV Luminosity recipe (0,1,2,3): "
        read(stdinput,*) uv_answer
        select case (uv_answer)
        case(0)
@@ -435,9 +445,11 @@ contains
           UV_Model = "Fixed N_gamma"
        case(2)
           UV_Model = "Fixed Ndot_gamma"
+       case(3)
+          UV_Model = "Iliev et al partial supp."
        end select
-       
-       if (uv_answer > 0) then
+
+       if (uv_answer == 1 .or. uv_answer == 2) then
           if (.not.file_input) write(*,"(A,$)") "File with UV data: "
           read(stdinput,*) uv_file
           
@@ -467,7 +479,7 @@ contains
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(uv_answer,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(UV_Model,30,MPI_CHARACTER,0,MPI_COMM_NEW,mympierror)
-    if (uv_answer > 0) then
+    if (uv_answer  == 1 .or. uv_answer == 2) then
        call MPI_BCAST(NumZred_uv,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
        if (rank /= 0) allocate(uv_array(NumZred_uv))
        call MPI_BCAST(uv_array,NumZred_uv,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,&
