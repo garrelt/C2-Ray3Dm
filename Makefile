@@ -40,7 +40,7 @@
 #MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
-#GFORTFLAGS = -O3 -DGFORT -DMPILOG
+#GFORTFLAGS = -O3 -DGFORT 
 # Processor dependent optimization
 #F90FLAGS1 = $(GFORTFLAGS) 
 
@@ -49,7 +49,7 @@
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 #MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
+#OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 # Compiler
@@ -58,13 +58,13 @@ FC = ifort # Intel compiler
 MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
-#IFORTFLAGS = -O0 -g -DIFORT
+#IFORTFLAGS = -O0 -g -DIFORT -u -fpe0 -p
 IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 # Processor dependent optimization
 #F90FLAGS1 = $(IFORTFLAGS) 
-F90FLAGS1 = -xW $(IFORTFLAGS) 
-#F90FLAGS1 = -xO $(IFORTFLAGS) 
+#F90FLAGS1 = -xW $(IFORTFLAGS) 
+F90FLAGS1 = -xO $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
@@ -127,7 +127,7 @@ LIBS = -lirc -limf
 
 #-------------------------------------------------------
 
-UTILS=mrgrnk.o ctrper.o romberg.o
+UTILS=mrgrnk.o ctrper.o romberg.o report_memory.o
 
 CONSTANTS = mathconstants.o cgsconstants.o  cgsphotoconstants.o  cgsastroconstants.o c2ray_parameters.o cosmoparms.o abundances.o
 
