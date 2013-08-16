@@ -19,6 +19,9 @@ module file_admin
   !> directory where files with results are placed
   character(len=50),public,parameter :: results_dir="./results/"
 
+  !> directory where iteration dump files with results are placed
+  character(len=50),public,parameter :: dump_dir="./"
+
   !> set to not 5 if input via file (not implemented in all codes, check main program!)  
   integer,public,parameter :: stdinput=5 
   integer,public,parameter :: logf=30 !< unit number of log file(s)
