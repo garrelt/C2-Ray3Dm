@@ -96,7 +96,7 @@ contains
     ee=exp(-deltht)
     xfh(1)=(xfh1old-eqxfh1)*ee+eqxfh1
     xfh(0)=(xfh0old-eqxfh0)*ee+eqxfh0
-    rhe=electrondens(rhh,xfh) ! should this really be used inside doric?
+    !rhe=electrondens(rhh,xfh) ! should this really be used inside doric?
     
     ! determine neutral densities (take care of precision fluctuations)
     !if (xfh(0) < epsilon .and. abs(xfh(0)).lt.1.0e-10) then
@@ -122,6 +122,10 @@ contains
     !if (xfh_av(0).lt.epsilon.and.abs(xfh_av(0)).lt.1.0e-10) xfh_av(0)=epsilon
     if (xfh_av(0) < epsilon) xfh_av(0)=epsilon
     
+    !rhe=electrondens(rhh,xfh_av) ! more in the spirit of C2-Ray; we could
+    ! iterate over rhe inside doric... Add option to doric to do this?
+    ! GM/130719
+
   end subroutine doric
   
   ! =======================================================================
