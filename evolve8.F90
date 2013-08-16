@@ -7,7 +7,7 @@
 !!
 !! \b Date:
 !!
-!! \b Version: 3D, no OpenMP
+!! \b Version: 3D, MPI & OpenMP
 
 module evolve
 
@@ -28,18 +28,23 @@ module evolve
 
   use precision, only: dp
   use my_mpi ! supplies all the MPI and OpenMP definitions and variables
-  use file_admin, only: logf,timefile,iterdump, results_dir
+  use file_admin, only: logf,timefile,iterdump, results_dir, dump_dir
   use clocks, only: timestamp_wallclock
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
-  use material, only: ndens, xh, temper, get_temperature_point
+  use material, only: ndens, xh
+  use material, only: temper
+  use material, only: get_temperature_point, set_temperature_point
+  !use material, only: set_final_temperature_point, isothermal
   use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
   use cosmology, only: time2zred
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations, update_grandtotal_photonstatistics
-  use c2ray_parameters, only: convergence_fraction, subboxsize, max_subbox, S_star_nominal
+  use c2ray_parameters, only: convergence_fraction
+  use c2ray_parameters, only: subboxsize, max_subbox
+  use radiation, only: S_star
 
   implicit none
 
@@ -97,6 +102,9 @@ module evolve
   integer :: sum_nbox !< sum of all nboxes (on one processor)
   integer :: sum_nbox_all !< sum of all nboxes (on all processors)
 
+  ! Flag to know whether the do_chemistry routine was called with local option
+  logical ::local_chemistry=.false.
+
   ! GM/121127: This variable should always be set. If not running OpenMP
   ! it should be equal to 1. We initialize it to 1 here.
   integer :: tn=1 !< thread number
@@ -109,6 +117,7 @@ contains
   subroutine evolve_ini ()
     
     allocate(phih_grid(mesh(1),mesh(2),mesh(3)))
+    phih_grid=0.0 ! Needs value for initial output
 #ifdef ALLFRAC
     allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
     allocate(xh_intermed(mesh(1),mesh(2),mesh(3),0:1))
@@ -211,6 +220,11 @@ contains
     ! Iterate to reach convergence for multiple sources
     do
        ! Update xh if converged and exit
+       ! Update xh if converged and exit
+       ! This should be < and NOT <= for the case of few sources:
+       ! n sources will affect at least n cells on the first pass.
+       ! We need to give them another iteration to allow them to
+       ! work together.
 #ifdef ALLFRAC       
        sum_xh_int=sum(xh_intermed(:,:,:,1))
 #else
@@ -222,13 +236,15 @@ contains
           rel_change_sum_xh=1.0
        endif
 
-       if (conv_flag <= conv_criterion .or. & 
+       if (conv_flag < conv_criterion .or. & 
             rel_change_sum_xh < convergence_fraction) then
 #ifdef ALLFRAC
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
 #else
           xh(:,:,:)=xh_intermed(:,:,:)
 #endif
+          !call set_final_temperature_point
+
           ! Report
           if (rank == 0) then
              write(logf,*) "Multiple sources convergence reached"
@@ -250,9 +266,9 @@ contains
 
        ! Iteration loop counter
        niter=niter+1
-       
+
        call pass_all_sources (niter,dt)
-       
+
        ! Report subbox statistics
        if (rank == 0) &
             write(logf,*) "Average number of subboxes: ", &
@@ -274,7 +290,7 @@ contains
        endif
 
        call global_pass (conv_flag,dt)
-       
+
        ! Write intermediate result to file (for convergence checking)
        !call output_intermediate(time2zred(time+dt),niter)
 
@@ -294,6 +310,8 @@ contains
 
   subroutine write_iteration_dump (niter)
 
+    use material, only:temperature_grid
+
     integer,intent(in) :: niter  ! iteration counter
 
     integer :: ndump=0
@@ -311,7 +329,7 @@ contains
        iterfile="iterdump1.bin"
     endif
 
-    open(unit=iterdump,file=iterfile,form="unformatted", &
+    open(unit=iterdump,file=trim(adjustl(dump_dir))//iterfile,form="unformatted", &
          status="unknown")
 
     write(iterdump) niter,prev_sum_xh_int
@@ -319,7 +337,10 @@ contains
     write(iterdump) phih_grid
     write(iterdump) xh_av
     write(iterdump) xh_intermed
-
+    if (.not.isothermal) then
+       write(iterdump) phiheat
+       write(iterdump) temperature_grid
+    endif
     close(iterdump)
 
     ! Report time
@@ -331,6 +352,8 @@ contains
   ! ===========================================================================
 
   subroutine start_from_dump(restart,niter)
+
+    use material, only: temperature_grid
 
     integer,intent(in) :: restart  ! restart flag
     integer,intent(out) :: niter  ! iteration counter
@@ -361,15 +384,19 @@ contains
              iterfile="iterdump.bin"
           end select
 
-          open(unit=iterdump,file=iterfile,form="unformatted", &
-               status="old")
-       
+          open(unit=iterdump,file=trim(adjustl(dump_dir))//iterfile, &
+               form="unformatted",status="old")
+
           read(iterdump) niter,prev_sum_xh_int
           read(iterdump) photon_loss_all
           read(iterdump) phih_grid
           read(iterdump) xh_av
           read(iterdump) xh_intermed
-          
+          if (.not.isothermal) then
+             read(iterdump) phiheat
+             read(iterdump) temperature_grid
+          endif
+
           close(iterdump)
           write(logf,*) "Read iteration ",niter," from dump file"
           write(logf,*) 'photon loss counter: ',photon_loss_all
@@ -387,8 +414,6 @@ contains
             MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(photon_loss_all,NumFreqBnd, &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
-            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #ifdef ALLFRAC
        call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
@@ -396,28 +421,36 @@ contains
             MPI_DOUBLE_PRECISION,0,&
             MPI_COMM_NEW,mympierror)
 #else
-            call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
+       call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-            call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
+       call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,&
             MPI_COMM_NEW,mympierror)
 #endif
-
+       !if (.not.isothermal) then
+       !   call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
+       !        MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       ! GM/130815: Note the size of the temperature_grid and check!!
+       !   call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*3, &
+       !        MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       !endif
 #endif
-       
+
        ! Report time
        write(timefile,"(A,F8.1)") &
             "Time after reading iterdump: ", timestamp_wallclock ()
-       
+
     endif
+
   end subroutine start_from_dump
-     
+
   ! ===========================================================================
 
   subroutine pass_all_sources(niter,dt)
     
     ! For random permutation of sources:
     use  m_ctrper, only: ctrper
+    use c2ray_parameters, only: use_LLS
 
     integer,intent(in) :: niter  ! iteration counter
     real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
@@ -431,18 +464,21 @@ contains
     if (rank == 0) write(logf,*) 'Doing all sources '
     ! reset global rates to zero for this iteration
     phih_grid(:,:,:)=0.0
-    
+    !phiheat(:,:,:)=0.0
     ! reset photon loss counters
-    photon_loss(:) = 0.0
+    photon_loss(:)=0.0
     LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
 
     ! Reset sum of subboxes counter
     sum_nbox=0
 
+    ! Reset local_chemistry flag
+    local_chemistry=.false.
+
     ! Make a randomized list of sources :: call in serial
     ! disabled / GM110512
     !if ( rank == 0 ) call ctrper (SrcSeries(1:NumSrc),1.0)
-    
+
 #ifdef MPI
     ! Distribute the source list to the other nodes
     ! disabled / GM110512
@@ -458,32 +494,39 @@ contains
     else
        call do_grid_static (dt,niter)
     endif
-    
+
 #ifdef MPI
     ! accumulate (sum) the MPI distributed photon losses
     call MPI_ALLREDUCE(photon_loss, photon_loss_all, NumFreqBnd, &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
 
     ! accumulate (sum) the MPI distributed photon losses
-    call MPI_ALLREDUCE(LLS_loss, LLS_loss_all, 1, &
-         MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
-    ! Put LLS_loss_all back in the LLS variable
-    LLS_loss = LLS_loss_all
+    if (use_LLS)then
+       call MPI_ALLREDUCE(LLS_loss, LLS_loss_all, 1, &
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
+       ! Put LLS_loss_all back in the LLS variable
+       LLS_loss = LLS_loss_all
+    endif
 
     ! accumulate (sum) the MPI distributed phih_grid
     call MPI_ALLREDUCE(phih_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
-    
     ! Overwrite the processor local values with the accumulated value
     phih_grid(:,:,:)=buffer(:,:,:)
+
+    !call MPI_ALLREDUCE(phiheat, buffer, mesh(1)*mesh(2)*mesh(3), &
+    !     MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
+    ! Overwrite the processor local values with the accumulated value
+    !phiheat(:,:,:)=buffer(:,:,:)    
 
     ! accumulate (sum) the MPI distributed sum of number of boxes
     call MPI_ALLREDUCE(sum_nbox, sum_nbox_all, 1, &
          MPI_INTEGER, MPI_SUM, MPI_COMM_NEW, mympierror)
 
-    ! Only on the first iteration does evolve2D (evolve0D) change the
-    ! ionization fractions
-    if (niter == 1) then
+    ! Only if the do_chemistry routine was called with local option
+    ! where the ionization fractions changed during the pass over
+    ! all sources
+    if (local_chemistry) then
 #ifdef ALLFRAC
        ! accumulate (max) MPI distributed xh_av
        call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
@@ -521,6 +564,10 @@ contains
 #else
     photon_loss_all(:)=photon_loss(:)
     sum_nbox_all=sum_nbox
+#endif
+
+#ifdef MPI
+    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
 #endif
     
   end subroutine pass_all_sources
@@ -844,6 +891,13 @@ contains
 
     ! Source Loop - distributed for the MPI nodes
     do ns1=1+rank,NumSrc,npr
+#ifdef MPILOG
+       ! Report
+       write(logf,*) 'Processor ',rank,' received: ',ns1
+       write(logf,*) ' that is source ',ns1 !SrcSeries(ns1)
+       write(logf,*) ' at:',srcpos(:,ns1)
+       flush(logf)
+#endif
        call do_source(dt,ns1,niter)
     enddo
 
@@ -867,6 +921,9 @@ contains
     integer :: k
     integer :: nbox
     integer ::nnt
+
+    ! Total ionizing photon rate of all contributions to the source
+    real(kind=dp) :: total_source_flux
 
     ! Mesh position of the cell being treated
     integer,dimension(Ndim) :: rtpos
@@ -905,14 +962,15 @@ contains
     ! photons are leaving this subbox and we need to do another
     ! one. We also stop once we have done the whole grid.
     nbox=0 ! subbox counter
-    photon_loss_src(:)=NormFlux(ns)*S_star_nominal !-1.0 ! to pass the first while test
+    total_source_flux=NormFlux(ns)*S_star_nominal
+    photon_loss_src(:)=total_source_flux !-1.0 ! to pass the first while test
     last_r(:)=srcpos(:,ns) ! to pass the first while test
     last_l(:)=srcpos(:,ns) ! to pass the first while test
 
     ! Loop through boxes of increasing size
     ! NOTE: make this limit on the photon_loss a fraction of
     ! a source flux loss_fraction*NormFlux(ns)*S_star_nominal)
-    do while (all(photon_loss_src(:) > 1e-6*NormFlux(ns)*S_star_nominal) &
+    do while (all(photon_loss_src(:) > 1e-6*total_source_flux) &
     !do while (all(photon_loss_src(:) /= 0.0) &
          .and. last_r(3) < lastpos_r(3) &
          .and. last_l(3) > lastpos_l(3))
@@ -986,6 +1044,7 @@ contains
              rtpos(3)=k
              call evolve2D(dt,rtpos,ns,niter)
           end do
+
           ! No OpenMP threads so we use position 1
           ! GM/121127: previous versions of the code did not have
           ! the variable tn set to 1 if we were not running OpenMP.
@@ -995,7 +1054,7 @@ contains
 
        endif
     enddo
-    
+
     ! Record the final photon loss, this is the photon loss that leaves
     ! the grid.
     photon_loss(:)=photon_loss(:) + photon_loss_src(:)
@@ -1475,9 +1534,6 @@ contains
        else
           
           ! For all other points call cinterp to find the column density
-          !do idim=1,Ndim
-          !   srcpos1(idim)=srcpos(idim,ns)
-          !enddo
           call cinterp(rtpos,srcpos(:,ns),coldensh_in,path)
           path=path*dr(1)
           
@@ -1513,7 +1569,9 @@ contains
        ! isolated sources, but on later passes the effects of multiple sources 
        ! has to be taken into account. 
        ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
-       if (niter == 1 .and. coldensh_in < max_coldensh) then
+       if (niter == -1 .and. coldensh_in < max_coldensh) then
+          local_chemistry=.true.
+
           call do_chemistry (dt, ndens_p, yh, yh_av, yh0, 0.0_dp, &
                coldensh_in, path, vol_ph, pos, ns, local=.true.)
 
@@ -1585,7 +1643,7 @@ contains
 
   ! =======================================================================
 
-  !> Calculates the evolution of the hydrogen ionization state for
+  !> Calculates the evolution of the ionization state for
   !! one cell (mesh position pos) and multiple sources.
   subroutine evolve0D_global(dt,pos,conv_flag)
 
@@ -1733,21 +1791,25 @@ contains
        ! Calculate (mean) electron density
        de=electrondens(ndens_p,yh_av)
 
-       ! Find total photo-ionization rate 
+       ! Find total photo-ionization rate
        if (local) then
+          
           ! Calculate (time averaged) column density of cell
           coldensh_cell=coldens(path,yh_av(0),ndens_p)
           
           ! Calculate (photon-conserving) photo-ionization rate
           call photoion(phi,coldensh_in,coldensh_in+coldensh_cell, &
                vol_ph,ns)
+
           phih_cell=phi%h/(yh_av(0)*ndens_p)
+
        else
+
           ! (direct plus photon losses)
           ! DO THIS HERE, yh_av is changing
           ! (if the cell is ionized, add a fraction of the lost photons)
           !if (xh_intermed(pos(1),pos(2),pos(3),1) > 0.5)
-          phih_cell=phih 
+          phih_cell=phih
           !if (add_photon_losses) phih_cell=phih_cell + & 
           !     photon_loss(1)/(vol*yh_av(0)*ndens_p)
           ! GM/110225: New approach to lost photons, taking into
@@ -1759,7 +1821,8 @@ contains
              call photoion(phi,0.0d0,coldensh_cell,vol,0)
              phih_cell=phih_cell + phi%h/(yh_av(0)*ndens_p)
           endif
-       endif
+
+       endif     ! local if/else
 
        ! Calculate the new and mean ionization states
        call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih_cell)
