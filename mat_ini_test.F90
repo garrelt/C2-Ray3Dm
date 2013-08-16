@@ -14,7 +14,7 @@ module material
   use cgsconstants, only: m_p, c
   use cgsphotoconstants, only: sigh
   use astroconstants, only: M_solar, Mpc
-  use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h, H0 
+  use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h, H0
   use nbody, only: nbody_type, NumZred, Zred_array
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping, clumping_factor,isothermal
@@ -34,8 +34,11 @@ module material
   real(kind=dp) :: temper_val
   real(kind=si),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
+#ifdef ALLFRAC
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
-  !real(kind=dp),dimension(:,:,:),allocatable :: xh
+#else
+  real(kind=dp),dimension(:,:,:),allocatable :: xh
+#endif
   ! Clumping data
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
@@ -54,6 +57,7 @@ module material
   !real(kind=dp),parameter :: C_LLS = 1.9
   !real(kind=dp),parameter :: z_x = 3.7
   !real(kind=dp),parameter,public :: y_LLS = 5.1
+  !real(kind=dp),parameter :: beta=1.28 ! not clear what to use here.
   ! b) Model Songaila & Cowie (2010)
   real(kind=dp),parameter :: C_LLS = 2.84
   real(kind=dp),parameter :: z_x = 3.5
@@ -167,11 +171,19 @@ contains
        endif
        
        ! Allocate ionization fraction array
+#ifdef ALLFRAC
        allocate(xh(mesh(1),mesh(2),mesh(3),0:1))
+#else
+       allocate(xh(mesh(1),mesh(2),mesh(3)))
+#endif
        ! Assign ionization fractions (completely neutral)
        ! In case of a restart this will be overwritten in xfrac_ini
+#ifdef ALLFRAC
        xh(:,:,:,0)=1.0
        xh(:,:,:,1)=0.0
+#else
+       xh(:,:,:)=1e-5
+#endif
 
     endif
 
@@ -270,9 +282,12 @@ contains
        else
           read(20) xh1_real
           ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
+#ifdef ALLFRAC
           xh(:,:,:,1)=xh1_real(:,:,:)
-          !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
-          xh(:,:,:,0)=1.0-xh(:,:,:,1)
+          xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
+#else
+          xh(:,:,:)=xh1_real(:,:,:)
+#endif
        endif
 
        ! close file
@@ -282,8 +297,13 @@ contains
 
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
+#ifdef ALLFRAC
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3)*2,MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,mympierror)
+#else
+    call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+         MPI_COMM_NEW,mympierror)
+#endif
 #endif
     
   end subroutine xfrac_ini
@@ -317,7 +337,7 @@ contains
           
           write(unit=logf,fmt="(2A)") "Reading temperature from ", &
                trim(temper_file)
-          ! Open ionization fractions file
+          ! Open temperature file
           open(unit=20,file=temper_file,form="unformatted",status="old")
           
           ! Read in data
@@ -335,7 +355,7 @@ contains
        
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*2,MPI_REAL,0,&
+       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
             MPI_COMM_NEW,mympierror)
 #endif
     endif
@@ -446,7 +466,8 @@ contains
 
   end subroutine clumping_init
 
-  ! ===========================================================================                        
+  ! ===========================================================================
+
   subroutine LLS_init ()
     
 #ifdef IFORT
