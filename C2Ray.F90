@@ -37,6 +37,7 @@ Program C2Ray
   use precision, only: dp
   use clocks, only: setup_clocks, update_clocks, report_clocks, &
        timestamp_wallclock
+  use report_memory_module, only: report_memory
   use file_admin, only: stdinput, logf, timefile, file_input, &
        flag_for_file_input
   use c2ray_parameters, only: cosmological, isothermal, type_of_clumping, &
@@ -286,11 +287,14 @@ Program C2Ray
 
      ! Loop until end time is reached
      do
+        ! Report memory usage
+        if (rank == 0) call report_memory(logf)
+
         ! Make sure you produce output at the correct time
         actual_dt=min(next_output_time-sim_time,dt)
         
         ! Report time and time step
-        if (rank == 0) write(logf,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+        if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
              sim_time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
