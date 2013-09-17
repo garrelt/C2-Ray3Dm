@@ -307,7 +307,7 @@ Program C2Ray
         actual_dt=min(next_output_time-sim_time,dt)
 
         ! Report time and time step
-        if (rank == 0) write(logf,"(A,2(1pe10.3,x),A)") "Time, dt:", &
+        if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
              sim_time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
