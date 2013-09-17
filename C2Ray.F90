@@ -40,7 +40,7 @@ Program C2Ray
   use report_memory_module, only: report_memory
   use file_admin, only: stdinput, logf, timefile, file_input, &
        flag_for_file_input
-  use c2ray_parameters, only: cosmological, isothermal, type_of_clumping, &
+  use c2ray_parameters, only: cosmological, type_of_clumping, &
        use_LLS, type_of_LLS,stop_on_photon_violation
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
@@ -55,6 +55,7 @@ Program C2Ray
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve_ini,evolve3D
+  use c2ray_parameters, only: isothermal ! NB: in some versions set in material
 
 #ifdef XLF
   ! Place for xlf specific statements
@@ -123,13 +124,12 @@ Program C2Ray
   ! Initialize grid
   call grid_ini ()
 
-#ifdef MPILOG
-  write(logf,*) "Before rad_ini"
-#endif
-
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after grid_ini: ",timestamp_wallclock ()
 
+#ifdef MPILOG
+  write(logf,*) "Before rad_ini"
+#endif
   ! Initialize photo-ionization calculation
   call rad_ini ( )
 
@@ -174,6 +174,8 @@ Program C2Ray
   sim_time=0.0
 
   ! Initialize cosmology
+  ! (always call bacause it initializes some of the things even if 
+  ! not doing cosmo. 
   call cosmology_init(zred_array(nz0),sim_time)
 
   if (rank == 0) &
@@ -226,7 +228,7 @@ Program C2Ray
      call xfrac_ini(zred_interm)
      if (.not.isothermal) call temper_ini(zred_interm)
   end if
-  
+
   ! Loop over redshifts
   do nz=nz0,NumZred-1
 
@@ -236,8 +238,8 @@ Program C2Ray
 
      zred=zred_array(nz)
      if (rank == 0) write(logf,*) "Doing redshift: ",zred," to ", &
-          zred_array(nz+1)
-     
+          zred_array(nz+1),'of total', NumZred
+
      ! Initialize time parameters
      call set_timesteps(zred,zred_array(nz+1), &
           end_time,dt,output_time)
@@ -245,7 +247,7 @@ Program C2Ray
           "This is time ",sim_time/YEAR," to ",end_time/YEAR
      if (rank == 0 .and. nbody_type == "LG") &
           write(logf,*) "This is snapshot ", snap(nz)
-         
+
      ! Initialize source position
 #ifdef MPILOG     
      write(logf,*) 'Calling source_properties'
@@ -285,6 +287,17 @@ Program C2Ray
      ! Reset restart flag now that everything has been dealt with
      restart=0
 
+#ifdef MPILOG     
+     write(logf,*) 'First output'
+#endif 
+     ! If start of simulation output
+     if (NumSrc > 0 .and. sim_time == 0.0) call output(time2zred(sim_time),sim_time,dt, &
+          photcons_flag)
+
+#ifdef MPILOG     
+     write(logf,*) 'Start of loop'
+#endif 
+     if (rank == 0) flush(logf)
      ! Loop until end time is reached
      do
         ! Report memory usage
@@ -292,7 +305,7 @@ Program C2Ray
 
         ! Make sure you produce output at the correct time
         actual_dt=min(next_output_time-sim_time,dt)
-        
+
         ! Report time and time step
         if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
              sim_time/YEAR,actual_dt/YEAR," (years)"
@@ -302,6 +315,7 @@ Program C2Ray
            call redshift_evol(sim_time+0.5*actual_dt)
            call cosmo_evol()
         endif
+
         ! Do not call in case of position dependent clumping,
         ! the clumping grid should have been initialized above
         ! Same for LLS
