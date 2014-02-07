@@ -247,6 +247,9 @@ contains
 
     real(kind=dp) :: totalsrc,photcons,total_photon_loss,total_LLS_loss
 
+    ! By this time photon_loss has been renormalized to photon_loss per cell
+    ! in the simulation. Multiply by the number of cells to restore the
+    ! total photon loss.
     total_photon_loss=sum(photon_loss)*dt* &
          real(mesh(1))*real(mesh(2))*real(mesh(3))
     total_LLS_loss = LLS_loss*dt
