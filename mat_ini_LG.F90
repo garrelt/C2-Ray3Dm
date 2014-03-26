@@ -201,13 +201,15 @@ contains
 #else
        allocate(xh(mesh(1),mesh(2),mesh(3)))
 #endif
-       ! Assign ionization fractions (completely neutral)
+       ! Assign ionization fractions. For z = 40 - 20 RECFAST gives 
+       ! an average ionization fraction of about 2e-4. We use this
+       ! here.
        ! In case of a restart this will be overwritten in xfrac_ini
 #ifdef ALLFRAC
-       xh(:,:,:,0)=1.0
-       xh(:,:,:,1)=0.0
+       xh(:,:,:,1)=2e-4
+       xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
 #else
-       xh(:,:,:)=1e-5
+       xh(:,:,:)=2e-4
 #endif
 
        ! Initialize LLS parametets
@@ -299,6 +301,7 @@ contains
     !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
          MPI_COMM_NEW,mympierror)
+    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
 #endif
        
     ! The original values in terms of the mean density
@@ -424,6 +427,7 @@ contains
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,mympierror)
 #endif
+    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
 #endif
     
   end subroutine xfrac_ini
