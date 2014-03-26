@@ -210,6 +210,11 @@ Program C2Ray
 #endif
   endif
 
+  ! MPI_Barrier
+#ifdef MPI
+  call MPI_BARRIER(MPI_COMM_NEW,mympierror)
+#endif  
+
   ! If a restart, read ionization fractions from file
   if (restart == 1) then
      call xfrac_ini(zred_array(nz0))
