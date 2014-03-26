@@ -42,8 +42,9 @@ module evolve
   use photonstatistics, only: state_before, calculate_photon_statistics, &
        photon_loss, LLS_loss, report_photonstatistics, state_after, total_rates, &
        total_ionizations, update_grandtotal_photonstatistics
-  use c2ray_parameters, only: convergence_fraction
+  use c2ray_parameters, only: convergence_fraction, S_star_nominal
   use c2ray_parameters, only: subboxsize, max_subbox
+  use c2ray_parameters, only: isothermal
   use radiation, only: S_star
 
   implicit none
@@ -64,11 +65,14 @@ module evolve
   ! fraction
   ! Sum of intermediate ionization fraction xh_intermed(*,1)
   ! (used for convergence checking)
-  real(kind=dp) :: sum_xh_int
+  real(kind=dp) :: sum_xh1_int
+  real(kind=dp) :: sum_xh0_int
   ! Previous value of this sum
-  real(kind=dp) :: prev_sum_xh_int
+  real(kind=dp) :: prev_sum_xh1_int
+  real(kind=dp) :: prev_sum_xh0_int
   ! Relative change in this sum (between iteration steps)
-  real(kind=dp) :: rel_change_sum_xh
+  real(kind=dp) :: rel_change_sum_xh1
+  real(kind=dp) :: rel_change_sum_xh0
 
   ! Grid variables
 
@@ -200,8 +204,10 @@ contains
 #endif       
        niter=0 ! iteration starts at zero
        conv_flag=mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
-       prev_sum_xh_int=2.0*mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
-       rel_change_sum_xh=1.0 ! initialize non-convergence 
+       prev_sum_xh1_int=2.0*mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
+       prev_sum_xh0_int=2.0*mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
+       rel_change_sum_xh1=1.0 ! initialize non-convergence 
+       rel_change_sum_xh0=1.0 ! initialize non-convergence 
     else
        ! Reload xh_av,xh_intermed,photon_loss,niter
        call start_from_dump(restart,niter)
@@ -226,18 +232,27 @@ contains
        ! We need to give them another iteration to allow them to
        ! work together.
 #ifdef ALLFRAC       
-       sum_xh_int=sum(xh_intermed(:,:,:,1))
+       sum_xh1_int=sum(xh_intermed(:,:,:,1))
+       sum_xh0_int=sum(xh_intermed(:,:,:,0))
 #else
-       sum_xh_int=sum(xh_intermed(:,:,:))
+       sum_xh1_int=sum(xh_intermed(:,:,:))
+       sum_xh0_int=1.0d0 - sum_xh1_int
 #endif
-       if (sum_xh_int > 0.0) then
-          rel_change_sum_xh=abs(sum_xh_int-prev_sum_xh_int)/sum_xh_int
+       if (sum_xh1_int > 0.0) then
+          rel_change_sum_xh1=abs(sum_xh1_int-prev_sum_xh1_int)/sum_xh1_int
        else
-          rel_change_sum_xh=1.0
+          rel_change_sum_xh1=1.0
+       endif
+
+       if (sum_xh0_int > 0.0) then
+          rel_change_sum_xh0=abs(sum_xh0_int-prev_sum_xh0_int)/sum_xh0_int
+       else
+          rel_change_sum_xh0=1.0
        endif
 
        if (conv_flag < conv_criterion .or. & 
-            rel_change_sum_xh < convergence_fraction) then
+            ( rel_change_sum_xh1 < convergence_fraction .and. &
+            rel_change_sum_xh0 < convergence_fraction )) then
 #ifdef ALLFRAC
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
 #else
@@ -249,8 +264,8 @@ contains
           if (rank == 0) then
              write(logf,*) "Multiple sources convergence reached"
              write(logf,*) "Test 1 values: ",conv_flag, conv_criterion
-             write(logf,*) "Test 2 values: ",rel_change_sum_xh, &
-                  convergence_fraction
+             write(logf,*) "Test 2 values: ",rel_change_sum_xh1, &
+                  rel_change_sum_xh0, convergence_fraction
           endif
           exit
        else
@@ -262,7 +277,8 @@ contains
        endif
        
        ! Save current value of mean ionization fraction
-       prev_sum_xh_int=sum_xh_int
+       prev_sum_xh1_int=sum_xh1_int
+       prev_sum_xh0_int=sum_xh0_int
 
        ! Iteration loop counter
        niter=niter+1
@@ -332,7 +348,7 @@ contains
     open(unit=iterdump,file=trim(adjustl(dump_dir))//iterfile,form="unformatted", &
          status="unknown")
 
-    write(iterdump) niter,prev_sum_xh_int
+    write(iterdump) niter,prev_sum_xh1_int,prev_sum_xh0_int
     write(iterdump) photon_loss_all
     write(iterdump) phih_grid
     write(iterdump) xh_av
@@ -387,7 +403,7 @@ contains
           open(unit=iterdump,file=trim(adjustl(dump_dir))//iterfile, &
                form="unformatted",status="old")
 
-          read(iterdump) niter,prev_sum_xh_int
+          read(iterdump) niter,prev_sum_xh1_int,prev_sum_xh0_int
           read(iterdump) photon_loss_all
           read(iterdump) phih_grid
           read(iterdump) xh_av
