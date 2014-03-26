@@ -292,6 +292,7 @@ contains
     !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
     call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
          MPI_COMM_NEW,mympierror)
+    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
 #endif
        
     ! The original values in terms of the mean density
@@ -416,6 +417,7 @@ contains
     call MPI_BCAST(xh,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
          MPI_COMM_NEW,mympierror)
 #endif
+    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
 #endif
     
   end subroutine xfrac_ini
