@@ -78,6 +78,8 @@ module evolve
 
   !> H Photo-ionization rate on the entire grid
   real(kind=dp),dimension(:,:,:),allocatable :: phih_grid
+  !> H Photo-ionization heating rate on the entire grid
+  real(kind=dp),dimension(:,:,:),allocatable :: phiheat
 #ifdef ALLFRAC
   !> Time-averaged H ionization fraction
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh_av
@@ -122,6 +124,10 @@ contains
     
     allocate(phih_grid(mesh(1),mesh(2),mesh(3)))
     phih_grid=0.0 ! Needs value for initial output
+    if (.not.isothermal) then
+       allocate(phiheat(mesh(1),mesh(2),mesh(3)))
+       phiheat=0.0 ! Needs value for initial output
+    endif
 #ifdef ALLFRAC
     allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
     allocate(xh_intermed(mesh(1),mesh(2),mesh(3),0:1))
@@ -480,7 +486,7 @@ contains
     if (rank == 0) write(logf,*) 'Doing all sources '
     ! reset global rates to zero for this iteration
     phih_grid(:,:,:)=0.0
-    !phiheat(:,:,:)=0.0
+    if (.not.isothermal) phiheat(:,:,:)=0.0
     ! reset photon loss counters
     photon_loss(:)=0.0
     LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
@@ -530,10 +536,12 @@ contains
     ! Overwrite the processor local values with the accumulated value
     phih_grid(:,:,:)=buffer(:,:,:)
 
-    !call MPI_ALLREDUCE(phiheat, buffer, mesh(1)*mesh(2)*mesh(3), &
-    !     MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
-    ! Overwrite the processor local values with the accumulated value
-    !phiheat(:,:,:)=buffer(:,:,:)    
+    if (.not.isothermal) then
+       call MPI_ALLREDUCE(phiheat, buffer, mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
+       ! Overwrite the processor local values with the accumulated value
+       phiheat(:,:,:)=buffer(:,:,:)
+    endif
 
     ! accumulate (sum) the MPI distributed sum of number of boxes
     call MPI_ALLREDUCE(sum_nbox, sum_nbox_all, 1, &
