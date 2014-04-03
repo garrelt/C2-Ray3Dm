@@ -23,7 +23,7 @@ module material
   use my_mpi
   use grid, only: dr,vol,sim_volume
   use cgsconstants, only: m_p, c
-  use cgsphotoconstants, only: sigma_HI_at_ion_freq
+  use cgsphotoconstants, sigma_HI_at_ion_freq => sigh
   use astroconstants, only: M_solar, Mpc
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h, H0
   use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array, dir_clump, dir_LLS
@@ -34,6 +34,7 @@ module material
   use abundances, only: mu
   use c2ray_parameters, only: type_of_clumping,clumping_factor,isothermal
   use c2ray_parameters, only: type_of_LLS
+  use c2ray_parameters, only: cosmological
 
   implicit none
 
@@ -74,7 +75,7 @@ module material
   public :: set_clumping, clumping_point
   ! LLS data
   real(kind=dp),parameter :: opdepth_LL = 2.0 !< typical optical depth of LLS
-  real(kind=dp),parameter :: N_1 = opdepth_LL / sigh !< typical column density of LLS
+  real(kind=dp),parameter :: N_1 = opdepth_LL / sigma_HI_at_ion_freq !< typical column density of LLS
   real(kind=dp),public :: n_LLS
   real(kind=dp),public :: coldensh_LLS = 0.0_dp ! Column density of LLSs per cell
   real(kind=dp),public :: mfp_LLS_pMpc
@@ -194,9 +195,9 @@ contains
        ! isothermal
        if (.not.isothermal) then
           allocate(temperature_grid(mesh(1),mesh(2),mesh(3)))
-          temperature_grid%current(:,:,:)=temper_val
-          temperature_grid%average(:,:,:)=temper_val
-          temperature_grid%intermed(:,:,:)=temper_val
+          temperature_grid(:,:,:)%current=temper_val
+          temperature_grid(:,:,:)%average=temper_val
+          temperature_grid(:,:,:)%intermed=temper_val
        endif
        ! Report on temperature situation
        if (rank == 0) then
@@ -483,8 +484,8 @@ contains
 
           ! Fill the other parts of the temperature grid array
           ! See evolve for their use
-          temperature_grid%average(:,:,:)=temperature_grid%current(:,:,:)
-          temperature_grid%intermed(:,:,:)=temperature_grid%current(:,:,:)
+          temperature_grid(:,:,:)%average=temperature_grid(:,:,:)%current
+          temperature_grid(:,:,:)%intermed=temperature_grid(:,:,:)%current
           
           ! close file
           close(20)
@@ -514,9 +515,9 @@ contains
        av_temper=dble(temper_val)
        temper_inter=dble(temper_val)
     else
-       temper_inter = dble(temperature_grid%current(i,j,k))
-       av_temper = dble(temperature_grid%average(i,j,k))   
-       temper = dble(temperature_grid%intermed(i,j,k,))            
+       temper_inter = dble(temperature_grid(i,j,k)%current)
+       av_temper = dble(temperature_grid(i,j,k)%average)   
+       temper = dble(temperature_grid(i,j,k)%intermed)            
     endif
 
   end subroutine get_temperature_point
@@ -532,8 +533,8 @@ contains
     real(kind=dp),intent(in) :: temper_inter,av_temper
     
     if (.not.isothermal) then
-       temperature_grid%intermed(i,j,k)=real(temper_inter)
-       temperature_grid%average(i,j,k)=real(av_temper)
+       temperature_grid(i,j,k)%intermed=real(temper_inter)
+       temperature_grid(i,j,k)%average=real(av_temper)
     endif
     
   end subroutine set_temperature_point
@@ -548,7 +549,7 @@ contains
     !integer,intent(in) :: i,j,k
     !real(kind=dp),intent(in) :: temper
     
-    if (.not.isothermal) temperature_grid%current(:,:,:)=temperature_grid%intermed(:,:,:)
+    if (.not.isothermal) temperature_grid(:,:,:)%current=temperature_grid(:,:,:)%intermed
     
   end subroutine set_final_temperature_point  
 
@@ -806,7 +807,7 @@ contains
 
     if (rank == 0) then
        write(logf,*) "Average optical depth per cell due to LLSs: ", &
-            coldensh_LLS*sigh,"(type ", type_of_LLS,")"
+            coldensh_LLS*sigma_HI_at_ion_freq,"(type ", type_of_LLS,")"
        write(logf,*) "Mean free path (pMpc): ", mfp_LLS_pMpc
     endif
     
