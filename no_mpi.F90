@@ -64,9 +64,10 @@ contains
   subroutine mpi_setup ( )
 
     character(len=512) :: filename        ! name of the log file
-    character(len=4) :: number
     integer :: ierror
+#ifdef MY_OPENMP
     integer :: tn
+#endif
     character(len=100) :: hostname
 
     call mpi_basic ()
