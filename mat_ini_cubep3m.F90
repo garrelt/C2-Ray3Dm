@@ -23,7 +23,7 @@ module material
   use my_mpi
   use grid, only: dr,vol,sim_volume
   use cgsconstants, only: m_p, c
-  use cgsphotoconstants, only: sigh
+  use cgsphotoconstants, only: sigma_HI_at_ion_freq
   use astroconstants, only: M_solar, Mpc
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h, H0
   use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array, dir_clump, dir_LLS
@@ -37,6 +37,18 @@ module material
 
   implicit none
 
+   type ionstates    
+     real(kind=dp) :: h(0:1)          !< H  ionization fractions        
+     real(kind=dp) :: h_av(0:1)       !< average H  ionization fractions        
+     real(kind=dp) :: h_old(0:1)      !< H  ionization fractions from last time step
+  end type ionstates
+
+  type temperature_states
+     real(kind=si) :: current
+     real(kind=si) :: average
+     real(kind=si) :: intermed
+  end type temperature_states
+
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
@@ -47,7 +59,7 @@ module material
   ! temper - temperature (K) of a cell
   real(kind=dp) :: temper
   real(kind=dp) :: temper_val
-  real(kind=si),dimension(:,:,:),allocatable :: temperature_grid
+  type(temperature_states),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
 #ifdef ALLFRAC
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
@@ -182,7 +194,9 @@ contains
        ! isothermal
        if (.not.isothermal) then
           allocate(temperature_grid(mesh(1),mesh(2),mesh(3)))
-          temperature_grid(:,:,:)=temper_val
+          temperature_grid%current(:,:,:)=temper_val
+          temperature_grid%average(:,:,:)=temper_val
+          temperature_grid%intermed(:,:,:)=temper_val
        endif
        ! Report on temperature situation
        if (rank == 0) then
@@ -300,13 +314,19 @@ contains
     ! M_particle and M_grid should be in g
     select case(density_unit)
     case ("grid")
-       convert=density_convert_grid*(1.0+zred_now)**3 
+       convert=density_convert_grid
     case ("particle")
-       convert=density_convert_particle*(1.0+zred_now)**3 
+       convert=density_convert_particle
     case ("M0Mpc3")
-       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)*(1.0+zred_now)**3 
+       convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)
     end select
 
+    ! Check separately for cosmological. We need to set comoving values here
+    ! to initialize correctly.
+    if (cosmological) then
+       convert=convert*(1.0+zred_now)**3
+    endif
+ 
     ! Assign density to the grid
     do k=1,mesh(3)
        do j=1,mesh(2)
@@ -334,11 +354,11 @@ contains
        write(logf,*) "Raw density diagnostics (cm^-3)"
        write(logf,*) "minimum density: ",minval(ndens)
        write(logf,*) "maximum density: ",maxval(ndens)
-       write(logf,"(A,1pe10.3,A)") "Average density = ",avg_dens," cm^-3"
-       write(logf,"(A,1pe10.3,A)") "Theoretical value = ", &
+       write(logf,"(A,es10.3,A)") "Average density = ",avg_dens," cm^-3"
+       write(logf,"(A,es10.3,A)") "Theoretical value = ", &
             rho_crit_0*Omega_B/(mu*m_p)*(1.0+zred_now)**3, &
             " cm^-3" 
-       write(logf,"(A,1pe10.3,A)") "(at z=0 : ", &
+       write(logf,"(A,es10.3,A)") "(at z=0 : ", &
             rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
     endif
@@ -445,11 +465,11 @@ contains
        if (rank == 0) then
           write(zred_str,"(f6.3)") zred_now
           temper_file= trim(adjustl(results_dir))// &
-               "temper3d_"//trim(adjustl(zred_str))//".bin"
+               "Temper3D_"//trim(adjustl(zred_str))//".bin"
           
           write(unit=logf,fmt="(2A)") "Reading temperature from ", &
                trim(temper_file)
-          ! Open ionization fractions file
+          ! Open temperature file
           open(unit=20,file=temper_file,form="unformatted",status="old")
           
           ! Read in data
@@ -458,8 +478,13 @@ contains
              write(logf,*) "WARNING: file with temperatures unusable, as"
              write(logf,*) "mesh found in file: ",m1,m2,m3
           else
-             read(20) temperature_grid
+             read(20) temperature_grid%current
           endif
+
+          ! Fill the other parts of the temperature grid array
+          ! See evolve for their use
+          temperature_grid%average(:,:,:)=temperature_grid%current(:,:,:)
+          temperature_grid%intermed(:,:,:)=temperature_grid%current(:,:,:)
           
           ! close file
           close(20)
@@ -467,7 +492,7 @@ contains
        
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*2,MPI_REAL,0,&
+       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*3,MPI_REAL,0,&
             MPI_COMM_NEW,mympierror)
 #endif
     endif
@@ -476,33 +501,56 @@ contains
 
   ! ===========================================================================
 
-  subroutine get_temperature_point (i,j,k)
+  subroutine get_temperature_point (i,j,k,temper_inter,av_temper,temper)
 
     ! Puts value of temperature (from grid or initial condition value)
     ! in the module variable temper
 
     integer,intent(in) :: i,j,k
+    real(kind=dp),intent(out) :: temper,av_temper,temper_inter
 
     if (isothermal) then
-       temper = temper_val
+       temper = dble(temper_val)
+       av_temper=dble(temper_val)
+       temper_inter=dble(temper_val)
     else
-       temper = temperature_grid(i,j,k)
+       temper_inter = dble(temperature_grid%current(i,j,k))
+       av_temper = dble(temperature_grid%average(i,j,k))   
+       temper = dble(temperature_grid%intermed(i,j,k,))            
     endif
 
   end subroutine get_temperature_point
 
   ! ===========================================================================
 
-  subroutine set_temperature_point (i,j,k)
+  subroutine set_temperature_point (i,j,k,temper_inter,av_temper)
     
     ! Puts value of module variable temper back in temperature grid
     ! (if running not isothermal)
 
     integer,intent(in) :: i,j,k
-
-    if (.not.isothermal) temperature_grid(i,j,k)=temper
+    real(kind=dp),intent(in) :: temper_inter,av_temper
+    
+    if (.not.isothermal) then
+       temperature_grid%intermed(i,j,k)=real(temper_inter)
+       temperature_grid%average(i,j,k)=real(av_temper)
+    endif
     
   end subroutine set_temperature_point
+
+  ! ===========================================================================
+
+  subroutine set_final_temperature_point ()
+    
+    ! Puts value of module variable temper back in temperature grid
+    ! (if running not isothermal)
+
+    !integer,intent(in) :: i,j,k
+    !real(kind=dp),intent(in) :: temper
+    
+    if (.not.isothermal) temperature_grid%current(:,:,:)=temperature_grid%intermed(:,:,:)
+    
+  end subroutine set_final_temperature_point  
 
   ! ===========================================================================
 
