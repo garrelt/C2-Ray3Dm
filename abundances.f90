@@ -20,10 +20,13 @@ module abundances
   private
 
   !> Helium abundance (by number) 
-  real(kind=dp),public,parameter :: abu_he=0.074
+  real(kind=dp),public,parameter :: abu_he=0.074 !0.08!1
   !real(kind=dp),parameter :: abu_he=0.08 ! for EoR KP sims
   !> Carbon abundance (by number) 
   real(kind=dp),public,parameter :: abu_c=7.1e-7
+
+  ! Hydrogen abundance (by number)
+  real(kind=dp),public,parameter :: abu_h=1.0-abu_he
 
   !> Mean molecular weight 
   real(kind=dp),public,parameter :: mu=(1.0-abu_he)+4.0*abu_he
