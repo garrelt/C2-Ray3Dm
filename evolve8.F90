@@ -33,8 +33,9 @@ module evolve
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh
-  use material, only: temper
+  !use material, only: temper
   use material, only: get_temperature_point, set_temperature_point
+  use material, only: temperature_states_dbl
   !use material, only: set_final_temperature_point, isothermal
   use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
@@ -332,7 +333,7 @@ contains
 
   subroutine write_iteration_dump (niter)
 
-    use material, only:temperature_grid
+    use material, only: temperature_grid
 
     integer,intent(in) :: niter  ! iteration counter
 
@@ -1508,6 +1509,7 @@ contains
     real(kind=dp) :: xs,ys,zs
     real(kind=dp) :: coldensh_in
     real(kind=dp) :: ndens_p
+    type(temperature_states_dbl) :: temperature_point
     real(kind=dp),dimension(0:1) :: yh,yh_av,yh0
     real(kind=dp) :: convergence
     
@@ -1539,7 +1541,7 @@ contains
 #endif       
        ! Initialize local density and temperature
        ndens_p=ndens(pos(1),pos(2),pos(3))
-       call get_temperature_point(pos(1),pos(2),pos(3))
+       call get_temperature_point(pos(1),pos(2),pos(3),temperature_point)
 
        ! Find the column density at the entrance point of the cell (short
        ! characteristics)
@@ -1596,7 +1598,8 @@ contains
        if (niter == -1 .and. coldensh_in < max_coldensh) then
           local_chemistry=.true.
 
-          call do_chemistry (dt, ndens_p, yh, yh_av, yh0, 0.0_dp, &
+          call do_chemistry (dt, ndens_p, temperature_point%average, &
+               yh, yh_av, yh0, 0.0_dp, &
                coldensh_in, path, vol_ph, pos, ns, local=.true.)
 
           ! Copy ion fractions tp global arrays.
@@ -1695,8 +1698,8 @@ contains
     real(kind=dp) :: de ! electron density
     real(kind=dp),dimension(0:1) :: yh,yh_av,yh0 ! ionization fractions
     real(kind=dp) :: yh_av0
-    real(kind=dp) :: avg_temper ! temperature
     real(kind=dp) :: ndens_p ! local number density
+    type(temperature_states_dbl) :: temperature_point
 
     real(kind=dp) :: phih ! local H photo-ionization rate (only non-zero when local=.false.!)
     real(kind=dp) :: phih_total ! local total photo-ionization rate (including
@@ -1722,13 +1725,13 @@ contains
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
-    call get_temperature_point(pos(1),pos(2),pos(3))
-    avg_temper=temper
+    call get_temperature_point(pos(1),pos(2),pos(3), temperature_point)
 
     ! Use the collected photo-ionization rates
     phih=phih_grid(pos(1),pos(2),pos(3))
 
-    call do_chemistry (dt, ndens_p, yh, yh_av, yh0, phih, &
+    call do_chemistry (dt, ndens_p, temperature_point%average, &
+         yh, yh_av, yh0, phih, &
          0.0_dp, 0.0_dp, 0.0_dp, pos, 0 , local=.false.)
 
     ! Test for global convergence using the time-averaged neutral fraction.
@@ -1759,7 +1762,7 @@ contains
 
   ! ===========================================================================
 
-  subroutine do_chemistry (dt, ndens_p, yh, yh_av, yh0, &
+  subroutine do_chemistry (dt, ndens_p, temperature_average, yh, yh_av, yh0, &
        phih, coldensh_in, path, vol_ph, pos, ns, local)
 
     use c2ray_parameters, only: convergence1,convergence2,type_of_clumping, & 
@@ -1771,6 +1774,7 @@ contains
 
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),intent(in) :: ndens_p
+    real(kind=dp),intent(in) :: temperature_average
     real(kind=dp),dimension(0:1),intent(out) :: yh
     real(kind=dp),dimension(0:1),intent(inout) :: yh_av
     real(kind=dp),dimension(0:1),intent(in) :: yh0
@@ -1782,7 +1786,6 @@ contains
     integer,intent(in)      :: ns !< source number 
     logical,intent(in) :: local !< true if doing a non-global calculation.
 
-    real(kind=dp) :: avg_temper
     real(kind=dp) :: phih_cell
     real(kind=dp) :: yh_av0
     real(kind=dp) :: de
@@ -1794,9 +1797,6 @@ contains
 
     ! Initialize yh to initial value
     yh(:)=yh0(:)
-
-    ! Initialize local temperature
-    avg_temper=temper
 
     ! Initialize local clumping (if type of clumping is appropriate)
     if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
@@ -1849,7 +1849,7 @@ contains
        endif     ! local if/else
 
        ! Calculate the new and mean ionization states
-       call doric(dt,avg_temper,de,ndens_p,yh,yh_av,phih_cell)
+       call doric(dt,temperature_average,de,ndens_p,yh,yh_av,phih_cell)
 
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence

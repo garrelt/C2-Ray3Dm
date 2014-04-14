@@ -50,6 +50,12 @@ module material
      real(kind=si) :: intermed
   end type temperature_states
 
+  type temperature_states_dbl
+     real(kind=dp) :: current
+     real(kind=dp) :: average
+     real(kind=dp) :: intermed
+  end type temperature_states_dbl
+
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
@@ -504,39 +510,39 @@ contains
 
   ! ===========================================================================
 
-  subroutine get_temperature_point (i,j,k,temper_inter,av_temper,temper)
+  subroutine get_temperature_point (i,j,k,temperature_point)
 
     ! Puts value of temperature (from grid or initial condition value)
     ! in the module variable temper
 
     integer,intent(in) :: i,j,k
-    real(kind=dp),intent(out) :: temper,av_temper,temper_inter
+    type(temperature_states_dbl),intent(out) :: temperature_point
 
     if (isothermal) then
-       temper = dble(temper_val)
-       av_temper=dble(temper_val)
-       temper_inter=dble(temper_val)
+       temperature_point%current = dble(temper_val)
+       temperature_point%average = dble(temper_val)
+       temperature_point%intermed =dble(temper_val)
     else
-       temper_inter = dble(temperature_grid(i,j,k)%current)
-       av_temper = dble(temperature_grid(i,j,k)%average)   
-       temper = dble(temperature_grid(i,j,k)%intermed)            
+       temperature_point%current = dble(temperature_grid(i,j,k)%current)
+       temperature_point%average = dble(temperature_grid(i,j,k)%average)   
+       temperature_point%intermed = dble(temperature_grid(i,j,k)%intermed)
     endif
 
   end subroutine get_temperature_point
 
   ! ===========================================================================
 
-  subroutine set_temperature_point (i,j,k,temper_inter,av_temper)
+  subroutine set_temperature_point (i,j,k,temperature_point)
     
     ! Puts value of module variable temper back in temperature grid
     ! (if running not isothermal)
 
     integer,intent(in) :: i,j,k
-    real(kind=dp),intent(in) :: temper_inter,av_temper
+    type(temperature_states_dbl),intent(in) :: temperature_point
     
     if (.not.isothermal) then
-       temperature_grid(i,j,k)%intermed=real(temper_inter)
-       temperature_grid(i,j,k)%average=real(av_temper)
+       temperature_grid(i,j,k)%intermed=real(temperature_point%intermed)
+       temperature_grid(i,j,k)%average=real(temperature_point%average)
     endif
     
   end subroutine set_temperature_point
