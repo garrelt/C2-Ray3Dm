@@ -1,3 +1,14 @@
+!>
+!! \brief This module contains data and routines for handling the material properties on the grid (3D)
+!!
+!! These properties are; density, temperature, clumping, ionization fractions
+!! 
+!! \b Author: Garrelt Mellema
+!!
+!! \b Date: 15-Apr-2014
+!!
+!! \b Version: test simulations.
+
 module material
 
   ! This module contains the grid data and routines for initializing them.
@@ -12,15 +23,33 @@ module material
   use my_mpi
   use grid, only: dr,vol,sim_volume
   use cgsconstants, only: m_p, c
-  use cgsphotoconstants, only: sigh
+  use cgsphotoconstants, sigma_HI_at_ion_freq => sigh
   use astroconstants, only: M_solar, Mpc
   use cosmology_parameters, only: Omega_B, Omega0, rho_crit_0, h, H0
   use nbody, only: nbody_type, NumZred, Zred_array
   use abundances, only: mu
-  use c2ray_parameters, only: type_of_clumping, clumping_factor,isothermal
+  use c2ray_parameters, only: type_of_clumping,clumping_factor,isothermal
   use c2ray_parameters, only: type_of_LLS
 
   implicit none
+
+   type ionstates    
+     real(kind=dp) :: h(0:1)          !< H  ionization fractions        
+     real(kind=dp) :: h_av(0:1)       !< average H  ionization fractions        
+     real(kind=dp) :: h_old(0:1)      !< H  ionization fractions from last time step
+  end type ionstates
+
+  type temperature_states
+     real(kind=si) :: current
+     real(kind=si) :: average
+     real(kind=si) :: intermed
+  end type temperature_states
+
+  type temperature_states_dbl
+     real(kind=dp) :: current
+     real(kind=dp) :: average
+     real(kind=dp) :: intermed
+  end type temperature_states_dbl
 
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
@@ -32,7 +61,7 @@ module material
   ! temper - temperature (K) of a cell
   real(kind=dp) :: temper
   real(kind=dp) :: temper_val
-  real(kind=si),dimension(:,:,:),allocatable :: temperature_grid
+  type(temperature_states),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
 #ifdef ALLFRAC
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh
@@ -47,7 +76,7 @@ module material
   public :: set_clumping, clumping_point
   ! LLS data
   real(kind=dp),parameter :: opdepth_LL = 2.0 !< typical optical depth of LLS
-  real(kind=dp),parameter :: N_1 = opdepth_LL / sigh !< typical column density of LLS
+  real(kind=dp),parameter :: N_1 = opdepth_LL / sigma_HI_at_ion_freq !< typical column density of LLS
   real(kind=dp),public :: n_LLS
   real(kind=dp),public :: coldensh_LLS = 0.0_dp ! Column density of LLSs per cell
   real(kind=dp),public :: mfp_LLS_pMpc
@@ -158,7 +187,9 @@ contains
        ! isothermal
        if (.not.isothermal) then
           allocate(temperature_grid(mesh(1),mesh(2),mesh(3)))
-          temperature_grid(:,:,:)=temper_val
+          temperature_grid(:,:,:)%current=temper_val
+          temperature_grid(:,:,:)%average=temper_val
+          temperature_grid(:,:,:)%intermed=temper_val
        endif
        ! Report on temperature situation
        if (rank == 0) then
@@ -333,7 +364,7 @@ contains
        if (rank == 0) then
           write(zred_str,"(f6.3)") zred_now
           temper_file= trim(adjustl(results_dir))// &
-               "temper3d_"//trim(adjustl(zred_str))//".bin"
+               "Temper3D_"//trim(adjustl(zred_str))//".bin"
           
           write(unit=logf,fmt="(2A)") "Reading temperature from ", &
                trim(temper_file)
@@ -346,16 +377,21 @@ contains
              write(logf,*) "WARNING: file with temperatures unusable, as"
              write(logf,*) "mesh found in file: ",m1,m2,m3
           else
-             read(20) temperature_grid
+             read(20) temperature_grid%current
           endif
           
+          ! Fill the other parts of the temperature grid array
+          ! See evolve for their use
+          temperature_grid(:,:,:)%average=temperature_grid(:,:,:)%current
+          temperature_grid(:,:,:)%intermed=temperature_grid(:,:,:)%current
+
           ! close file
           close(20)
        endif
        
 #ifdef MPI       
        ! Distribute the input parameters to the other nodes
-       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
+       call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*3,MPI_REAL,0,&
             MPI_COMM_NEW,mympierror)
 #endif
     endif
@@ -364,33 +400,56 @@ contains
 
   ! ===========================================================================
 
-  subroutine get_temperature_point (i,j,k)
+  subroutine get_temperature_point (i,j,k,temperature_point)
 
     ! Puts value of temperature (from grid or initial condition value)
     ! in the module variable temper
 
     integer,intent(in) :: i,j,k
+    type(temperature_states_dbl),intent(out) :: temperature_point
 
     if (isothermal) then
-       temper = temper_val
+       temperature_point%current = dble(temper_val)
+       temperature_point%average = dble(temper_val)
+       temperature_point%intermed =dble(temper_val)
     else
-       temper = temperature_grid(i,j,k)
+       temperature_point%current = dble(temperature_grid(i,j,k)%current)
+       temperature_point%average = dble(temperature_grid(i,j,k)%average)   
+       temperature_point%intermed = dble(temperature_grid(i,j,k)%intermed)
     endif
 
   end subroutine get_temperature_point
 
   ! ===========================================================================
 
-  subroutine set_temperature_point (i,j,k)
+  subroutine set_temperature_point (i,j,k,temperature_point)
     
     ! Puts value of module variable temper back in temperature grid
     ! (if running not isothermal)
 
     integer,intent(in) :: i,j,k
-
-    if (.not.isothermal) temperature_grid(i,j,k)=temper
+    type(temperature_states_dbl),intent(in) :: temperature_point
+    
+    if (.not.isothermal) then
+       temperature_grid(i,j,k)%intermed=real(temperature_point%intermed)
+       temperature_grid(i,j,k)%average=real(temperature_point%average)
+    endif
     
   end subroutine set_temperature_point
+
+  ! ===========================================================================
+
+  subroutine set_final_temperature_point ()
+    
+    ! Puts value of module variable temper back in temperature grid
+    ! (if running not isothermal)
+
+    !integer,intent(in) :: i,j,k
+    !real(kind=dp),intent(in) :: temper
+    
+    if (.not.isothermal) temperature_grid(:,:,:)%current=temperature_grid(:,:,:)%intermed
+    
+  end subroutine set_final_temperature_point  
 
   ! ===========================================================================
 
@@ -533,7 +592,7 @@ contains
 
     if (rank == 0) then
        write(logf,*) "Average optical depth per cell due to LLSs: ", &
-            coldensh_LLS*sigh,"(type ", type_of_LLS,")"
+            coldensh_LLS*sigma_HI_at_ion_freq,"(type ", type_of_LLS,")"
        write(logf,*) "Mean free path (pMpc): ", mfp_LLS_pMpc
     endif
     
