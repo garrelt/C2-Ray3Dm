@@ -143,14 +143,16 @@ contains
 
     use sizes, only: mesh
     use grid, only: x, vol
-    use material, only: xh, temper, ndens
+    use material, only: xh, ndens
+    use material, only: temper_val,temperature_grid, temperature_states
+    use material, only: temperature_states_dbl, get_temperature_point
     use evolve, only: phih_grid
     use sourceprops, only: srcpos, NormFlux, NumSrc
     use photonstatistics, only: do_photonstatistics, total_ion, totrec
     use photonstatistics, only: totcollisions, dh0, grtotal_ion, photon_loss
     use photonstatistics, only: LLS_loss, grtotal_src
     use radiation, only: teff,rstar,lstar,S_star
-
+    
     real(kind=dp),intent(in) :: zred_now,time,dt
     integer,intent(out) :: photcons_flag
 
@@ -160,6 +162,8 @@ contains
     real(kind=dp) :: totalsrc,photcons,total_photon_loss,total_LLS_loss
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
+    type(temperature_states_dbl) :: temperature_point
+    real,dimension(mesh(1)) :: temperature_profile
 
 #ifdef MPI
     integer :: mympierror
@@ -177,6 +181,14 @@ contains
           file1=trim(adjustl(results_dir))// &
                "Ifront1_"//trim(adjustl(file1))//".dat"
           open(unit=51,file=file1,form="formatted",status="unknown")
+
+          ! Get temperature profile
+          do i=1,mesh(1)
+             call get_temperature_point(i,srcpos(2,1),srcpos(3,1), &
+                  temperature_point)
+             temperature_profile(i)=temperature_point%current
+          enddo
+
           do i=1,mesh(1)
              write(51,"(5(1pe10.3,1x))") x(i), &
 #ifdef ALLFRAC
@@ -186,7 +198,7 @@ contains
                   1.0_dp-xh(i,srcpos(2,1),srcpos(3,1)), &
                   xh(i,srcpos(2,1),srcpos(3,1)), &
 #endif
-                  temper, &
+                  temperature_profile(i), &
                   ndens(i,srcpos(2,1),srcpos(3,1))
           enddo
           close(51)
@@ -223,7 +235,7 @@ contains
              file1="Temper3d_"//trim(adjustl(file1))//".bin"
              open(unit=53,file=file1,form="unformatted",status="unknown")
              write(53) mesh(1),mesh(2),mesh(3)
-             write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
+             write(53) ((((temperature_grid%current),i=1,mesh(1)),j=1,mesh(2)), &
                   k=1,mesh(3))
              close(53)
           endif
