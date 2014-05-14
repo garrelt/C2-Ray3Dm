@@ -243,7 +243,7 @@ contains
        sum_xh0_int=sum(xh_intermed(:,:,:,0))
 #else
        sum_xh1_int=sum(xh_intermed(:,:,:))
-       sum_xh0_int=1.0d0 - sum_xh1_int
+       sum_xh0_int=real(mesh(1)*mesh(2)*mesh(3)) - sum_xh1_int
 #endif
        if (sum_xh1_int > 0.0) then
           rel_change_sum_xh1=abs(sum_xh1_int-prev_sum_xh1_int)/sum_xh1_int
@@ -255,6 +255,14 @@ contains
           rel_change_sum_xh0=abs(sum_xh0_int-prev_sum_xh0_int)/sum_xh0_int
        else
           rel_change_sum_xh0=1.0
+       endif
+
+       ! Report convergence statistics
+       if (rank == 0) then
+          write(logf,*) "Convergence tests: "
+          write(logf,*) "   Test 1 values: ",conv_flag, conv_criterion
+          write(logf,*) "   Test 2 values: ",rel_change_sum_xh1, &
+               rel_change_sum_xh0, convergence_fraction
        endif
 
        if (conv_flag < conv_criterion .or. & 
@@ -270,9 +278,6 @@ contains
           ! Report
           if (rank == 0) then
              write(logf,*) "Multiple sources convergence reached"
-             write(logf,*) "Test 1 values: ",conv_flag, conv_criterion
-             write(logf,*) "Test 2 values: ",rel_change_sum_xh1, &
-                  rel_change_sum_xh0, convergence_fraction
           endif
           exit
        else
