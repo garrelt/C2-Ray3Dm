@@ -440,7 +440,13 @@ contains
        ! Distribute the input parameters to the other nodes
        call MPI_BCAST(niter,1, &
             MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(prev_sum_xh1_int,1, &
+            MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(prev_sum_xh0_int,1, &
+            MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(photon_loss_all,NumFreqBnd, &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #ifdef ALLFRAC
        call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
