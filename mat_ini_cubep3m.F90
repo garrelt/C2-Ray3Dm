@@ -64,7 +64,7 @@ module material
   ! temper_val - initial temperature and the one used if isothermal
   real(kind=si),dimension(:,:,:),allocatable :: ndens
   ! temper - temperature (K) of a cell
-  real(kind=dp) :: temper
+  !real(kind=dp) :: temper ! should no longer be used!
   real(kind=dp) :: temper_val
   type(temperature_states),dimension(:,:,:),allocatable :: temperature_grid
   ! xh - ionization fractions for one cell
