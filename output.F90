@@ -158,7 +158,7 @@ contains
 
     integer :: i,j,k,ns
     character(len=6) :: zred_str
-    character(len=40) :: file1,file2,file3,file4,file5,file6
+    character(len=512) :: file1,file2,file3,file4,file5,file6
     real(kind=dp) :: totalsrc,photcons,total_photon_loss,total_LLS_loss
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
