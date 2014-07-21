@@ -114,9 +114,9 @@ contains
     ! Closes down
     
     if (rank == 0) then
-       if (streams(1).eq.1) close(51)
-       if (streams(2).eq.1) close(52)
-       if (streams(3).eq.1) close(53)
+       if (streams(1) == 1) close(51)
+       if (streams(2) == 1) close(52)
+       if (streams(3) == 1) close(53)
        close(90)
     endif
 
@@ -143,7 +143,10 @@ contains
 
     use sizes, only: mesh
     use grid, only: x, vol
-    use material, only: xh, temper, ndens
+    use density_module, only: ndens
+    use ionfractions_module, only: xh
+    use temperature_module, only: temper, temperature_grid
+    !use material, only: xh, temper, ndens
     use evolve, only: phih_grid
     use sourceprops, only: srcpos, NormFlux, NumSrc
     use photonstatistics, only: do_photonstatistics, total_ion, totrec
@@ -156,7 +159,7 @@ contains
 
     integer :: i,j,k,ns
     character(len=6) :: zred_str
-    character(len=40) :: file1,file2,file3,file4,file5,file6
+    character(len=512) :: file1,file2,file3,file4,file5,file6
     real(kind=dp) :: totalsrc,photcons,total_photon_loss,total_LLS_loss
     real(kind=dp) :: totions,totphots,volfrac,massfrac
     logical crossing,recording_photonstats
@@ -223,7 +226,7 @@ contains
              file1="Temper3d_"//trim(adjustl(file1))//".bin"
              open(unit=53,file=file1,form="unformatted",status="unknown")
              write(53) mesh(1),mesh(2),mesh(3)
-             write(53) (((real(temper),i=1,mesh(1)),j=1,mesh(2)), &
+             write(53) (((real(temperature_grid%current),i=1,mesh(1)),j=1,mesh(2)), &
                   k=1,mesh(3))
              close(53)
           endif
