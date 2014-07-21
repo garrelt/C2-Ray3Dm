@@ -17,10 +17,10 @@ module file_admin
   private
 
   !> directory where files with results are placed
-  character(len=50),public,parameter :: results_dir="./results/"
+  character(len=412),public,parameter :: results_dir="./results/"
 
   !> directory where iteration dump files with results are placed
-  character(len=50),public,parameter :: dump_dir="./"
+  character(len=412),public,parameter :: dump_dir="./"
 
   !> set to not 5 if input via file (not implemented in all codes, check main program!)  
   integer,public,parameter :: stdinput=5 
