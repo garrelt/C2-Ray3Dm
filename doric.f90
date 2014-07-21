@@ -158,12 +158,12 @@ contains
     ! Sets the boundary condition for the hydrogen column density
     
     use cgsphotoconstants, only: sigh
-    use radiation, only: tauHI
+    use radiation_sizes, only: boundary_tauHI
     
     real(kind=dp):: coldensh_bndry
     
     ! Column density at the left of the first cell
-    coldensh_bndry=tauHI/sigh
+    coldensh_bndry=boundary_tauHI/sigh
     
   end function coldensh_bndry
   

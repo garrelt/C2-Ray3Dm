@@ -27,7 +27,8 @@ module photonstatistics
   use clumping_module, only: clumping, clumping_point
   use tped, only: electrondens
   use sourceprops, only: NormFlux, NumSrc
-  use radiation, only: S_star, NumFreqBnd
+  use radiation_sed_parameters, only: S_star
+  use radiation_sizes, only: NumFreqBnd
   use c2ray_parameters, only: type_of_clumping
 
   implicit none
