@@ -78,8 +78,12 @@ contains
           ! Fortran 2003 standard
           open(unit=90,file=trim(adjustl(results_dir))//"PhotonCounts.out", &
                form="formatted",status="unknown",position="append")
-          write(90,*) "redshift, photon conservation number, ", &
+          write(90,*) "redshift, ", &
+               "total number of photons used on the grid, ", &
+               "total number of photons produced on the grid, ",&
+               "photon conservation number, ", &
                "fraction new ionization, fraction recombinations, ", &
+               "fraction LLS losses (seems to be wrong), ", &
                "fraction photon losses, fraction collisional ionization, ", &
                "grand total photon conservation number"
           !open(unit=95,file=trim(adjustl(results_dir))//"PhotonCounts2.out", &
