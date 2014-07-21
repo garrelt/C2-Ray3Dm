@@ -36,21 +36,21 @@
 #-------------------------------------------------------
 
 # Compiler
-#FC = gfortran # GNU compiler
-#MPIFC = mpif90 # MPI compiler
+FC = gfortran # GNU compiler
+MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
-#GFORTFLAGS = -O3 -DGFORT 
->>>>>>> ab16e0dc5b610b3f04accaa4766f93610abb771d
+GFORTFLAGS = -O3 -DGFORT 
+
 # Processor dependent optimization
-#F90FLAGS1 = $(GFORTFLAGS) 
+F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
+OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 # Compiler
@@ -65,7 +65,7 @@ IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -tr
 # Processor dependent optimization
 #F90FLAGS1 = $(IFORTFLAGS) 
 #F90FLAGS1 = -xW $(IFORTFLAGS) 
-F90FLAGS1 = -xO $(IFORTFLAGS) 
+#F90FLAGS1 = -xO $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
@@ -132,12 +132,22 @@ UTILS=mrgrnk.o ctrper.o romberg.o report_memory.o
 
 CONSTANTS = mathconstants.o cgsconstants.o  cgsphotoconstants.o  cgsastroconstants.o c2ray_parameters.o cosmoparms.o abundances.o
 
+RADIATION = radiation_sizes.o radiation_sed_parameters.o radiation_tables.o radiation_photoionrates.o
+
+EVOLVE = evolve_data.o column_density.o evolve_point.o evolve_source.o master_slave.o evolve.o
+
 #--------TEST----------------------------------------------------------------
 
 C2Ray_3D_test_periodic: F90=$(FC)
 C2Ray_3D_test_periodic: F90FLAGS = $(F90FLAGS1)
 C2Ray_3D_test_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+
+C2Ray_3D_test_periodic_new: F90=$(FC)
+C2Ray_3D_test_periodic_new: F90FLAGS = $(F90FLAGS1)
+C2Ray_3D_test_periodic_new: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
+
 
 C2Ray_3D_test_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_test_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
@@ -178,15 +188,20 @@ C2Ray_3D_pmfast_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_adm
 
 #--------CUBEP3M-------------------------------------------------------------
 
+MATERIAL = LLS.o clumping_module.o temperature_module.o density_module.o ionfractions_module.o material.o
+RADIATION = radiation_sizes.o radiation_sed_parameters.o radiation_tables.o radiation_photoionrates.o
+EVOLVE = evolve_data.o column_density.o evolve_point.o evolve_source.o master_slave.o evolve.o
+
+
 C2Ray_3D_cubep3m_periodic: F90=$(FC)
 C2Ray_3D_cubep3m_periodic: F90FLAGS = $(F90FLAGS1)
-C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o $(MATERIAL) sourceprops_cubep3m.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o $(MATERIAL) sourceprops_cubep3m.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
-C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o clocks.o cubep3m.o grid.o tped.o  $(MATERIAL) sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o  $(MATERIAL) sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_omp: F90=$(FC)
 C2Ray_3D_cubep3m_periodic_omp: F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) 

@@ -15,6 +15,8 @@ module c2ray_parameters
 
   use precision, only: dp
   use astroconstants, only: YEAR
+  use cgsconstants, only: ev2fr
+  use cgsphotoconstants, only: ion_freq_HeII => frthe1 
 
   implicit none
 
@@ -56,6 +58,20 @@ module c2ray_parameters
   real(kind=dp),parameter :: s_star_nominal=1e48_dp
   !real(kind=dp),parameter :: s_star_nominal=1e50_dp
   
+  !> nominal Eddington efficiency
+  real(kind=dp),parameter :: EddLeff_nominal=1.0_dp
+  !> nominal power law index (for photon number)
+  real(kind=dp),parameter :: pl_index_nominal=2.5_dp
+  !> nominal black hole mass for Eddington luminosity (M0)
+  real(kind=dp),parameter :: mass_nominal=1.0e6_dp
+  !> Eddington luminosity per mass_nominal solar mass (erg/s)
+  real(kind=dp),parameter :: EddLum=1.38e38*mass_nominal
+  !> Number of ionizing photons / second
+  real(kind=dp),parameter :: pl_S_star_nominal=1e48_dp
+  !> nominal minimum and maximum frequency for power law source
+  real(kind=dp),parameter :: pl_MinFreq_nominal=0.3*1e3*ev2fr
+  real(kind=dp),parameter :: pl_MaxFreq_nominal=ion_freq_HeII * 100.00_dp
+
   !> Subgrid clumping\n
   !! 1: constant clumping (with clumping_factor)\n
   !! 2: 3.5Mpc PM, WMAP1 clumping\n

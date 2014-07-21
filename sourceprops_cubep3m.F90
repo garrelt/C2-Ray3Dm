@@ -18,7 +18,8 @@ module sourceprops
   use astroconstants, only: M_SOLAR, YEAR
   use cosmology_parameters, only: Omega_B, Omega0
   use nbody, only: id_str, M_grid, dir_src, NumZred
-  use material, only: xh
+  use ionfractions_module, only: xh
+  !use material, only: xh
   use grid, only: x,y,z
   use c2ray_parameters, only: phot_per_atom, lifetime, &
        S_star_nominal, StillNeutral, Number_Sourcetypes
@@ -44,6 +45,7 @@ module sourceprops
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
   !real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
   real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
+  real(kind=dp),dimension(:),allocatable :: NormFluxPL !< normalized ionizing flux of PL sources
   !integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
   real(kind=dp),dimension(:),allocatable :: uv_array  !< list of UV flux evolution (for some sources models)
   !> The cumulative number of uv photons. We save this number so we can add it
@@ -95,6 +97,7 @@ contains
     if (allocated(srcpos)) deallocate(srcpos)
     !if (allocated(srcMass)) deallocate(srcMass)
     if (allocated(NormFlux)) deallocate(NormFlux)
+    if (allocated(NormFluxPL)) deallocate(NormFluxPL)
     !if (allocated(srcSeries)) deallocate(srcSeries)
     
     Prev_NumSrc=NumSrc
