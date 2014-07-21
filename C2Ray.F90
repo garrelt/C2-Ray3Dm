@@ -50,8 +50,14 @@ Program C2Ray
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
-       set_LLS
+  use material, only: mat_ini
+  use ionfractions_module, only: xfrac_restart_init
+  use density_module, only: density_init
+  use temperature_module, only: temperature_restart_init
+  use clumping_module, only: set_clumping
+  use lls_module, only: set_LLS
+  !use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
+  !     set_LLS
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve_ini,evolve3D
@@ -217,8 +223,8 @@ Program C2Ray
 
   ! If a restart, read ionization fractions from file
   if (restart == 1) then
-     call xfrac_ini(zred_array(nz0))
-     if (.not.isothermal) call temper_ini(zred_array(nz0))
+     call xfrac_restart_init(zred_array(nz0))
+     if (.not.isothermal) call temperature_restart_init(zred_array(nz0))
   endif
   if (restart == 2) then
      if (rank == 0) then
@@ -230,8 +236,8 @@ Program C2Ray
      call MPI_BCAST(zred_interm,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW, &
           mympierror)
 #endif
-     call xfrac_ini(zred_interm)
-     if (.not.isothermal) call temper_ini(zred_interm)
+     call xfrac_restart_init(zred_interm)
+     if (.not.isothermal) call temperature_restart_init(zred_interm)
   end if
 
   ! Loop over redshifts
@@ -264,7 +270,7 @@ Program C2Ray
           timestamp_wallclock ()
 
      ! Initialize density field
-     call dens_ini(zred,nz)
+     call density_init(zred,nz)
      ! Set clumping and LLS in the case of position dependent values
      ! (read in the grid values)
      if (type_of_clumping == 5) call set_clumping(zred)
