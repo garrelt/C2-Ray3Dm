@@ -32,10 +32,12 @@ module evolve
   use clocks, only: timestamp_wallclock
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
-  use material, only: ndens, xh
+  !use material, only: ndens, xh
+  use density_module, only: ndens
+  use ionfractions_module, only: xh
   !use material, only: temper
-  use material, only: get_temperature_point, set_temperature_point
-  use material, only: temperature_states_dbl
+  use temperature_module, only: get_temperature_point, set_temperature_point
+  use temperature_module, only: temperature_states_dbl
   !use material, only: set_final_temperature_point, isothermal
   use sourceprops, only: NumSrc, srcpos, NormFlux !SrcSeries
   use radiation, only: NumFreqBnd
@@ -243,7 +245,7 @@ contains
        sum_xh0_int=sum(xh_intermed(:,:,:,0))
 #else
        sum_xh1_int=sum(xh_intermed(:,:,:))
-       sum_xh0_int=real(mesh(1)*mesh(2)*mesh(3)) - sum_xh1_int
+       sum_xh0_int=1.0d0 - sum_xh1_int
 #endif
        if (sum_xh1_int > 0.0) then
           rel_change_sum_xh1=abs(sum_xh1_int-prev_sum_xh1_int)/sum_xh1_int
@@ -255,14 +257,6 @@ contains
           rel_change_sum_xh0=abs(sum_xh0_int-prev_sum_xh0_int)/sum_xh0_int
        else
           rel_change_sum_xh0=1.0
-       endif
-
-       ! Report convergence statistics
-       if (rank == 0) then
-          write(logf,*) "Convergence tests: "
-          write(logf,*) "   Test 1 values: ",conv_flag, conv_criterion
-          write(logf,*) "   Test 2 values: ",rel_change_sum_xh1, &
-               rel_change_sum_xh0, convergence_fraction
        endif
 
        if (conv_flag < conv_criterion .or. & 
@@ -278,6 +272,9 @@ contains
           ! Report
           if (rank == 0) then
              write(logf,*) "Multiple sources convergence reached"
+             write(logf,*) "Test 1 values: ",conv_flag, conv_criterion
+             write(logf,*) "Test 2 values: ",rel_change_sum_xh1, &
+                  rel_change_sum_xh0, convergence_fraction
           endif
           exit
        else
@@ -338,7 +335,8 @@ contains
 
   subroutine write_iteration_dump (niter)
 
-    use material, only: temperature_grid
+    !use material, only: temperature_grid
+    use temperature_module, only: temperature_grid
 
     integer,intent(in) :: niter  ! iteration counter
 
@@ -381,7 +379,8 @@ contains
 
   subroutine start_from_dump(restart,niter)
 
-    use material, only: temperature_grid
+    use temperature_module, only: temperature_grid
+    !use material, only: temperature_grid
 
     integer,intent(in) :: restart  ! restart flag
     integer,intent(out) :: niter  ! iteration counter
@@ -440,13 +439,7 @@ contains
        ! Distribute the input parameters to the other nodes
        call MPI_BCAST(niter,1, &
             MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(prev_sum_xh1_int,1, &
-            MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(prev_sum_xh0_int,1, &
-            MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(photon_loss_all,NumFreqBnd, &
-            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #ifdef ALLFRAC
        call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
@@ -1495,11 +1488,13 @@ contains
     use tped, only: electrondens
     use doric_module, only: doric, coldens
     use radiation, only: photoion, photrates
-    use material, only: clumping_point !,coldensh_LLS
+    use clumping_module, only: clumping_point !,coldensh_LLS
+    !use material, only: clumping_point !,coldensh_LLS
     use c2ray_parameters, only: epsilon,convergence1,convergence2, &
          type_of_clumping, convergence_frac,use_LLS,type_of_LLS
     use mathconstants, only: pi
-    use material, only: coldensh_LLS, LLS_point
+    !use material, only: coldensh_LLS, LLS_point
+    use lls_module, only: coldensh_LLS, LLS_point
     use photonstatistics, only: total_LLS_loss
 
     ! column density for stopping chemisty
@@ -1780,7 +1775,8 @@ contains
          convergence_frac, add_photon_losses
     use tped, only: electrondens
     use doric_module, only: doric, coldens
-    use material, only: clumping_point
+    !use material, only: clumping_point
+    use clumping_module, only: clumping_point
     use radiation, only: photoion, photrates
 
     real(kind=dp),intent(in) :: dt !< time step

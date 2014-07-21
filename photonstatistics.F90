@@ -15,15 +15,16 @@ module photonstatistics
   ! photon_loss: this is kept here, but calculated in the evolve module.
 
   use precision, only: dp
-  use my_mpi
+  use my_mpi, only: rank
   use file_admin, only: logf
   use cgsconstants, only: albpow,bh00,colh0,temph0
   use cgsphotoconstants, only: sigh
   use sizes, only: mesh
   use grid, only: vol
-  use material, only: ndens, clumping, clumping_point
-  use material, only: get_temperature_point, set_temperature_point
-  use material, only: temperature_states_dbl
+  !use material, only: ndens, temper, clumping, clumping_point
+  use density_module, only: ndens
+  use temperature_module, only: temper
+  use clumping_module, only: clumping, clumping_point
   use tped, only: electrondens
   use sourceprops, only: NormFlux, NumSrc
   use radiation, only: S_star, NumFreqBnd
@@ -58,10 +59,6 @@ module photonstatistics
   integer,private :: i !< mesh loop index (x)
   integer,private :: j !< mesh loop index (y)
   integer,private :: k !< mesh loop index (z)
-
-#ifdef MPI
-  integer :: mympierror
-#endif
 
 contains
 
@@ -145,7 +142,6 @@ contains
 
     real(kind=dp),dimension(0:1) :: yh
     real(kind=dp) :: ndens_p ! needed because ndens may be single precision
-    type(temperature_states_dbl) :: temperature_point
 
     ! Photon statistics: Determine total number of recombinations/collisions
     ! Should match the code in doric_module
@@ -166,14 +162,12 @@ contains
              ! Set clumping to local value if we have a clumping grid
              if (type_of_clumping == 5) &
                   call clumping_point (i,j,k)
-             call get_temperature_point(i,j,k,temperature_point)
              totrec=totrec+ndens_p*yh(1)*    &
                   electrondens(ndens_p,yh)*  &
-                  clumping*bh00*(temperature_point%average*1e-4)**albpow
+                  clumping*bh00*(temper/1e4)**albpow
              totcollisions=totcollisions+ndens_p*   &
                   yh(0)*electrondens(ndens_p,yh)* &
-                  colh0*sqrt(temperature_point%average)* &
-                  exp(-temph0/temperature_point%average)
+                  colh0*sqrt(temper)*exp(-temph0/temper)
           enddo
        enddo
     enddo
