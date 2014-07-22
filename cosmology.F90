@@ -166,7 +166,8 @@ contains
 
     !use sizes
     use grid, only: x,y,z,dr,vol
-    use material, only: ndens, n_LLS, y_LLS
+    use density_module, only: ndens
+    use lls_module, only: n_LLS, y_LLS
     
     real(kind=dp) :: zfactor3
 
