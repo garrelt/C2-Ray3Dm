@@ -234,8 +234,8 @@ Program C2Ray
           mympierror)
 #endif
      ! Check the value for consistency
-     if .not.(zred_interm < zred_array(nz0) .and. &
-          zred_interm > zred_array(nz0+1)) startup_error=5
+     if (zred_interm > zred_array(nz0) .or. &
+          zred_interm < zred_array(nz0+1) ) startup_error=5
      call xfrac_ini(zred_interm)
      if (.not.isothermal) call temper_ini(zred_interm)
   end if
