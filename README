@@ -1,3 +1,8 @@
 This is the C2-Ray code for time-dependent photo-ionization calculations.
 This version is for 3D, multiple sources, and for hydrogen only.
-It runs under both MPI and OpenMP
+It runs under both MPI and OpenMP.
+
+The factorization branch is a new version which tries to reduce the
+length of subroutines to make the code more manageable and easier
+to read. It is still under construction so this set of routines
+will not compile yet.
