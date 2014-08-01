@@ -261,7 +261,7 @@ contains
     
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
-    character(len=80) :: file1
+    character(len=512) :: file1
     integer :: i,j,k
     
     ! Stream 2
@@ -294,7 +294,7 @@ contains
     
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
-    character(len=80) :: file1
+    character(len=512) :: file1
     integer :: i,j,k
     
     if (rank == 0) then
@@ -337,7 +337,7 @@ contains
 
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
-    character(len=80) :: file1,file2,file3
+    character(len=512) :: file1,file2,file3
     character(len=6) :: zred_str
     integer :: i,j,k
 
@@ -463,18 +463,30 @@ contains
        ! Check if we are tracking photon conservation
        if (do_photonstatistics) then
           ! Photon Statistics
-          ! total_ion is the total number of new ionization, plus
-          ! the total number of recombinations, and here is also
-          ! added the number of photons lost from the grid. Since
-          ! this number was divided by the number of cells, we
-          ! multiply by this again.
+          ! Calculate quantities for PhotonCounts.dat:
+          ! total_photon_loss: the number of photons lost from the grid. 
+          !    Since this number was divided by the number of cells, we
+          !    multiply by this again.
           total_photon_loss=sum(photon_loss)*dt* &
                real(mesh(1))*real(mesh(2))*real(mesh(3))
+          ! total_LLS_loss: the number of photons lost due to LLSs. This
+          !    number does not appear to be calculated correctly
           total_LLS_loss = LLS_loss*dt
-          !total_ion=total_ion + total_photon_loss
+          ! total_src: total number of photons produced by sources
           totalsrc=sum(NormFlux(1:NumSrc))*s_star*dt
-          !photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
+          ! photcons: photon conservation number. total_ion is the total 
+          !    number of new ionizations plus the total number of 
+          !    recombinations. We subtract the total number of ionizations
+          !    due to collisions. If photon conservation is perfect
+          !    total_ion-totcollisions should equal the number of photons
+          !    produced by sources. The number will be <1 if there are
+          !    photon losses over the boundary of the grid or due to LLS.
+          !    In the multiple sources case even without these losses the
+          !    number will be only approximately 1.
           photcons=(total_ion-totcollisions)/totalsrc
+          !photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
+
+          ! Write PhotonCounts.dat
           if (time > 0.0) then
              write(90,"(f6.3,9(1pe10.3))") &
                   zred_now, &
@@ -486,7 +498,13 @@ contains
                   total_photon_loss/totalsrc, &
                   totcollisions/total_ion, &
                   grtotal_ion/grtotal_src
+             flush(90) ! force writing of output
           endif
+
+          ! Calculate quantities for PhotonCounts2.dat:
+          ! totions: total number of ions in volume
+          ! volfrac: Global average ionized fraction (by volume)
+          ! massfrac: Global average ionized fraction (by mass)
 #ifdef ALLFRAC
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
           volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
@@ -496,9 +514,14 @@ contains
           volfrac=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
           massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
 #endif
+          ! Write PhotonCounts2.dat
           write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotal_src, &
                volfrac,massfrac
-
+          flush(95) ! force writing of output
+          
+          ! Report and flag for non-conservations of photons.
+          ! This flag will only have an effect if stop_on_photon_violation
+          ! in c2ray_parameters is .true.
           if (abs(1.0-photcons) > 0.15) then
              if ((1.0-photcons) > 0.15 .and. &
                   total_photon_loss/totalsrc < (1.0-photcons) ) then
