@@ -264,23 +264,25 @@ contains
     character(len=512) :: file1
     integer :: i,j,k
     
-    ! Stream 2
-    if (streams(2) == 1) then
-       ! Construct file name
-       write(file1,"(f6.3)") zred_now
-       file1=trim(adjustl(results_dir))// &
-            "xfrac3d_"//trim(adjustl(file1))//base_extension
-       ! Open file
-       open(unit=52,file=file1,form="unformatted",status="unknown")
-       ! Write data header
-       write(52) mesh(1),mesh(2),mesh(3)
-       ! Write data (depending on -DALLFRAC compile option)
+    if (rank == 0) then
+       ! Stream 2
+       if (streams(2) == 1) then
+          ! Construct file name
+          write(file1,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))// &
+               "xfrac3d_"//trim(adjustl(file1))//base_extension
+          ! Open file
+          open(unit=52,file=file1,form="unformatted",status="unknown")
+          ! Write data header
+          write(52) mesh(1),mesh(2),mesh(3)
+          ! Write data (depending on -DALLFRAC compile option)
 #ifdef ALLFRAC
-       write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
+          write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
 #else
-       write(52) xh
+          write(52) xh
 #endif
-       close(52)
+          close(52)
+       endif
     endif
        
   end subroutine write_stream2
