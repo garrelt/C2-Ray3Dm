@@ -530,52 +530,45 @@ ifdef MPILOG
           totalsrc=(sum(NormFlux(1:NumSrc))*S_star + &
                sum(NormFluxPL(1:NumSrc))*pl_S_star)*dt
           photcons=(total_ion-totcollisions)/totalsrc
-          !PhotonCounts: time
-          !              Number of (ionizations + recombinations) / photons 
-          !                   during time step
-          !              Number of ionizations /(ionizations + recombinations)
-          !              Number of recombinations /(ionizations + recombinations)
-          !              Number of (ionizations + recombinations) / photons 
-          !              Number of (ionizations + recombinations) / photons 
-          !                   since t=0
           if (time > 0.0) then
-             !write(90,"(f6.3,8(es10.3))") &
-             !     zred_now, &
-             !     total_ion, totalsrc, &
-             !     photcons, &
-             !     (dh0+dhe0+dhe2)/total_ion, &
-             !     totrec/total_ion, &
-             !     total_photon_loss/totalsrc, &
-             !     totcollisions/total_ion, &
-             !     grtotal_ion/grtotal_src
-
+             write(90,"(f6.3,9(1pe10.3))") &
+                  zred_now, &
+                  total_ion, &
+                  totalsrc, &
+                  photcons, &
+                  dh0/total_ion, &
+                  totrec/total_ion, &
+                  total_LLS_loss/totalsrc, &
+                  total_photon_loss/totalsrc, &
+                  totcollisions/total_ion, &
+                  grtotal_ion/grtotal_src
+             call flush(90)
           endif
-          totions=sum(ndens(:,:,:)*(xhe(:,:,:,2)*2.0_dp+xhe(:,:,:,1)+xh(:,:,:,1)))*vol
-          volfrac(0)=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          volfrac(1)=sum(xhe(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          volfrac(2)=sum(xhe(:,:,:,2))/real(mesh(1)*mesh(2)*mesh(3))
-          massfrac(0)=sum(xh(:,:,:,1)*ndens(:,:,:) ) /sum(real(ndens,dp))
-          massfrac(1)=sum(xhe(:,:,:,1)*ndens(:,:,:) ) /sum(real(ndens,dp))
-          massfrac(2)=sum(xhe(:,:,:,2)*ndens(:,:,:) ) /sum(real(ndens,dp))
-          write(95,"(f6.3,8(es10.3))") zred_now,totions,grtotal_src, &
 
-
+#ifdef ALLFRAC
+          totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
+          volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
+#else
+          totions=sum(ndens(:,:,:)*xh(:,:,:))*vol
+          volfrac=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
+#endif
+          write(95,"(f6.3,4(es10.3))") zred_now,totions,grtotal_src, &
                volfrac,massfrac
+          call flush(95)
 
-!*** for the moment, I turn that off, until I checked, how I calculate those quantities.
-          photcons_flag=0
-          !if (abs(1.0-photcons) > 0.15) then
-             !if ((1.0-photcons) > 0.15 .and. &
-              !    total_photon_loss/totalsrc < (1.0-photcons) ) then
-              !  photcons_flag=1
+          if (abs(1.0-photcons) > 0.15) then
+             if ((1.0-photcons) > 0.15 .and. &
+                  total_photon_loss/totalsrc < (1.0-photcons) ) then
+                photcons_flag=1
                 ! Report photon conservation
-              !  write(logf,"(A,2(es10.3,x))") &
-                  !   "Photon conservation problem: ", &
-                    ! photcons, total_photon_loss/totalsrc
-
-             !endif
-          !endif
-!***
+                write(logf,"(A,2(1pe10.3,x))") &
+                     "Photon conservation problem: ", &
+                     photcons, total_photon_loss/totalsrc
+                
+             endif
+          endif
        endif
     endif
     
