@@ -1,0 +1,13 @@
+These are versions of material, sourceprops, photonstatistics and output
+routines which use a compressed version of the ionization fraction arrays.
+ 
+We always only store the smallest of the two, so the array will contain
+x_HI if x_HI<0.5 and x_HII if x_HII<0.5.
+
+Since a fraction is always positive, we can thus use the sign to
+determine if we are looking at x_HI or x_HII. In this particular
+implementation we take a negative number to mean x_HI and a positive
+number to mean x_HII.
+
+These routines have not been kept up to date with the rest of the code
+so for now we keep them in a separate directory.
