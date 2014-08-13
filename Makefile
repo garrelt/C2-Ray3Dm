@@ -41,7 +41,6 @@
 
 # F90 options (ifort)
 #GFORTFLAGS = -O3 -DGFORT 
->>>>>>> ab16e0dc5b610b3f04accaa4766f93610abb771d
 # Processor dependent optimization
 #F90FLAGS1 = $(GFORTFLAGS) 
 
@@ -55,26 +54,26 @@ MPI_FLAGS = -DMPI #
 #-------------------------------------------------------
 # Compiler
 # Intel: best tested
-#FC = ifort # Intel compiler
-#MPIFC = mpif90 # MPI compiler
+FC = ifort # Intel compiler
+MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
 #IFORTFLAGS = -O0 -g -DIFORT -u -fpe0 -p
-IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
+IFORTFLAGS = -O3 -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 # Processor dependent optimization
 #F90FLAGS1 = $(IFORTFLAGS) 
 #F90FLAGS1 = -xW $(IFORTFLAGS) 
-F90FLAGS1 = -xO $(IFORTFLAGS) 
+F90FLAGS1 = -xHost $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
-#MPI_FLAGS = -DMPI # 
+MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
+OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 
