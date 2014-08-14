@@ -454,7 +454,7 @@ contains
     
     real(kind=dp) :: totalsrc,photcons,total_photon_loss
     real(kind=dp) :: total_LLS_loss
-    real(kind=dp) :: totions,totphots,volfrac(0:2),massfrac(0:2)
+    real(kind=dp) :: totions,totphots,volfrac,massfrac
     
 #ifdef MPI
     integer :: mympierror
