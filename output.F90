@@ -236,7 +236,7 @@ contains
           enddo
 
           do i=1,mesh(1)
-             write(51,"(5(1pe10.3,1x))") x(i), &
+             write(51,"(5(es10.3,1x))") x(i), &
 #ifdef ALLFRAC
                   xh(i,srcpos(2,1),srcpos(3,1),0), &
                   xh(i,srcpos(2,1),srcpos(3,1),1), &
@@ -490,7 +490,7 @@ contains
 
           ! Write PhotonCounts.dat
           if (time > 0.0) then
-             write(90,"(f6.3,9(1pe10.3))") &
+             write(90,"(f6.3,9(es10.3))") &
                   zred_now, &
                   total_ion, totalsrc, &
                   photcons, &
@@ -529,7 +529,7 @@ contains
                   total_photon_loss/totalsrc < (1.0-photcons) ) then
                 photcons_flag=1
                 ! Report photon conservation
-                write(logf,"(A,2(1pe10.3,x))") &
+                write(logf,"(A,2(es10.3,x))") &
                      "Photon conservation problem: ", &
                      photcons, total_photon_loss/totalsrc
 
