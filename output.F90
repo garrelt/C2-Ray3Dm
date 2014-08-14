@@ -517,7 +517,7 @@ contains
           massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
 #endif
           ! Write PhotonCounts2.dat
-          write(95,"(f6.3,4(1pe10.3))") zred_now,totions,grtotal_src, &
+          write(95,"(f6.3,4(es10.3))") zred_now,totions,grtotal_src, &
                volfrac,massfrac
           flush(95) ! force writing of output
           
