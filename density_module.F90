@@ -72,28 +72,65 @@ contains
     ! density in file is in 4B reals, read in via this array
     real(kind=si),dimension(:,:,:),allocatable :: ndens_real
 
-    if (rank == 0) then
+    call set_density(redshift,nz)
 
-       ! construct filename
-       dens_file=construct_densfilename(redshift,nz)
-
-       call read_density_file(dens_file)
-
-    endif
-
-#ifdef MPI       
-    ! Distribute the density to the other nodes
-    !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
-    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
-         MPI_COMM_NEW,mympierror)
-    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
-#endif
-       
-    call scale_density(redshift)
-    
     call density_diagnostics(redshift)
 
   end subroutine density_init
+
+  ! ============================================================================
+
+  subroutine set_density(redshift,nz)
+
+    
+    select case (nbody_type)
+       ! test problem: constant average density
+    case("test") call set_constant_average_density(redshift)
+
+       ! cubep3m and LG: read density field from file
+    case("cubep3m","LG") 
+       if (rank == 0) then
+          
+          ! construct filename
+          dens_file=construct_densfilename(redshift,nz)
+          
+          ! read density from file
+          call read_density_file(dens_file)
+          
+       endif
+       
+#ifdef MPI       
+       ! Distribute the density to the other nodes
+       !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+       call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
+            MPI_COMM_NEW,mympierror)
+       call MPI_BARRIER(MPI_COMM_NEW,mympierror)
+#endif
+       
+       ! scale the density to correct units
+       call scale_density(redshift)
+
+    end select
+    
+  end subroutine set_density
+
+  ! ============================================================================
+
+  subroutine set_constant_average_density(redshift)
+
+    ! Calculate average density of atoms (H+He)
+    avg_dens=rho_crit_0*Omega_B/(mu*m_p)*(1.0+redshift)**3
+
+    ! Assign density to the grid (average density at this redshift)
+    do k=1,mesh(3)
+       do j=1,mesh(2)
+          do i=1,mesh(1)
+             ndens(i,j,k)=avg_dens
+          enddo
+       enddo
+    enddo
+    
+  end subroutine set_constant_average_density
 
   ! ============================================================================
 
