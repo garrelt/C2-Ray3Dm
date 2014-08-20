@@ -136,12 +136,14 @@ RADIATION = radiation_sizes.o radiation_sed_parameters.o radiation_tables.o radi
 
 EVOLVE = evolve_data.o column_density.o evolve_point.o evolve_source.o master_slave.o evolve.o
 
+MATERIAL = clumping_module.o LLS.o temperature_module.o density_module.o ionfractions_module.o material.o
+
 #--------TEST----------------------------------------------------------------
 
 C2Ray_3D_test_periodic: F90=$(FC)
 C2Ray_3D_test_periodic: F90FLAGS = $(F90FLAGS1)
-C2Ray_3D_test_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o test.o grid.o tped.o mat_ini_test.o sourceprops_test.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+C2Ray_3D_test_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o test.o grid.o tped.o $(MATERIAL) sourceprops.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o test.o grid.o tped.o $(MATERIAL) sourceprops.o cooling.o $(RADIATION) cosmology.o time_ini.o doric.o photonstatistics.o $(EVOLVE) output.o C2Ray.o
 
 C2Ray_3D_test_periodic_new: F90=$(FC)
 C2Ray_3D_test_periodic_new: F90FLAGS = $(F90FLAGS1)

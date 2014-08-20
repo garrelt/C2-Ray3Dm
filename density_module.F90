@@ -65,7 +65,6 @@ contains
                              ! compatibility reasons)
     
     integer :: i,j,k,n ! loop counters
-    character(len=512):: dens_file
     real(kind=dp) :: summed_density
     integer :: m1,m2,m3
 
@@ -82,10 +81,15 @@ contains
 
   subroutine set_density(redshift,nz)
 
+    real(kind=dp),intent(in) :: redshift
+    integer,intent(in) :: nz
     
+    character(len=512):: dens_file
+
     select case (nbody_type)
        ! test problem: constant average density
-    case("test") call set_constant_average_density(redshift)
+    case("test") 
+       call set_constant_average_density(redshift)
 
        ! cubep3m and LG: read density field from file
     case("cubep3m","LG") 
@@ -117,6 +121,10 @@ contains
   ! ============================================================================
 
   subroutine set_constant_average_density(redshift)
+
+    real(kind=dp),intent(in) :: redshift
+
+    integer :: i,j,k
 
     ! Calculate average density of atoms (H+He)
     avg_dens=rho_crit_0*Omega_B/(mu*m_p)*(1.0+redshift)**3
