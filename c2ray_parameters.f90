@@ -16,7 +16,7 @@ module c2ray_parameters
   use precision, only: dp
   use astroconstants, only: YEAR
   use cgsconstants, only: ev2fr
-  use cgsphotoconstants, only: ion_freq_HeII => frthe1 
+  use cgsphotoconstants, only: ion_freq_HeII
 
   implicit none
 
@@ -37,7 +37,7 @@ module c2ray_parameters
   real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: convergence_frac=1.0e-8
+  real(kind=dp),parameter :: minimum_fraction_of_atomsconvergence_frac=1.0e-8
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until

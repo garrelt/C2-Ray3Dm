@@ -48,7 +48,7 @@ module evolve_point
   use lls_module, only: coldensh_LLS, LLS_point
   use sourceprops, only: srcpos
   use radiation_photoionrates, only: photrates, photoion_rates
-  use thermalevolution, only: thermal
+  !use thermalevolution, only: thermal
   use photonstatistics, only: photon_loss, total_LLS_loss
   use tped, only: electrondens
   use doric_module, only: doric, prepare_doric_factors, coldens

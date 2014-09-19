@@ -157,7 +157,7 @@ contains
     
     ! Sets the boundary condition for the hydrogen column density
     
-    use cgsphotoconstants, only: sigh
+    use cgsphotoconstants, only: sigh => sigma_HI_at_ion_freq
     use radiation_sizes, only: boundary_tauHI
     
     real(kind=dp):: coldensh_bndry

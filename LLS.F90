@@ -21,7 +21,7 @@ module lls_module
   use my_mpi
   use grid, only: dr, vol, sim_volume
   use cgsconstants, only: c
-  use cgsphotoconstants, sigma_HI_at_ion_freq => sigh
+  use cgsphotoconstants, only: sigma_HI_at_ion_freq
   use astroconstants, only: Mpc
   use cosmology_parameters, only: Omega0, H0
   use nbody, only: id_str,dir_LLS

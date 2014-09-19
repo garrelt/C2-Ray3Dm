@@ -18,7 +18,7 @@ module photonstatistics
   use my_mpi, only: rank
   use file_admin, only: logf
   use cgsconstants, only: albpow,bh00,colh0,temph0
-  use cgsphotoconstants, only: sigh
+  use cgsphotoconstants, only: sigh => sigma_HI_at_ion_freq
   use sizes, only: mesh
   use grid, only: vol
   !use material, only: ndens, temper, clumping, clumping_point

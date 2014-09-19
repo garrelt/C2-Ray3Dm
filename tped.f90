@@ -28,7 +28,7 @@ module tped
   ! - electrondens:   find electron density
 
   use precision, only: dp
-  use cgsconstants, only: kb, m_p
+  use cgsconstants, only: k_b, m_p
   use abundances, only: abu_c, mu
 
   implicit none
@@ -46,7 +46,7 @@ contains
     
     real(kind=dp) :: pressr !< pressure
 
-    pressr=(ndens+eldens)*kb*temper
+    pressr=(ndens+eldens)*k_b*temper
 
     !temper2pressr=pressr
 
@@ -63,7 +63,7 @@ contains
     
     real(kind=dp) :: temper !< temperature
 
-    temper=pressr/(kb*(ndens+eldens))
+    temper=pressr/(k_b*(ndens+eldens))
     
     !pressr2temper=temper
     
