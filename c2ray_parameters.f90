@@ -107,7 +107,7 @@ module c2ray_parameters
   !> Source properties: Photon per atom for different source types (high to low mass)
   real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 /)
   !> Source properties: Life time of sources (if set at compile time)
-  real,parameter :: lifetime=20e6*YEAR
+  real,parameter :: lifetime=10e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo
   real,parameter :: MinParticleContent=20. ! in solar masses
   !> Source properties: Upper limit for low mass sources (not used)
