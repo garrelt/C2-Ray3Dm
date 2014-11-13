@@ -51,7 +51,7 @@ module evolve_point
   !use thermalevolution, only: thermal
   use photonstatistics, only: photon_loss, total_LLS_loss
   use tped, only: electrondens
-  use doric_module, only: doric, prepare_doric_factors, coldens
+  use doric_module, only: doric, coldens
 
   use evolve_data, only: phih_grid, phiheat
   use evolve_data, only: xh_av, xh_intermed
@@ -294,12 +294,8 @@ contains
     real(kind=dp) :: de ! electron density
 !    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0 ! ionization fractions
     real(kind=dp) :: yh0_av_old, yh1_av_old 
-    real(kind=dp) :: avg_temper, temper ! temperature
     real(kind=dp) :: ndens_p ! local number density
-    real(kind=dp) :: temper_old   
-    real(kind=dp) :: temper1   
-    real(kind=dp) :: temp_av_old,temp_av_new,temper_inter
-    
+    type(temperature_states_dbl) :: temperature_start, temperature_old
 
     real(kind=dp) :: phih ! local H photo-ionization rate (only non-zero when local=.false.!)
     real(kind=dp) :: phih_total ! local total photo-ionization rate (including
@@ -318,8 +314,8 @@ contains
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter, &
-         temp_av_old,temper_old)
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_start)
+    !temper_inter,temp_av_old,temper_old)
     !avg_temper=temper
 
     ! Use the collected photo-ionization rates
@@ -335,13 +331,14 @@ contains
     ! For low values of this number assume convergence
     yh0_av_old=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
     yh1_av_old=xh_av(pos(1),pos(2),pos(3),1)
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,temp_av_new,temper_old)
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_end)
+    !call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,temp_av_new,temper_old)
 
     if ( (abs((ion%h_av(0)-yh0_av_old)) > minimum_fractional_change                .and. &
           abs((ion%h_av(0)-yh0_av_old)/ion%h_av(0)) > minimum_fractional_change   .and. &
               (ion%h_av(0) > minimum_fraction_of_atoms)  ).or.                       &
-         (abs((temp_av_old-temp_av_new)/temp_av_new) > 1.0e-1_dp).and.              &
-         (abs(temp_av_new-temp_av_old) >     100.0_dp)                          &                  
+         (abs((temperature_start%average-temperature_end%average)/temperature_end%average) > 1.0e-1_dp).and.              &
+         (abs(temperature_start%average-temperature_end%average) >     100.0_dp)                          &                  
                                                                       ) then
        conv_flag=conv_flag+1
     endif
@@ -373,6 +370,7 @@ contains
     logical,intent(in) :: local !< true if doing a non-global calculation.
 
     real(kind=dp) :: avg_temper, temper0, temper1,temper2,temper_inter
+    type(temperature_states_dbl) :: temperature_start, temperature_old
     real(kind=dp) :: yh0_av_old,oldhe1av,oldhe0av,oldhav
     real(kind=dp) :: yh1_av_old
     real(kind=dp) :: de
@@ -386,9 +384,10 @@ contains
     type(ionstates) :: ion
 
     ! Initialize local temperature
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,avg_temper,temper1)
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_start)
     !avg_temper=temper1
-    temper0   =temper1
+    temper0 = temperature_start%current
+    !temper0   =temper1
   
     ! Initialize local clumping (if type of clumping is appropriate)
     if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
@@ -433,7 +432,7 @@ contains
 
           ! initialize the collisional ionization and recombinations rates 
           ! (temperature dependent)
-          if (.not.isothermal) call ini_rec_colion_factors(avg_temper) 
+          if (.not.isothermal) call ini_rec_colion_factors(temperature_start%average) 
           
           ! Add photon losses to the photo-ionization rates
           if (add_photon_losses) then
@@ -453,7 +452,9 @@ contains
        
        temper1=temper0 
        if (.not.isothermal) &
-            call thermal(dt,temper1,avg_temper,de,ndens_p, &
+            GM/141021 Change thermal so that it takes old values and outputs new
+       values, but not overwrites...
+            call thermal(dt,temper1,temperature_start%average,de,ndens_p, &
             ion,phi)    
        
        ! Test for convergence on time-averaged neutral fraction

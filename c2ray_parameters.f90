@@ -31,13 +31,13 @@ module c2ray_parameters
   real(kind=dp),parameter :: epsilon=1e-14_dp
 
   !> Convergence criterion for per source calculation (evolve0d)
-  real(kind=dp),parameter :: convergence1=1.0e-3
+  real(kind=dp),parameter :: minimum_fractional_change=1.0e-3
 
   !> Convergence criterion for global calculation (evolve0d)
   real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: minimum_fraction_of_atomsconvergence_frac=1.0e-8
+  real(kind=dp),parameter :: minimum_fraction_of_atoms=1.0e-8
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
