@@ -295,7 +295,7 @@ contains
 !    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0 ! ionization fractions
     real(kind=dp) :: yh0_av_old, yh1_av_old 
     real(kind=dp) :: ndens_p ! local number density
-    type(temperature_states_dbl) :: temperature_start, temperature_old
+    type(temperature_states_dbl) :: temperature_start, temperature_end
 
     real(kind=dp) :: phih ! local H photo-ionization rate (only non-zero when local=.false.!)
     real(kind=dp) :: phih_total ! local total photo-ionization rate (including
@@ -370,7 +370,7 @@ contains
     logical,intent(in) :: local !< true if doing a non-global calculation.
 
     real(kind=dp) :: avg_temper, temper0, temper1,temper2,temper_inter
-    type(temperature_states_dbl) :: temperature_start, temperature_old
+    type(temperature_states_dbl) :: temperature_start, temperature_end
     real(kind=dp) :: yh0_av_old,oldhe1av,oldhe0av,oldhav
     real(kind=dp) :: yh1_av_old
     real(kind=dp) :: de
@@ -452,8 +452,8 @@ contains
        
        temper1=temper0 
        if (.not.isothermal) &
-            GM/141021 Change thermal so that it takes old values and outputs new
-       values, but not overwrites...
+            !GM/141021 Change thermal so that it takes old values and outputs new
+            !values, but not overwrites...
             call thermal(dt,temper1,temperature_start%average,de,ndens_p, &
             ion,phi)    
        
