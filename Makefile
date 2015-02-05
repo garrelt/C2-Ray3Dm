@@ -38,8 +38,10 @@
 # Compiler
 #FC = gfortran # GNU compiler
 #MPIFC = mpif90 # MPI compiler
+#FC = ftn # Cray env
+#MPIFC = ftn # Cray env
 
-# F90 options (ifort)
+# F90 options (gfortran)
 #GFORTFLAGS = -O3 -DGFORT 
 # Processor dependent optimization
 #F90FLAGS1 = $(GFORTFLAGS) 
@@ -47,7 +49,7 @@
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
 #MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
-MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
 #OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 
@@ -56,15 +58,21 @@ MPI_FLAGS = -DMPI #
 # Intel: best tested
 FC = ifort # Intel compiler
 MPIFC = mpif90 # MPI compiler
+#FC = ftn # Intel compiler (Cray)
+#MPIFC = ftn # MPI compiler (Cray)
 
 # F90 options (ifort)
 #IFORTFLAGS = -O0 -g -DIFORT -u -fpe0 -p
+#IFORTFLAGS = -O3 -u -fpe0 -DIFORT #-check all -traceback
 IFORTFLAGS = -O3 -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
+#IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 -ipo -shared-intel #-check all -traceback
+#IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 #-check all -traceback
 #IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
 # Processor dependent optimization
-#F90FLAGS1 = $(IFORTFLAGS) 
+F90FLAGS1 = $(IFORTFLAGS) 
+#F90FLAGS1 = -xCORE-AVX2 $(IFORTFLAGS) # Beskow
 #F90FLAGS1 = -xW $(IFORTFLAGS) 
-F90FLAGS1 = -xHost $(IFORTFLAGS) 
+#F90FLAGS1 = -xHost $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
@@ -74,7 +82,26 @@ F90FLAGS1 = -xHost $(IFORTFLAGS)
 MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
 OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
+#OPENMP_FLAGS = -DMY_OPENMP # For Intel compiler
+NO_OPENMP_FLAGS = 
 
+#-------------------------------------------------------
+# Compiler
+# Cray: 
+#FC = ftn # Cray compiler
+#MPIFC = ftn # Cray compiler
+
+# F90 options (ifort)
+#CRAYFLAGS = -O3 -hfp3 -rm -DCRAY #-check all -traceback
+# Processor dependent optimization
+#F90FLAGS1 = $(CRAYFLAGS) 
+
+# These flags should be added to the F90FLAGS1 depending on the executable
+# made. Specify this below on a per executable basis.
+#MPI_FLAGS = -DMPI # For the code
+#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
+#OPENMP_FLAGS = -DMY_OPENMP # For the code
+#NO_OPENMP_FLAGS = -Othread0
 #-------------------------------------------------------
 
 # Compiler
@@ -122,8 +149,8 @@ OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
 
 #LDR     = $(F90)
 
-LDFLAGS = $(F90FLAGS) -L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
-LIBS = -lirc -limf
+LDFLAGS = $(F90FLAGS) #-L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
+LIBS = #-lirc -limf
 
 #-------------------------------------------------------
 
@@ -183,19 +210,19 @@ C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.
 	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
-C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
+C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS) $(NO_OPENMP_FLAGS)
 C2Ray_3D_cubep3m_periodic_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(CONSTANTS) $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_omp: F90=$(FC)
 C2Ray_3D_cubep3m_periodic_omp: F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) 
 C2Ray_3D_cubep3m_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(CONSTANTS) $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_omp_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_omp_mpi: F90FLAGS = $(F90FLAGS1) $(OPENMP_FLAGS) $(MPI_FLAGS)
 C2Ray_3D_cubep3m_periodic_omp_mpi: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(CONSTANTS) $(UTILS) sizes.o mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_compr_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_compr_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS)
