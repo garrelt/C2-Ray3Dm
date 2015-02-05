@@ -31,6 +31,9 @@ module clocks
 
   implicit none
 
+  ! Time limit for production of iterdump files (see evolve)
+  real,parameter,public :: iterdump_minutes=15.0
+
   ! Start and end time for CPU report
   real :: cputime1 !< Start time for call to CPU routine
   real :: cputime2 !< End time for call to CPU routine
