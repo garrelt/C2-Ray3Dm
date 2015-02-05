@@ -214,7 +214,7 @@ contains
        !  upon the difference between the in and out column density.
        !  Instead add the LLS to coldensh_in, see above
        coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + &
-            coldens(path,ion%h_av(0),ndens_p,(1.0_dp-abu_he))
+            coldens(path,ion%h_av(0),ndens_p)!,(1.0_dp-abu_he))
 
        ! Calculate (photon-conserving) photo-ionization rate from the
        ! column densities.
@@ -413,7 +413,7 @@ contains
        if (local) then
           
           ! Calculate (time averaged) column density of cell
-          coldensh_cell=coldens(path,ion%h_av(0),ndens_p,1.0_dp-abu_he)
+          coldensh_cell=coldens(path,ion%h_av(0),ndens_p!),1.0_dp-abu_he)
 
           ! Calculate (photon-conserving) photo-ionization rate
           phi=photoion_rates(coldensh_in,coldensh_in+coldensh_cell, &
