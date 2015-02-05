@@ -42,13 +42,13 @@
 #MPIFC = ftn # Cray env
 
 # F90 options (gfortran)
-#GFORTFLAGS = -O3 -DGFORT 
+#GFORTFLAGS = -DGFORT -O3
+
 # Processor dependent optimization
 #F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-#MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 #MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
 #OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
@@ -62,12 +62,12 @@ MPIFC = mpif90 # MPI compiler
 #MPIFC = ftn # MPI compiler (Cray)
 
 # F90 options (ifort)
-#IFORTFLAGS = -O0 -g -DIFORT -u -fpe0 -p
-#IFORTFLAGS = -O3 -u -fpe0 -DIFORT #-check all -traceback
-IFORTFLAGS = -O3 -u -fpe0 -ipo -DIFORT -shared-intel #-check all -traceback
+#IFORTFLAGS = -DIFORT -O0 -g -u -fpe0 -p
+IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 #-check all -traceback
-#IFORTFLAGS = -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel -DIFORT #-check all -traceback
+#IFORTFLAGS = -DIFORT -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel #-check all -traceback
+
 # Processor dependent optimization
 F90FLAGS1 = $(IFORTFLAGS) 
 #F90FLAGS1 = -xCORE-AVX2 $(IFORTFLAGS) # Beskow
@@ -78,11 +78,9 @@ F90FLAGS1 = $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-#MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
 MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
 OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
-#OPENMP_FLAGS = -DMY_OPENMP # For Intel compiler
 NO_OPENMP_FLAGS = 
 
 #-------------------------------------------------------

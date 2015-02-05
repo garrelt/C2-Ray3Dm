@@ -29,7 +29,7 @@ module evolve
   use precision, only: dp
   use my_mpi ! supplies all the MPI and OpenMP definitions and variables
   use file_admin, only: logf,timefile,iterdump, results_dir, dump_dir
-  use clocks, only: timestamp_wallclock
+  use clocks, only: timestamp_wallclock, iterdump_minutes
   use sizes, only: Ndim, mesh
   use grid, only: x,y,z,vol,dr
   use material, only: ndens, xh
@@ -303,15 +303,17 @@ contains
 	    real(sum_nbox_all)/real(NumSrc)
 
        if (rank == 0) then
-          call system_clock(wallclock2,countspersec)
-          ! Write iteration dump if more than 15 minutes have passed.
-          ! system_clock starts counting at 0 when it reaches
+          wallclock2=timestamp_wallclock ()
+          !call system_clock(wallclock2,countspersec)
+          ! Write iteration dump if more than iterdump_minutes minutes 
+          ! have passed.
+          ! system_clock may start counting at 0 when it reaches
           ! a max value. To catch this, test also for negative
           ! values of wallclock2-wallclock1
           write(logf,*) "Time and limit are: ", &
-               wallclock2-wallclock1, 15.0*60.0*countspersec
-          if (wallclock2-wallclock1 > 15*60*countspersec .or. &
-               wallclock2-wallclock1 < 0 ) then
+               wallclock2-wallclock1, iterdump_minutes*60.0
+          if (wallclock2-wallclock1 > iterdump_minutes*60.0 .or. &
+               wallclock2-wallclock1 < 0.0 ) then
              call write_iteration_dump(niter)
              wallclock1=wallclock2
           endif
