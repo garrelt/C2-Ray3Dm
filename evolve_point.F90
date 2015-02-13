@@ -413,7 +413,7 @@ contains
        if (local) then
           
           ! Calculate (time averaged) column density of cell
-          coldensh_cell=coldens(path,ion%h_av(0),ndens_p!),1.0_dp-abu_he)
+          coldensh_cell=coldens(path,ion%h_av(0),ndens_p)!,1.0_dp-abu_he)
 
           ! Calculate (photon-conserving) photo-ionization rate
           phi=photoion_rates(coldensh_in,coldensh_in+coldensh_cell, &
@@ -445,16 +445,18 @@ contains
        !*** DO THIS ONLY IF PHI IS NOT ==0
        ! if (phi%h.ne.0.0_dp) then
        
-       coldensh_cell    =coldens(path,ion%h(0),ndens_p,(1.0_dp-abu_he))
+       coldensh_cell    =coldens(path,ion%h(0),ndens_p)!,(1.0_dp-abu_he))
        
-       call doric(dt,de,ndens_p,ion,phi)!,local)! 
+       call doric(dt, temperature_start%average, de, ndens_p, &
+            ion%h, ion%h_av, phi)!,local)! 
        de=electrondens(ndens_p,ion%h_av)
        
        temper1=temper0 
        if (.not.isothermal) &
             !GM/141021 Change thermal so that it takes old values and outputs new
             !values, but not overwrites...
-            call thermal(dt,temper1,temperature_start%average,de,ndens_p, &
+            call thermal(dt,temperature_start%current, &
+            temperature_start%average,de,ndens_p, &
             ion,phi)    
        
        ! Test for convergence on time-averaged neutral fraction
@@ -481,7 +483,7 @@ contains
 
     ! Update temperature
     ! GM/130815: Why is this done here?
-    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temper1,avg_temper)
+    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temperature_start)
     
   end subroutine do_chemistry
   
