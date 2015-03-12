@@ -26,6 +26,7 @@ module output_module
   use ionfractions_module, only: xh
   use temperature_module, only: temper, temperature_grid
   use temperature_module, only: temperature_states_dbl
+  use temperature_module, only: get_temperature_point
   use evolve_data, only: phih_grid
   use sourceprops, only: srcpos, NormFlux, NumSrc
   use photonstatistics, only: initialize_photonstatistics

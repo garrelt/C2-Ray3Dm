@@ -122,11 +122,20 @@ contains
     ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
     if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then
        ! Initialize local ionization states to the global ones
+#ifdef ALLFRAC       
        do nx=0,1
           ion%h_av(nx)=max(xh_av(pos(1),pos(2),pos(3),nx),epsilon)
           ion%h(nx)=max(xh_intermed(pos(1),pos(2),pos(3),nx),epsilon)
           ion%h_old(nx)=max(xh(pos(1),pos(2),pos(3),nx),epsilon)         
        enddo
+#else
+       ion%h_av(1)=max(xh_av(pos(1),pos(2),pos(3)),epsilon)
+       ion%h(1)=max(xh_intermed(pos(1),pos(2),pos(3)),epsilon)
+       ion%h_old(1)=max(xh(pos(1),pos(2),pos(3)),epsilon)
+       ion%h_av(0)=max(1.0-ion%h_av(1),epsilon)
+       ion%h(0)=max(1.0-ion%h(1),epsilon)
+       ion%h_old(0)=max(1.0-ion%h_old(1),epsilon)
+#endif
 
        ! Initialize local density and temperature
        ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -196,6 +205,7 @@ contains
           ! This will speed up convergence if
           ! the sources are isolated and only ionizing up.
           ! In other cases it does not make a difference.
+#ifdef ALLFRAC
           xh_intermed(pos(1),pos(2),pos(3),1)=max(ion%h(1), &
                xh_intermed(pos(1),pos(2),pos(3),1))
           xh_intermed(pos(1),pos(2),pos(3),0)=max(epsilon,1.0- &
@@ -204,7 +214,12 @@ contains
                xh_av(pos(1),pos(2),pos(3),1))
           xh_av(pos(1),pos(2),pos(3),0)=max(epsilon,1.0_dp- &
                xh_av(pos(1),pos(2),pos(3),1))
-
+#else
+          xh_intermed(pos(1),pos(2),pos(3))=max(ion%h(1), &
+               xh_intermed(pos(1),pos(2),pos(3)))
+          xh_av(pos(1),pos(2),pos(3))=max(ion%h_av(1), &
+               xh_av(pos(1),pos(2),pos(3)))
+#endif
        endif  !if niter==!
 
        ! Add the (time averaged) column density of this cell
@@ -306,11 +321,20 @@ contains
     type(photrates) :: phi 
 
     ! Initialize local ionization states to global ones
+#ifdef ALLFRAC
     do nx=0,1
        ion%h(nx)=max(epsilon,xh_intermed(pos(1),pos(2),pos(3),nx))
        ion%h_old(nx)=max(epsilon,xh(pos(1),pos(2),pos(3),nx))
        ion%h_av(nx)=max(epsilon,xh_av(pos(1),pos(2),pos(3),nx)) ! use calculated xh_av
     enddo
+#else
+       ion%h(1)=max(epsilon,xh_intermed(pos(1),pos(2),pos(3)))
+       ion%h_old(1)=max(epsilon,xh(pos(1),pos(2),pos(3)))
+       ion%h_av(1)=max(epsilon,xh_av(pos(1),pos(2),pos(3))) ! use calculated xh_av
+       ion%h(0)=1.0-ion%h(1)
+       ion%h_old(0)=1.0-ion%h_old(1)
+       ion%h_av(0)=1.0-ion%h_av(1)
+#endif
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -324,13 +348,19 @@ contains
 
     ! I think instead of calling here twice get_temp, it is perhaps better to pass t_new
     ! and t_old as arguments from/to do_chemistry. (?)
-    call do_chemistry (dt, ndens_p, ion, phi,0.0_dp, &
-         dummy,  1.0_dp, 0.0_dp, pos, 0 , local=.false.)
+    call do_chemistry (dt, ndens_p, ion, &
+         phi, 0.0_dp, 1.0_dp, 0.0_dp, pos, 0, local=.false.)
     
     ! Test for global convergence using the time-averaged neutral fraction.
     ! For low values of this number assume convergence
-    yh0_av_old=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
+    ! use previously calculated xh_av
+#ifdef ALLFRAC
+    yh0_av_old=xh_av(pos(1),pos(2),pos(3),0)
     yh1_av_old=xh_av(pos(1),pos(2),pos(3),1)
+#else
+    yh1_av_old=max(epsilon,xh_av(pos(1),pos(2),pos(3)))
+    yh0_av_old=1.0-yh1_av_old
+#endif
     call get_temperature_point (pos(1),pos(2),pos(3),temperature_end)
     !call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,temp_av_new,temper_old)
 
@@ -344,11 +374,15 @@ contains
     endif
 
     ! Copy ion fractions to the global arrays.
+#ifdef ALLFRAC
     do nx=0,1
        xh_intermed(pos(1),pos(2),pos(3),nx)=ion%h(nx)
        xh_av(pos(1),pos(2),pos(3),nx)=ion%h_av(nx)
     enddo
-
+#else
+    xh_intermed(pos(1),pos(2),pos(3))=ion%h(1)
+    xh_av(pos(1),pos(2),pos(3))=ion%h_av(1)
+#endif
     ! This was already done in do_chemistry
     !if (.not.isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temper1,av)
     
@@ -357,12 +391,11 @@ contains
   ! ===========================================================================
 
   subroutine do_chemistry (dt, ndens_p, ion, &
-       phi, coldensh_in,coldenshe_in, path, vol_ph, pos, ns, local)
+       phi, coldensh_in, path, vol_ph, pos, ns, local)
 
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),intent(in) :: ndens_p
     real(kind=dp),intent(in) :: coldensh_in
-    real(kind=dp),dimension(0:1),intent(in) :: coldenshe_in
     real(kind=dp),intent(in) :: path
     real(kind=dp),intent(in) :: vol_ph
     integer,dimension(Ndim),intent(in) :: pos !< position on mesh
@@ -448,7 +481,7 @@ contains
        coldensh_cell    =coldens(path,ion%h(0),ndens_p)!,(1.0_dp-abu_he))
        
        call doric(dt, temperature_start%average, de, ndens_p, &
-            ion%h, ion%h_av, phi)!,local)! 
+            ion%h, ion%h_av, phi%photo_cell_HI)!,local)! 
        de=electrondens(ndens_p,ion%h_av)
        
        temper1=temper0 
