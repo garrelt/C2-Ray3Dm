@@ -240,7 +240,7 @@ contains
        write(logf,*) "Statistics on LLS column density"
        write(logf,*) "minimum: ",minval(LLS_grid)
        write(logf,*) "maximum: ",maxval(LLS_grid)
-       write(logf,*) "average clumping: ",coldensh_LLS
+       write(logf,*) "average column density: ",coldensh_LLS
        write(logf,*) "mean free path: ",mfp_LLS_pMpc
     endif
 
