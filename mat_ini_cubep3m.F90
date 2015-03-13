@@ -815,6 +815,7 @@ contains
        ! (e.g. 5 grid cells).
        if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
           LLS_grid(:,:,:)=0.0
+          coldensh_LLS=0.0 ! average value of LLS column density per cell
        endif
     end select
 
