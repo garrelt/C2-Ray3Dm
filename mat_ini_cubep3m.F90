@@ -811,6 +811,11 @@ contains
        endif
     case(2) 
        call read_lls_grid (z)
+       ! Do not apply if the mean free path is less than the limit
+       ! (e.g. 5 grid cells).
+       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
+          LLS_grid(:,:,:)=0.0
+       endif
     end select
 
     if (rank == 0) then
