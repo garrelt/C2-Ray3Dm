@@ -804,19 +804,16 @@ contains
        ! Calculate the mean free path in pMpc
        mfp_LLS_pMpc=dr(1)/n_LLS/Mpc
        ! Column density per cell due to LLSs
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
        if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
           coldensh_LLS = N_1 * n_LLS
        else
           coldensh_LLS = 0.0
        endif
     case(2) 
+       ! We need to read a grid of values, see below.
        call read_lls_grid (z)
-       ! Do not apply if the mean free path is less than the limit
-       ! (e.g. 5 grid cells).
-       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
-          LLS_grid(:,:,:)=0.0
-          coldensh_LLS=0.0 ! average value of LLS column density per cell
-       endif
     end select
 
     if (rank == 0) then
@@ -866,6 +863,8 @@ contains
     character(len=512):: LLS_file
     character(len=6) :: zred_str
 
+    real(kind=dp) :: sim_volume_Mpc
+
     ! clumping in file is in 4B reals, read in via this array
     !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
 
@@ -902,24 +901,29 @@ contains
        ! The data is cross section in pMpc^2 of LLSs in
        ! each cell.
        read(22) LLS_grid
-       write(logf,*) 'LLS data read'
        
        ! close file
        close(unit=22)
        
-       ! Convert units to cgs
-       LLS_grid(:,:,:)=LLS_grid(:,:,:)*Mpc*Mpc
-
        ! Calculate mean free path
-       ! Make sure sim_volume is in proper length units
-       mfp_LLS_pMpc=sim_volume/(sum(LLS_grid)*(1.0+zred_now)**3)
+       ! Make sure sim_volume is in proper Mpc
+       sim_volume_Mpc=sim_volume/(Mpc*(1.0+zred_now))**3
+       mfp_LLS_pMpc=sim_volume_Mpc/sum(LLS_grid)
 
-       ! fraction of cell covered by LLS (equivalent to n_LLS in 
-       ! the routines above)
-       LLS_grid(:,:,:)=LLS_grid(:,:,:)/(dr(1)*dr(1)) 
-       ! Convert to column density
-       LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
+       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
+          LLS_grid(:,:,:)=0.0
+       else
+          ! Convert units to cgs
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)*Mpc*Mpc
 
+          ! fraction of cell covered by LLS (equivalent to n_LLS in 
+          ! the routines above)
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)/(dr(1)*dr(1)) 
+          ! Convert to column density
+          LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
+       endif
     endif
 
 #ifdef MPI       
@@ -929,7 +933,7 @@ contains
 #endif
        
     ! Report on data: min, max, averages, mean free path
-    coldensh_LLS=sum(LLS_grid)/(mesh(1)*mesh(2)*mesh(3))
+    coldensh_LLS=sum(LLS_grid)/(mesh(1)*mesh(2)*mesh(3)) ! average value
     if (rank == 0) then
        write(logf,*) "Statistics on LLS column density"
        write(logf,*) "minimum: ",minval(LLS_grid)
