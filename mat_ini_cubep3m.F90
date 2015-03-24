@@ -898,7 +898,7 @@ contains
        mfp_LLS_pMpc=sim_volume/(sum(LLS_grid)*Mpc*(1.0+zred_now)**3)
 
        ! Convert to column density
-       LLS_grid=LLS_grid/vol ! 1/(mean free path) = n_LLS
+       LLS_grid=LLS_grid*Mpc/vol ! 1/(mean free path) = n_LLS
        LLS_grid=N_1 * LLS_grid
     endif
 
