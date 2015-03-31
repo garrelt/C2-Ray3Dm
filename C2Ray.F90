@@ -50,14 +50,12 @@ Program C2Ray
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini
+  use material, only: material_ini
   use ionfractions_module, only: xfrac_restart_init
   use density_module, only: density_init
   use temperature_module, only: temperature_restart_init
   use clumping_module, only: set_clumping
   use lls_module, only: set_LLS
-  !use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
-  !     set_LLS
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve_data, only: evolve_ini
@@ -144,13 +142,13 @@ Program C2Ray
        write(timefile,"(A,F8.1)") "Time after rad_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
-  write(logf,*) "Before mat_ini"
+  write(logf,*) "Before material_ini"
 #endif
   ! Initialize the material properties
-  call mat_ini (restart, nz0, ierror)
+  call material_ini (restart, nz0, ierror)
 
   if (rank == 0) &
-       write(timefile,"(A,F8.1)") "Time after mat_ini: ",timestamp_wallclock ()
+       write(timefile,"(A,F8.1)") "Time after material_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
   write(logf,*) "Before nbody_ini"
