@@ -302,8 +302,9 @@ Program C2Ray
 #ifdef MPILOG     
         write(logf,*) 'First output'
 #endif 
-        ! If start of simulation output
-        if (NumSrc > 0 .and. sim_time == 0.0) call output(time2zred(sim_time),sim_time,dt, &
+        ! If start of simulation output (and not a restart).
+        if (NumSrc > 0 .and. sim_time == 0.0 .and. restart == 0) &
+             call output(time2zred(sim_time),sim_time,dt, &
              photcons_flag)
         
 #ifdef MPILOG     
