@@ -804,12 +804,15 @@ contains
        ! Calculate the mean free path in pMpc
        mfp_LLS_pMpc=dr(1)/n_LLS/Mpc
        ! Column density per cell due to LLSs
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
        if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
           coldensh_LLS = N_1 * n_LLS
        else
           coldensh_LLS = 0.0
        endif
     case(2) 
+       ! We need to read a grid of values, see below.
        call read_lls_grid (z)
     end select
 
@@ -844,15 +847,23 @@ contains
 
     ! Author: Garrelt Mellema
 
-    ! Date: 16-Mar-2011
+    ! Date: 13-Mar-2015
 
-    ! Version: 
+    ! Version: 1.0
+
+    ! Notes: the position dependent LLS data are read from files containing
+    !   the cross section of LLS in every cell (in proper Mpc^2). These have 
+    !   to be prepared separately, for example by the make_lls program.
+    !   This routine reads this file for a given redshift and converts
+    !   the cross section to a column density.
 
     real(kind=dp),intent(in) :: zred_now
     
     integer :: m1,m2,m3 ! size of mesh in cross section file (header)
     character(len=512):: LLS_file
     character(len=6) :: zred_str
+
+    real(kind=dp) :: sim_volume_Mpc
 
     ! clumping in file is in 4B reals, read in via this array
     !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
@@ -868,10 +879,10 @@ contains
             "cross_section.bin"
 
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " clumping input from ",trim(LLS_file)
+            " LLS input from ",trim(LLS_file)
 
-       ! Open clumping file: note that the format is determined
-       ! by the values of clumpingformat and clumping access,
+       ! Open LLS file: note that the format is determined
+       ! by the values of LLSformat and LLSaccess,
        ! both set in the nbody module.
        open(unit=22,file=LLS_file,form=LLSformat, &
             access=LLSaccess,status="old")
@@ -887,19 +898,32 @@ contains
           endif
        endif
        ! Read in data and store it in clumping_grid
+       ! The data is cross section in pMpc^2 of LLSs in
+       ! each cell.
        read(22) LLS_grid
-       write(logf,*) 'LLS data read'
        
        ! close file
        close(unit=22)
        
        ! Calculate mean free path
-       ! Make sure sim_volume is in proper length units
-       mfp_LLS_pMpc=sim_volume/(sum(LLS_grid)*Mpc*(1.0+zred_now)**3)
+       ! Make sure sim_volume is in proper Mpc
+       sim_volume_Mpc=sim_volume/(Mpc*(1.0+zred_now))**3
+       mfp_LLS_pMpc=sim_volume_Mpc/sum(LLS_grid)
 
-       ! Convert to column density
-       LLS_grid=LLS_grid*Mpc/vol ! 1/(mean free path) = n_LLS
-       LLS_grid=N_1 * LLS_grid
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
+       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
+          LLS_grid(:,:,:)=0.0
+       else
+          ! Convert units to cgs
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)*Mpc*Mpc
+
+          ! fraction of cell covered by LLS (equivalent to n_LLS in 
+          ! the routines above)
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)/(dr(1)*dr(1)) 
+          ! Convert to column density
+          LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
+       endif
     endif
 
 #ifdef MPI       
@@ -908,15 +932,13 @@ contains
          MPI_REAL,0,MPI_COMM_NEW,mympierror)
 #endif
        
-    ! Report on data: min, max, total
-    ! assign mean to clumping for reporting in set_clumping
-    coldensh_LLS=sum(LLS_grid)/(mesh(1)*mesh(2)*mesh(3))
+    ! Report on data: min, max, averages, mean free path
+    coldensh_LLS=sum(LLS_grid)/(mesh(1)*mesh(2)*mesh(3)) ! average value
     if (rank == 0) then
        write(logf,*) "Statistics on LLS column density"
        write(logf,*) "minimum: ",minval(LLS_grid)
        write(logf,*) "maximum: ",maxval(LLS_grid)
-       write(logf,*) "average clumping: ",coldensh_LLS
-       write(logf,*) "mean free path: ",mfp_LLS_pMpc
+       write(logf,*) "average LLS column density: ",coldensh_LLS
     endif
 
   end subroutine read_LLS_grid
