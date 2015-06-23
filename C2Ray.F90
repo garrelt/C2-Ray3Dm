@@ -296,8 +296,6 @@ Program C2Ray
         else
            next_output_time=sim_time+output_time
         endif
-        ! Reset restart flag now that everything has been dealt with
-        restart=0
         
 #ifdef MPILOG     
         write(logf,*) 'First output'
@@ -307,6 +305,9 @@ Program C2Ray
              call output(time2zred(sim_time),sim_time,dt, &
              photcons_flag)
         
+        ! Reset restart flag now that everything has been dealt with
+        restart=0
+
 #ifdef MPILOG     
         write(logf,*) 'Start of loop'
 #endif 
