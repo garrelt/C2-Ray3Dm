@@ -132,7 +132,7 @@ module nbody
   integer, public :: NumZred               !< number of redshifts
   real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts 
   integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
-  character(len=8),public :: id_str       !< resolution dependent string
+  character(len=8),public :: id_str="unknown" !< resolution dependent string
 
   character(len=480),public :: dir_dens !< Path to directory with density files
   character(len=480),public :: dir_clump !< Path to directory with clump files
@@ -147,13 +147,17 @@ contains
 
   ! ===========================================================================
 
-  subroutine nbody_ini ()
+  subroutine nbody_ini (ierror)
     
+    integer,intent(out) :: ierror
     character(len=180) :: redshift_file ! name of file with list of redshifts
     integer :: nz ! loop counter
     character(len=20) :: dataroot="DEISA_DATA"
     character(len=256) :: value
     integer :: len, status, asubbox
+
+    ! Set error flag to zero
+    ierror=0
 
     ! In some cases a special file system is used, and its name is
     ! found from an environment variable.
@@ -252,6 +256,8 @@ contains
        end select
     end select
     if (rank == 0) write(unit=logf,fmt=*) "Type of resolution: ",id_str
+
+    if (id_str == "unknown" ) ierror=1
 
   end subroutine nbody_ini
 

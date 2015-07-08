@@ -152,26 +152,27 @@ Program C2Ray
   write(logf,*) "Before nbody_ini"
 #endif
   ! Find the redshifts we are dealing with
-  call nbody_ini ()
+  call nbody_ini (ierror)
+  startup_error=startup_error+1
 
 #ifdef MPILOG
   write(logf,*) "Before source_properties_ini"
 #endif
   ! Initialize the source model
-  call source_properties_ini ()
+  if (startup_error == 0) call source_properties_ini ()
 
 #ifdef MPILOG
   write(logf,*) "Before time_ini"
 #endif
   ! Initialize time step parameters
-  call time_ini ()
+  if (startup_error == 0) call time_ini ()
   if (rank == 0) flush(logf)
 
 #ifdef MPILOG
   write(logf,*) "Before evolve_ini"
 #endif
   ! Initialize evolve arrays
-  call evolve_ini ()
+  if (startup_error == 0) call evolve_ini ()
 
   ! Set time to zero
   sim_time=0.0
@@ -179,14 +180,14 @@ Program C2Ray
   ! Initialize cosmology
   ! (always call bacause it initializes some of the things even if 
   ! not doing cosmo. 
-  call cosmology_init(zred_array(nz0),sim_time)
+  if (startup_error == 0) call cosmology_init(zred_array(nz0),sim_time)
 
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after cosmology_init: ", &
        timestamp_wallclock ()
 
   ! If a restart, inquire whether to restart from iteration
-  if (restart /= 0) then
+  if (startup_error == 0 .and. restart /= 0) then
      if (rank == 0) then
         if (.not.file_input) &
              write(*,"(A,$)") "Restart from iteration dump (y/n) or (0/1/2)? : "
