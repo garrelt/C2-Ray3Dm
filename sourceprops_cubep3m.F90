@@ -5,9 +5,11 @@
 !! 
 !! \b Author: Garrelt Mellema, Ilian Iliev
 !!
-!! \b Date: 30-Jan-2008
+!! \b Date: 08-Jul-2015 (30-Jan-2008
 !!
-!! \b Version: CUBEP3M Nbody simulation, with source suppression, and different source models
+!! \b Version: CUBEP3M Nbody simulation, with source suppression, 
+!! and different source models; recently extended with partial and
+!! gradual suppression.
 
 module sourceprops
 
@@ -29,12 +31,18 @@ module sourceprops
   character(len=100),parameter,private :: &
        sourcelistfile_base="_sources.dat"
        !sourcelistfile_base="_wsubgrid_sources.dat"
+       !sourcelistfile_base="_wsubgrid_gradual_sources.dat"
   character(len=100),parameter,private :: &
        sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
   !> number of columns in source list
-  integer,parameter,private :: ncolumns_srcfile=5
+  integer,parameter,private :: ncolumns_srcfile=7
   real,dimension(ncolumns_srcfile),private :: srclist
+
+  !> Definitions to help accessing the read in source list array
+  integer,parameter :: HMACH=4
+  integer,parameter :: LMACH=5
+  integer,parameter :: LMACH_SUPPR=6
 
   !> maximum increase in uv to use up cumulated photons
   real(kind=dp),parameter,private :: cumfrac_max=0.15 
@@ -54,7 +62,7 @@ module sourceprops
   integer :: NumZred_uv !< Number of redshift points in UV model
   integer,private :: NumSrc0=0 !< intermediate source count
   integer,dimension(3),private :: srcpos0
-  real(kind=dp),private :: srcMass00,srcMass01,total_SrcMass
+  real(kind=dp),private :: total_SrcMass
   character(len=6),private :: z_str !< string value of redshift
   integer,private :: NumMassiveSrc !< counter: number of massive sources
   integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
@@ -210,12 +218,10 @@ contains
           ! read_in_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          srcMass00=srclist(4) !massive sources (HMACHs)
-          srcMass01=srclist(5) !low-mass sources (LMACHs)
-          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
 
           ! Massive sources are never suppressed.
-          if (SrcMass00 /= 0.0 .or. UV_Model == "Iliev et al partial supp.") then
+          if (srclist(HMACH) /= 0.0 .or. UV_Model == "Iliev et al partial supp." &
+	     .or. (UV_model == "Gradual supp." .and. srclist(LMACH_SUPPR) /= 0.0)) then
              NumSrc=NumSrc+1
           ! if the cell is still neutral, no suppression (if we use the Iliev
           ! et al source model)   
@@ -229,17 +235,18 @@ contains
           endif
 
           ! Count different types of sources
-          if (SrcMass00 /= 0.0) NumMassiveSrc=NumMassiveSrc+1
-          if (SrcMass01 /= 0.0) NumSupprbleSrc=NumSupprbleSrc+1
+          if (srclist(HMACH) /= 0.0) NumMassiveSrc=NumMassiveSrc+1
+          if (srclist(LMACH) /= 0.0) NumSupprbleSrc=NumSupprbleSrc+1
           ! How many suppressed?
-          if (SrcMass01 /= 0.0) then
+          if (srclist(LMACH) /= 0.0) then
 #ifdef ALLFRAC
              if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) > StillNeutral .or. &
 #else
              if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
 #endif
                (UV_Model /= "Iliev et al" .and. &
-               UV_Model /= "Iliev et al partial supp.")) NumSupprsdSrc=NumSupprsdSrc+1
+               UV_Model /= "Iliev et al partial supp." .and. &
+	       UV_model /= "Gradual supp.")) NumSupprsdSrc=NumSupprsdSrc+1
           endif
        enddo
        close(50)
@@ -280,9 +287,6 @@ contains
           ! establish_number_of_active_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          srcMass00=srclist(4) !massive sources (HMACHs)
-          srcMass01=srclist(5) !low-mass sources (LMACHs)
-          !read(50,*) srcpos0(1),srcpos0(2),srcpos0(3),SrcMass00,SrcMass01,odens
           
 #ifdef ALLFRAC
           if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
@@ -291,7 +295,8 @@ contains
 #endif
              if (UV_Model == "Iliev et al" .or. &
                   UV_Model == "Iliev et al partial supp." .or. &
-                  SrcMass00 > 0.0d0) then
+                  UV_model == "Gradual supp." .or. &
+		  srclist(HMACH) > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1
                 ! Source positions in file start at 1!
@@ -301,14 +306,17 @@ contains
                 ! Collect total source mass (weigthed with efficiency factor
                 ! in case of the Iliev et al source model).
                 if (UV_Model == "Iliev et al" .or. &
-                     UV_Model == "Iliev et al partial supp." ) then
-                   NormFlux(ns)=SrcMass00*phot_per_atom(1)  & !massive sources
-                        + SrcMass01*phot_per_atom(2)      !small sources  
+                     UV_Model == "Iliev et al partial supp." .or. &
+		     UV_model == "Gradual supp.") then
+                   NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
+                        + srclist(LMACH)*phot_per_atom(2)      !small sources  
                 else
-                   NormFlux(ns)=SrcMass00!+SrcMass01
+                   NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
                 endif
              endif
-          elseif (SrcMass00 > 0.0d0 .or. (UV_Model == "Iliev et al partial supp." .and. SrcMass01 > 0.0d0)) then
+          elseif (srclist(HMACH) > 0.0d0 .or. &
+	  	 (UV_Model == "Iliev et al partial supp." .and. srclist(LMACH) > 0.0d0) &
+		 .or. (UV_model == "Gradual supp." .and. srclist(LMACH_SUPPR) > 0.0d0)) then
              !the cell is ionized but source is massive enough to survive
              !and is assumed Pop. II, or source is low-mass, but we assume
              !partial suppression, tuning down its efficiency  
@@ -321,12 +329,15 @@ contains
              ! in case of the Iliev et al source model), used in 
              ! assign_uv_luminosities to calculate ionizing photon rates
              if (UV_Model == "Iliev et al") then
-                NormFlux(ns)=SrcMass00*phot_per_atom(1)  !massive sources
-             elseif (UV_Model == "Iliev et al partial supp.") then !make low-mass sources less efficient
-                NormFlux(ns)=SrcMass00*phot_per_atom(1)  & !massive sources
-                     + SrcMass01*phot_per_atom(1)      !low-mass sources
+                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  !massive sources
+             elseif (UV_Model == "Iliev et al partial supp.") then !make low-mass sources as efficient as HMACHs (so typically less efficient)
+                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
+                     + srclist(LMACH)*phot_per_atom(1)      !low-mass sources
+	     elseif (UV_Model == "Gradual supp.") then !make low-mass sources less efficient
+	     	NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources		
+		     + srclist(LMACH_SUPPR)*phot_per_atom(2)      !low-mass sources with effective mass KLD
              else
-                NormFlux(ns)=SrcMass00
+                NormFlux(ns)=srclist(HMACH)
              endif
           endif
        enddo
@@ -365,7 +376,7 @@ contains
 
     ! Turn masses into luminosities
     select case (UV_Model)
-    case ("Iliev et al", "Iliev et al partial supp.")
+    case ("Iliev et al", "Iliev et al partial supp.","Gradual supp.")
        do ns=1,NumSrc
           !note that now photons/atom are already included in NormFlux
           NormFlux(ns)=NormFlux(ns)*M_grid*  &
@@ -422,6 +433,7 @@ contains
   !! 2: Fixed total Ndot_gamma.
   !! 3: Iliev et al source as above, but partial suppression of LMACHs
   !!    by tuning them down to lower efficiency 
+  !! 4: Gradual suppression based on mass
   subroutine source_properties_ini ()
     
 
@@ -436,7 +448,7 @@ contains
 
     ! Ask for redshift file
     if (rank == 0) then
-       if (.not.file_input) write(*,"(A,$)") "UV Luminosity recipe (0,1,2,3): "
+       if (.not.file_input) write(*,"(A,$)") "UV Luminosity recipe (0,1,2,3,4): "
        read(stdinput,*) uv_answer
        select case (uv_answer)
        case(0)
@@ -447,6 +459,8 @@ contains
           UV_Model = "Fixed Ndot_gamma"
        case(3)
           UV_Model = "Iliev et al partial supp."
+       case(4)
+	  UV_Model = "Gradual supp."
        end select
 
        if (uv_answer == 1 .or. uv_answer == 2) then

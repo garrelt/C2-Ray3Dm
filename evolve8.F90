@@ -62,6 +62,10 @@ module evolve
   !> Minimum number of MPI processes for using the master-slave setup 
   integer, parameter ::  min_numproc_master_slave=10
 
+  !> Report about the sending of every 1000th source if check_progress
+  !! is 1000
+  integer, parameter :: check_progress = 100000
+
   ! Variables connected to checking converge of global average ionization
   ! fraction
   ! Sum of intermediate ionization fraction xh_intermed(*,1)
@@ -751,6 +755,11 @@ contains
        who = mympi_status(MPI_SOURCE) ! find out who sent us the answer
        sources_done=sources_done+1 ! and the number of sources done
        
+        ! Report on the sending on nth source
+       if (mod(ns1,check_progress) == 0) &
+            write(logf,"(A,I8,A,I6)") &
+            "Sending source ",ns1," to processor ",who
+
        ! put the slave on work again,
        ! but only if not all tasks have been sent.
        ! we use the value of num to detect this */
