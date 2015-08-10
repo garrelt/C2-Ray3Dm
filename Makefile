@@ -36,32 +36,30 @@
 #-------------------------------------------------------
 
 # Compiler
-FC = gfortran # GNU compiler
-MPIFC = mpif90.openmpi # MPI compiler
+#FC = gfortran # GNU compiler
+#MPIFC = mpif90.openmpi # MPI compiler
 
 # F90 options (gfortran)
-GFORTFLAGS = -DGFORT -O3
+#GFORTFLAGS = -DGFORT -O3
 
 # Processor dependent optimization
-F90FLAGS1 = $(GFORTFLAGS) 
+#F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
+#OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 # Compiler
 # Intel: best tested
-#FC = ifort # Intel compiler
-#MPIFC = mpif90 # MPI compiler
-#FC = ftn # Intel compiler (Cray)
-#MPIFC = ftn # MPI compiler (Cray)
+FC = ifort # Intel compiler
+MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
 #IFORTFLAGS = -DIFORT -O0 -g -u -fpe0 -p
-#IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
+IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 #-check all -traceback
 #IFORTFLAGS = -DIFORT -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel #-check all -traceback
@@ -70,16 +68,16 @@ OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 #F90FLAGS1 = $(IFORTFLAGS) 
 #F90FLAGS1 = -xCORE-AVX2 $(IFORTFLAGS) # Beskow
 #F90FLAGS1 = -xW $(IFORTFLAGS) 
-#F90FLAGS1 = -xHost $(IFORTFLAGS) 
+F90FLAGS1 = -xHost $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-#MPI_FLAGS = -DMPI # 
+MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
-#NO_OPENMP_FLAGS = 
+OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
+NO_OPENMP_FLAGS = 
 
 #-------------------------------------------------------
 # Compiler
