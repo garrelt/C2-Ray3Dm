@@ -63,12 +63,17 @@ contains
 
   ! ===========================================================================
 
-  subroutine nbody_ini ()
+  subroutine nbody_ini (ierror)
     
+    integer,intent(out) :: ierror
+
     real(kind=dp) :: t0,timestep
     integer :: nz ! loop counter
     character(len=256) :: value
     integer :: len, status
+
+    ! Set error flag to zero
+    ierror=0
 
     ! Construct redshift sequence
     if (rank == 0) then
