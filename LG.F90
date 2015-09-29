@@ -111,14 +111,18 @@ contains
 
   ! ===========================================================================
 
-  subroutine nbody_ini ()
+  subroutine nbody_ini (ierror)
     
+    integer,intent(out) :: ierror
     character(len=180) :: redshift_file ! name of file with list of redshifts
     integer :: nz ! loop counter
     character(len=20) :: dataroot="DEISA_DATA"
     character(len=256) :: value
     integer :: len, status
     real :: a ! scale factor?
+
+    ! Set error flag to zero
+    ierror=0
 
     ! In some cases a special file system is used, and its name is
     ! found from an environment variable.
