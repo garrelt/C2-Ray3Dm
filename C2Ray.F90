@@ -144,6 +144,7 @@ Program C2Ray
 #endif
   ! Initialize the material properties
   call mat_ini (restart, nz0, ierror)
+  startup_error = startup_error + ierror
 
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after mat_ini: ",timestamp_wallclock ()
@@ -152,8 +153,8 @@ Program C2Ray
   write(logf,*) "Before nbody_ini"
 #endif
   ! Find the redshifts we are dealing with
-  call nbody_ini (ierror)
-  startup_error=startup_error+1
+  if (startup_error == 0) call nbody_ini (ierror)
+  startup_error=startup_error+ierror
 
 #ifdef MPILOG
   write(logf,*) "Before source_properties_ini"
