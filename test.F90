@@ -109,6 +109,7 @@ module nbody
   logical,parameter :: clumpingheader=.true.
   !> LLS file with header?
   logical,parameter :: LLSheader=.true.
+
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
   character(len=*),parameter :: density_unit="none"
@@ -124,7 +125,7 @@ module nbody
 
   !> Conversion factor for comoving gas (number) density (cm^-3)
   real(kind=dp),parameter,public :: density_convert_grid=1.0
-   !> Conversion factor for comoving gas (number) density (cm^-3)
+  !> Conversion factor for comoving gas (number) density (cm^-3)
   real(kind=dp),parameter,public :: density_convert_particle=1.0
   !> Conversion factor for lenght scales: not used
   real(kind=dp),parameter,public :: lscale=1.0
@@ -173,7 +174,8 @@ contains
                (t0/(t0+real(nz-1)*timestep))**(2./3.)
        enddo
     endif
-
+       dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
+       dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
 #ifdef MPI
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(NumZred,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)

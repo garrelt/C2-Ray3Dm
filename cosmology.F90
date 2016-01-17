@@ -31,7 +31,8 @@ module cosmology
   use file_admin, only: logf
   use sizes, only: mesh
   use cgsconstants, only: c
-
+  use c2ray_parameters, only: cosmological
+  
   implicit none
 
   real(kind=dp) :: zred_t0 !< initial redshift
@@ -64,8 +65,10 @@ contains
     zred=0.0 ! needs to be zero, so comoving will be changed to proper
     
     ! Initialize lengths and volumes to proper units
-    call redshift_evol(time)
-    call cosmo_evol( )
+    if (cosmological) then
+       call redshift_evol(time)
+       call cosmo_evol( )
+    endif
     
   end subroutine cosmology_init
 
@@ -194,7 +197,7 @@ contains
     n_LLS=n_LLS * zfactor**(-y_LLS-1.5)
 
   end subroutine cosmo_evol
-  
+
   ! =======================================================================
 
   !> Calculates the cosmological adiabatic cooling
