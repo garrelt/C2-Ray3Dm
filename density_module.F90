@@ -179,7 +179,7 @@ contains
        endif
     case("gadget")
        write(redshift_str,"(f6.3)") redshift
-       dens_file=trim(adjustl(dir_dens))//trim(adjustl(zred_str))// &
+       dens_file=trim(adjustl(dir_dens))//trim(adjustl(redshift_str))// &
                "rho_gadget.dat"
     end select
 
