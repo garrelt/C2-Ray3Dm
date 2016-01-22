@@ -158,8 +158,15 @@ contains
        dens_file=trim(adjustl(dir_dens))// &
             trim(adjustl(redshift_str))// &
             "n_all.dat"
-       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " density input from ",trim(dens_file)
+    case("pmfast")
+       ! This case is more complicated in reality. If id_str="coarse"
+       ! the density data is spread out over several files which need
+       ! to be read sequentially. This is not implemented here as it
+       ! is unclear whether this will ever be needed.
+       write(redshift_str,"(f6.3)") redshift
+       dens_file=trim(adjustl(dir_dens))// &
+            trim(adjustl(redshift_str))// &
+            "rho_"//trim(adjustl(id_str))//".dat"
     case("LG")
        write(redshift_str,"(f6.3)") redshift
        write(number_of_redshift_str,'(i3.3)') number_of_redshift
@@ -170,9 +177,15 @@ contains
           dens_file=trim(adjustl(dir_dens))// &
                trim(adjustl(number_of_redshift_str))//trim(adjustl(id_str))//".dat"
        endif
-       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " density input from ",trim(dens_file)
+    case("gadget")
+       write(redshift_str,"(f6.3)") redshift
+       dens_file=trim(adjustl(dir_dens))//trim(adjustl(zred_str))// &
+               "rho_gadget.dat"
     end select
+
+    ! Report to log file
+    write(unit=logf,fmt="(4A)") "Reading ",id_str, &
+         " density input from ",trim(dens_file)
 
     ! Copy result to function variable
     construct_densfilename=dens_file
@@ -210,7 +223,7 @@ contains
     !read(20) ndens_real
     !ndens(:,:,:)=ndens_real(:,:,:)
     select case (nbody_type)
-    case("cubep3m")
+    case("cubep3m","pmfast","gadget")
        read(20) ndens
     case("LG")
        do k=1,mesh(3)
@@ -243,6 +256,8 @@ contains
        convert=density_convert_particle
     case ("M0Mpc3")
        convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)
+    case("mass_density")
+       convert=1.0/(mu*m_p)
     end select
     
     ! Check separately for cosmological. We need to set comoving values here

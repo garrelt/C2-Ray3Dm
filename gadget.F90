@@ -90,8 +90,8 @@ module nbody
   logical,parameter :: LLSheader=.true.
 
   !> unit of density in density file
-  !! can be "grid", "particle", "M0Mpc3"
-  character(len=*),parameter :: density_unit="grid"
+  !! can be "grid", "particle", "M0Mpc3", "mass_density"
+  character(len=*),parameter :: density_unit="mass_density"
 
   ! Parameters of simulations boxes
   ! properties of the box:
