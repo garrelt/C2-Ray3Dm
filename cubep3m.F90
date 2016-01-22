@@ -21,7 +21,6 @@ module nbody
   ! It sets an identifier (id_str) for the resolution (used when
   ! reading in source list files and density fields.
 
- 
   use precision, only: dp
   use sizes, only: mesh, meshx
   use file_admin, only: stdinput, logf, file_input
