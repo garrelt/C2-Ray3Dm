@@ -5,7 +5,7 @@
 !! 
 !! \b Author: Garrelt Mellema, Ilian Iliev
 !!
-!! \b Date: 22-May-2008 (previous version was not dated)
+!! \b Date: 22-Jan-2016 (22-May-2008 (previous version was not dated)
 !!
 !! \b Version: test simulations
 !!
@@ -29,10 +29,7 @@ module nbody
   ! It sets an identifier (id_str) for the resolution (used when
   ! reading in source list files and density fields.
 
-  ! Authors: Ilian Iliev, Garrelt Mellema
-
-  ! Date: 22-May-2008 (previous version was not dated)
-
+ 
   use precision, only: dp
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, file_input
@@ -46,24 +43,18 @@ module nbody
 
   real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
 
-  ! redshift sequence information
-  integer, public :: NumZred               !< number of redshifts
-  real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts 
-  integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
-  character(len=8),public :: id_str       !< resolution dependent string
-
-  character(len=480),public :: dir_dens !< Path to directory with density files
-  character(len=480),public :: dir_clump !< Path to directory with clump files
-  character(len=480),public :: dir_LLS !< Path to directory with LLS files
-  character(len=480),public :: dir_src !< Path to directory with source files
-
   !> Path to directory containing directory with density files:
   character(len=*),parameter,private :: dir_dens_path = "" 
   !> Name of directory with density files
   character(len=180),parameter,private :: dir_dens_name= ""
 
+  !> Path to directory containing directory with source files:
+  character(len=*),parameter,private :: dir_src_path = "../" 
+  !> Name of directory with source files
+  character(len=*),parameter,private :: dir_src_name= ""
+
   !> Path to directory containing directory with clumping files:
-  character(len=*),parameter,private :: dir_clump_path = "" 
+  character(len=*),parameter,private :: dir_clump_path = "../" 
   !> Name of directory with files used for clumping
   character(len=*),parameter,private :: dir_clump_name= ""
 
@@ -72,10 +63,6 @@ module nbody
   !> Name of directory with files used for LLS
   character(len=*),parameter,private :: dir_LLS_name= ""
 
-  !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "./" 
-  !> Name of directory with source files
-  character(len=*),parameter,private :: dir_src_name= ""
 
   !> Format of density file (unformatted or binary)
 #ifdef IFORT
@@ -132,6 +119,17 @@ module nbody
   !> Conversion factor for time scale: not used
   real(kind=dp),parameter,public :: tscale= 1.0
 
+  ! redshift sequence information
+  integer, public :: NumZred               !< number of redshifts
+  real(kind=dp),dimension(:),allocatable,public :: zred_array !< array of redshifts 
+  integer,dimension(:),allocatable,public :: snap !< array of snapshot numbers (for compatibility)
+  character(len=8),public :: id_str       !< resolution dependent string
+
+  character(len=480),public :: dir_dens !< Path to directory with density files
+  character(len=480),public :: dir_clump !< Path to directory with clump files
+  character(len=480),public :: dir_LLS !< Path to directory with LLS files
+  character(len=480),public :: dir_src !< Path to directory with source files
+
 #ifdef MPI
   integer,private :: mympierror !< MPI error flag variable
 #endif
@@ -140,18 +138,81 @@ contains
 
   ! ===========================================================================
 
-  subroutine nbody_ini ()
+  subroutine nbody_ini (ierror)
     
-    real(kind=dp) :: t0,timestep
-    integer :: nz ! loop counter
-    character(len=256) :: value
-    integer :: len, status
+    integer,intent(out) :: ierror
 
-    ! Set directories: not currently used
+    ! Set error flag to zero
+    ierror=0
+
+    ! Set the base directory names
+    call set_directory_names ()
+
+    ! In some cases a special file system is used, and its name is
+    ! found from an environment variable. This needs to be added
+    ! to the directory names. This behaviour is triggered by a preprocessor
+    ! flag, so -DDEISA
+#ifdef DEISA
+    call set_directory_prefix(ierror)
+#endif
+
+    ! Read in the list of redshifts
+    call set_list_of_redshifts(ierror)
+
+    ! Determine resolution string (id_str)
+    call set_resolution_string (ierror)
+    
+  end subroutine nbody_ini
+
+  !---------------------------------------------------------------------------
+
+  subroutine set_directory_names
+    
     dir_dens=trim(adjustl(dir_dens_path))//trim(adjustl(dir_dens_name))
     dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
     dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
     dir_src=trim(adjustl(dir_src_path))//trim(adjustl(dir_src_name))
+    
+  end subroutine set_directory_names
+
+  !---------------------------------------------------------------------------
+
+  subroutine set_directory_prefix(ierror)
+
+    integer,intent(inout) :: ierror
+    
+    character(len=20) :: dataroot="DEISA_DATA"
+    character(len=256) :: value
+    integer :: len, status
+
+    ! In some cases a special file system is used, and its name is
+    ! found from an environment variable. This needs to be added
+    ! to the directory names.
+    call get_environment_variable (dataroot, value, len, status, .true.)
+    if (status == 0) then
+       ! The directory with density files is located in the dataroot
+       ! plus the dir_dens_path parameter
+       if (len > 0) then
+          dir_dens=value(1:len)//trim(adjustl(dir_dens))
+          dir_clump=value(1:len)//trim(adjustl(dir_clump))
+          dir_LLS=value(1:len)//trim(adjustl(dir_LLS))
+          dir_src=value(1:len)//trim(adjustl(dir_src))
+       endif
+    elseif (status == -1) then
+       ! Warning
+       write(logf,*) "Data file system name is truncated"
+       ierror=5
+    endif
+
+  end subroutine set_directory_prefix
+
+  !---------------------------------------------------------------------------
+
+  subroutine set_list_of_redshifts(ierror)
+
+    integer,intent(inout) :: ierror
+    integer :: nz ! loop counter
+    real(kind=dp) :: t0,timestep
 
     ! Construct redshift sequence
     if (rank == 0) then
@@ -169,13 +230,15 @@ contains
        ! Cosmological time corresponding to (initial) redshift
        ! NOTE: Good only for high-z!!!
        t0 = 2.*(1.+zred_array(1))**(-1.5)/(3.*H0*sqrt(Omega0))
+
+       ! Set the redshifts to correspond to constant time intervals
+       ! of value timestep
        do nz=2,NumZred
           zred_array(nz)=-1+(1.+zred_array(1))* &
                (t0/(t0+real(nz-1)*timestep))**(2./3.)
        enddo
     endif
-       dir_clump=trim(adjustl(dir_clump_path))//trim(adjustl(dir_clump_name))
-       dir_LLS=trim(adjustl(dir_LLS_path))//trim(adjustl(dir_LLS_name))
+
 #ifdef MPI
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(NumZred,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
@@ -184,9 +247,17 @@ contains
          mympierror)
 #endif
 
+  end subroutine set_list_of_redshifts
+
+  !---------------------------------------------------------------------------
+
+  subroutine set_resolution_string (ierror)
+
+    integer,intent(inout) :: ierror
+
     ! Set id_str for compatibility reasons
     id_str="test"
 
-  end subroutine nbody_ini
+  end subroutine set_resolution_string
 
 end module nbody

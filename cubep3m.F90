@@ -5,7 +5,7 @@
 !! 
 !! \b Author: Garrelt Mellema, Ilian Iliev
 !!
-!! \b Date: 11-Dec-2015 (09-Dec-2009 (22-May-2008, previous versions were not dated)
+!! \b Date: 22-Jan-2016 (11-Dec-2015 (09-Dec-2009 (22-May-2008, previous versions were not dated)
 !!
 !! \b Version: CUBEP3M simulations
 
@@ -21,10 +21,7 @@ module nbody
   ! It sets an identifier (id_str) for the resolution (used when
   ! reading in source list files and density fields.
 
-  ! Authors: Ilian Iliev, Garrelt Mellema
-
-  ! Date: 09-Dec-2009 (22-May-2008, previous versions were not dated)
-
+ 
   use precision, only: dp
   use sizes, only: mesh, meshx
   use file_admin, only: stdinput, logf, file_input
@@ -107,6 +104,7 @@ module nbody
   logical,parameter :: clumpingheader=.true.
   !> LLS file with header?
   logical,parameter :: LLSheader=.true.
+
   !> unit of density in density file
   !! can be "grid", "particle", "M0Mpc3"
   character(len=*),parameter :: density_unit="grid"
