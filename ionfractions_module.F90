@@ -3,6 +3,8 @@ module ionfractions_module
   use precision, only: dp,si
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, results_dir, file_input
+  use read_sm3d, only: read_sm3d_dp_file_routine
+  use c2ray_parameters, only: epsilon
   use my_mpi
   
   implicit none
@@ -69,46 +71,38 @@ contains
     ! Array needed to read in 4B reals
     real(kind=dp),dimension(:,:,:),allocatable :: xh1_real
     !real(kind=si),dimension(:,:,:),allocatable :: xh1_real
+    real(kind=dp),dimension(:,:,:),pointer :: ion_fraction
 
     if (rank == 0) then
+
+       ! Construct file names
+       write(zred_str,"(f6.3)") zred_now
+       xfrac_file= trim(adjustl(results_dir))// &
+            "xfrac3d_"//trim(adjustl(zred_str))//".bin"
+
+       ! Report
+       write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
+            trim(xfrac_file)
+
        ! GM/110308: If we only work with ionized fractions, do not use 
        ! this anymore (ionized fractions are saved as dp). If we are
        ! working with both neutral and ionized fraction, we need this
        ! since one cannot read in partial arrays. Perhaps some pointer
        ! would help?
        allocate(xh1_real(mesh(1),mesh(2),mesh(3)))
-       write(zred_str,"(f6.3)") zred_now
-!       xfrac_file= "./xfrac3d_"//trim(adjustl(zred_str))//".bin"
-       xfrac_file= trim(adjustl(results_dir))// &
-            !"Ifront3_"//trim(adjustl(zred_str))//".bin"
-            "xfrac3d_"//trim(adjustl(zred_str))//".bin"
-
-       write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
-            trim(xfrac_file)
-       ! Open ionization fractions file
-       open(unit=20,file=xfrac_file,form="unformatted",status="old")
+       ion_fraction => xh1_real
        
-       ! Read in data
-       read(20) m1,m2,m3
-       if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
-          write(logf,*) "Warning: file with ionization fractions unusable"
-          write(logf,*) "mesh found in file: ",m1,m2,m3
-       else
-          read(20) xh1_real
-          !read(20) xh
-          ! To avoid xh(0)=0.0, we add a nominal ionization fraction of 10^-12
-          !xh(:,:,:,1)=real(xh1_real(:,:,:),dp)
-#ifdef ALLFRAC
-          xh(:,:,:,1)=xh1_real(:,:,:)
-          xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
-#else
-          xh(:,:,:)=xh1_real(:,:,:)
-#endif
-       endif
+       call read_sm3d_dp_file_routine(xfrac_file,ion_fraction)
 
-       ! close file
-       close(20)
+#ifdef ALLFRAC
+       xh(:,:,:,1)=ion_fraction(:,:,:)
+       xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
+#else
+       xh(:,:,:)=ion_fraction(:,:,:)
+#endif
+
        deallocate(xh1_real)
+
     endif
 
 #ifdef MPI       

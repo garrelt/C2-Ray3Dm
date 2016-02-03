@@ -323,7 +323,7 @@ Program C2Ray
         do
            ! Report memory usage
            if (rank == 0) call report_memory(logf)
-           
+        
            ! Make sure you produce output at the correct time
            actual_dt=min(next_output_time-sim_time,dt)
            

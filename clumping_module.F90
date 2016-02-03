@@ -5,7 +5,7 @@ module clumping_module
   use file_admin, only: stdinput, logf, results_dir, file_input
   use my_mpi
   use c2ray_parameters, only: type_of_clumping,clumping_factor
-  use nbody, only: nbody_type, M_grid, M_particle, id_str, dir_dens, NumZred, Zred_array, dir_clump, dir_LLS
+  use nbody, only: nbody_type, id_str, dir_dens, NumZred, Zred_array, dir_clump, dir_LLS
   use nbody, only: clumpingformat, clumpingaccess, clumpingheader
 
   implicit none

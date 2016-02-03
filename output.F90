@@ -34,7 +34,7 @@ module output_module
   use photonstatistics, only: totcollisions, dh0, grtotal_ion, photon_loss
   use photonstatistics, only: LLS_loss, grtotal_src
   use radiation_sed_parameters, only: S_star
-    
+
 
   implicit none
   
@@ -56,6 +56,7 @@ contains
     ! Sets up output stream
     
     ! Version: Five streams
+
     ! Stream1:
     ! Ifront1.out contains a line of constant y and z going through the
     ! centre of the grid for all timesteps. (formatted)
@@ -75,6 +76,10 @@ contains
     ! Ifront2_xy_",f5.3,".bin"
     ! Ifront2_xz_",f5.3,".bin"
     ! Ifront2_yz_",f5.3,".bin"
+    ! Densities in a plane for one time step
+    ! ndens_xy_",f5.3,".bin"
+    ! ndens_xz_",f5.3,".bin"
+    ! ndens_yz_",f5.3,".bin"
     
     ! Stream 5:
     ! Densities in a plane for one time step
@@ -110,7 +115,8 @@ contains
   
   !-----------------------------------------------------------------------------
 
-  !> Closes down output streams
+  !> Closes global output files which have been open the entire run
+
   subroutine close_down ()
     
     ! Rank 0 takes care of file i/o
@@ -119,8 +125,8 @@ contains
        ! There are none
        if (do_photonstatistics) then
           ! Close the photon statistics files
-          close(90)
-          close(95)
+          close(unit=90)
+          close(unit=95)
        endif
     endif
 
@@ -168,41 +174,45 @@ contains
     real(kind=dp),intent(in) :: time !< current simulation time
     real(kind=dp),intent(in) :: dt !< time step taken
     integer,intent(out) :: photcons_flag
+
+    ! Set photon conservation flag to zero on all processors
+    photcons_flag=0
+
 #ifdef MPILOG     
-     write(logf,*) 'output 1'
+    write(logf,*) 'output 1'
 #endif 
     if (streams(1) == 1) call write_stream1 (zred_now)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 2'
+    write(logf,*) 'output 2'
 #endif 
     if (streams(2) == 1) call write_stream2 (zred_now)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 3'
+    write(logf,*) 'output 3'
 #endif 
     if (streams(3) == 1) call write_stream3 (zred_now)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 4'
+    write(logf,*) 'output 4'
 #endif 
     if (streams(4) == 1) call write_stream4 (zred_now)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 5'
+    write(logf,*) 'output 5'
 #endif 
     if (streams(5) == 1) call write_stream5 (zred_now)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 6'
+    write(logf,*) 'output 6'
 #endif 
     call write_photonstatistics (zred_now,time,dt,photcons_flag)
 
 #ifdef MPILOG     
-     write(logf,*) 'output 7'
+    write(logf,*) 'output 7'
 #endif 
 
-   end subroutine output
+  end subroutine output
 
   !----------------------------------------------------------------------------
 
@@ -227,6 +237,7 @@ contains
           write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))//basename//trim(adjustl(file1)) &
                //base_extension
+
           ! Open file
           open(unit=51,file=file1,form="formatted",status="unknown")
 
@@ -237,6 +248,7 @@ contains
              temperature_profile(i)=temperature_point%current
           enddo
 
+          ! Write data
           do i=1,mesh(1)
              write(51,"(5(es10.3,1x))") x(i), &
 #ifdef ALLFRAC
@@ -249,13 +261,20 @@ contains
                   temperature_profile(i), &
                   ndens(i,srcpos(2,1),srcpos(3,1))
           enddo
-          close(51)
+
+          ! Close file
+          close(unit=51)
+       else
+          ! Report error
+          write(logf,*) "Calling stream 1 output where we should not."
        endif
        
     endif
     
   end subroutine write_stream1
   
+  !----------------------------------------------------------------------------
+
   !> produces output for a time frame. See below for format
   subroutine write_stream2 (zred_now)
     

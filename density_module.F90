@@ -88,8 +88,14 @@ contains
 
     select case (nbody_type)
        ! test problem: constant average density
+       ! if cosmological: corresponding to current redshift
+       ! if not: choose the first redshift (non-changing density)
     case("test") 
-       call set_constant_average_density(redshift)
+       if (cosmological) then
+          call set_constant_average_density(redshift)
+       else
+          call set_constant_average_density(Zred_array(1))
+       endif
 
        ! cubep3m and LG: read density field from file
     case("cubep3m","LG") 
