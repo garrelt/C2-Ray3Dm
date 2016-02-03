@@ -69,7 +69,7 @@ contains
     character(len=6) :: zred_str
     integer :: m1,m2,m3
     ! Array needed to read in 4B reals
-    real(kind=dp),dimension(:,:,:),allocatable :: xh1_real
+    real(kind=dp),dimension(:,:,:),target,allocatable :: xh1_real
     !real(kind=si),dimension(:,:,:),allocatable :: xh1_real
     real(kind=dp),dimension(:,:,:),pointer :: ion_fraction
 
