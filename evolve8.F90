@@ -755,7 +755,7 @@ contains
        who = mympi_status(MPI_SOURCE) ! find out who sent us the answer
        sources_done=sources_done+1 ! and the number of sources done
        
-        ! Report on the sending on nth source
+       ! Report on the sending on nth source
        if (mod(ns1,check_progress) == 0) &
             write(logf,"(A,I8,A,I6)") &
             "Sending source ",ns1," to processor ",who
