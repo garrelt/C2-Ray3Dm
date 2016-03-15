@@ -534,7 +534,7 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories 
 # with spaces.
 
-INPUT                  = 
+INPUT                  =  mainpage.h precision.f90 mathconstants.f90 cgsconstants.f90 cgsphotoconstants.f90  cgsastroconstants.f90 c2ray_parameters.f90 cosmoparms.f90 abundances.f90 mrgrnk.f90 ctrper.f90 romberg.f90 report_memory.f90 sizes.f90 file_admin.fop mpi.F90 clocks.f90 cubep3m.F90 grid.F90 tped.f90 mat_ini_cubep3m.F90 sourceprops_cubep3m.F90 cooling.f90 radiation.F90 cosmology.F90 time_ini.F90 doric.f90 photonstatistics.F90 evolve8.F90 output.F90 C2Ray.F90
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 
