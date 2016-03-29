@@ -52,7 +52,7 @@ Program C2Ray
        time2zred, zred2time, zred
   use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
        set_LLS
-  use times, only: time_ini, set_timesteps
+  use times, only: time_ini, set_timesteps, number_outputs
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve_ini,evolve3D
   use c2ray_parameters, only: isothermal ! NB: in some versions set in material
@@ -90,7 +90,7 @@ Program C2Ray
   real(kind=dp) :: dt !< calculated time step
   real(kind=dp) :: actual_dt !< actual time step (s)
   real(kind=dp) :: zred_interm !< intermediate redshift (for restart)
-  real(kind=dp) :: interm_zred !< calculated intermediate redshift (for restart)
+  integer :: nsteps
 #ifdef MPI
   integer :: mympierror
 #endif
@@ -284,20 +284,22 @@ Program C2Ray
              timestamp_wallclock ()
         
         ! Set time if restart at intermediate time
-        ! Set next output time
-        ! Note: this assumes that there are ALWAYS two time steps
-        ! between redshifts. Should be made more general.
         if (restart >= 2) then
-           interm_zred=time2zred(zred2time(zred)+dt)
-           if (abs(interm_zred-zred_interm) < 0.001) then
-              sim_time=zred2time(zred)+dt
-           else
-              sim_time=zred2time(zred_interm)
-           endif
-           next_output_time=end_time
-        else
-           next_output_time=sim_time+output_time
+           ! Calculate how many output steps were taken to arrive at the
+           ! redshift from which we are restarting
+           nsteps=nint((zred2time(zred_interm)-zred2time(zred))/output_time)
+           ! Report
+           if (rank == 0) write(logf,'(A,F10.3,A,I3,A,I3)') &
+                "Restart at z= ",zred_interm," corresponds to step ", &
+                nsteps," of ",number_outputs
+           ! Set the simulation time to the time after these number of
+           ! output steps
+           sim_time=nsteps*output_time
         endif
+
+        ! Set next output to the current time plus the time interval
+        ! for outputs
+        next_output_time=sim_time+output_time
         
 #ifdef MPILOG     
         write(logf,*) 'First output'
