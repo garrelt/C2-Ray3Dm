@@ -3,7 +3,7 @@ module ionfractions_module
   use precision, only: dp,si
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, results_dir, file_input
-  use read_sm3d, only: read_sm3d_dp_file_routine
+  use sm3d, only: read_sm3d_dp_file_routine
   use c2ray_parameters, only: epsilon
   use my_mpi
   

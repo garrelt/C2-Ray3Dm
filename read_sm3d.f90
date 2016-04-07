@@ -1,4 +1,4 @@
-module read_sm3d
+module sm3d
 
 use precision, only: dp,si
 
@@ -59,4 +59,46 @@ contains
 
   end subroutine read_sm3d_si_file_routine
 
-end module read_sm3d
+  subroutine write_sm3d_dp_file_routine(filename,data_array)
+
+    character(len=*),intent(in) :: filename
+    real(kind=dp),pointer,dimension(:,:,:),intent(inout) :: data_array
+
+    integer,dimension(3) :: shape_of_data
+
+    shape_of_data=shape(data_array)
+
+    ! Open sm3d data file
+    open(unit=20,file=filename,form="unformatted",status="unknown")       
+    
+    ! Write header and data
+    write(20) shape_of_data(1:3)
+    write(20) data_array
+
+    ! close file
+    close(20)
+
+  end subroutine write_sm3d_dp_file_routine
+
+  subroutine write_sm3d_si_file_routine(filename,data_array)
+
+    character(len=*),intent(in) :: filename
+    real(kind=si),pointer,dimension(:,:,:),intent(inout) :: data_array
+
+    integer,dimension(3) :: shape_of_data
+
+    shape_of_data=shape(data_array)
+
+    ! Open sm3d data file
+    open(unit=20,file=filename,form="unformatted",status="unknown")       
+    
+    ! Write header and data
+    write(20) shape_of_data(1:3)
+    write(20) data_array
+
+    ! close file
+    close(20)
+
+  end subroutine write_sm3d_si_file_routine
+
+end module sm3d

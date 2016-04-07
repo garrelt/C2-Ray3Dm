@@ -16,9 +16,10 @@ module output_module
   ! close_down : close files
   ! output : write output
 
-  use precision, only: dp
+  use precision, only: dp,si
   use my_mpi
   use file_admin, only: stdinput, results_dir, file_input, logf
+  use sm3d, only: write_sm3d_dp_file_routine, write_sm3d_si_file_routine
   use c2ray_parameters, only: isothermal
   use sizes, only: mesh
   use grid, only: x, vol
@@ -27,13 +28,13 @@ module output_module
   use temperature_module, only: temper, temperature_grid
   use temperature_module, only: temperature_states_dbl
   use temperature_module, only: get_temperature_point
-  use evolve_data, only: phih_grid
-  use sourceprops, only: srcpos, NormFlux, NumSrc
+  use evolve_data, only: phih_grid, phiheat
+  use sourceprops, only: srcpos, NormFlux, NormFluxPL, NumSrc
   use photonstatistics, only: initialize_photonstatistics
   use photonstatistics, only: do_photonstatistics, total_ion, totrec
   use photonstatistics, only: totcollisions, dh0, grtotal_ion, photon_loss
   use photonstatistics, only: LLS_loss, grtotal_src
-  use radiation_sed_parameters, only: S_star
+  use radiation_sed_parameters, only: S_star, pl_S_star
 
 
   implicit none
@@ -44,6 +45,11 @@ module output_module
   ! There can be at most max_output_streams types of output.
   integer,parameter :: max_output_streams=5 !< maximum number of output streams
   integer,dimension(max_output_streams) :: streams !< flag array for output streams
+  character(len=6) :: zred_str
+  real(kind=dp),dimension(:,:,:),target,allocatable :: output_array_dp
+  real(kind=dp),dimension(:,:,:),pointer :: ptr_output_array_dp
+  real(kind=si),dimension(:,:,:),target,allocatable :: output_array
+  real(kind=si),dimension(:,:,:),pointer :: ptr_output_array
 
   public :: setup_output, output, close_down
 
@@ -64,13 +70,13 @@ contains
     ! Stream2: 
     ! Ionization fractions for the full data cube (unformatted)
     ! xfrac3d_",f5.3,".bin"
-    
+    ! and if non-isothermal also the temperature for the full data cube (unformatted)
+    ! "Temper3d_",f5.3,".bin"
+
     ! Stream3: 
     ! Ionization rate for the full data cube (unformatted)
     ! "Ionrates3_",f5.3,".bin"
-    ! If non-isothermal: Temperature for the full data cube (unformatted)
-    ! "Temper3d_",f5.3,".bin"
-    
+   
     ! Stream 4:
     ! Ionization fractions in a plane for one time step
     ! Ifront2_xy_",f5.3,".bin"
@@ -178,30 +184,33 @@ contains
     ! Set photon conservation flag to zero on all processors
     photcons_flag=0
 
+    ! Construct redshift string
+    write(zred_str,"(f6.3)") zred_now
+
 #ifdef MPILOG     
     write(logf,*) 'output 1'
 #endif 
-    if (streams(1) == 1) call write_stream1 (zred_now)
+    if (streams(1) == 1) call write_stream1 ()
 
 #ifdef MPILOG     
     write(logf,*) 'output 2'
 #endif 
-    if (streams(2) == 1) call write_stream2 (zred_now)
+    if (streams(2) == 1) call write_stream2 ()
 
 #ifdef MPILOG     
     write(logf,*) 'output 3'
 #endif 
-    if (streams(3) == 1) call write_stream3 (zred_now)
+    if (streams(3) == 1) call write_stream3 ()
 
 #ifdef MPILOG     
     write(logf,*) 'output 4'
 #endif 
-    if (streams(4) == 1) call write_stream4 (zred_now)
+    if (streams(4) == 1) call write_stream4 ()
 
 #ifdef MPILOG     
     write(logf,*) 'output 5'
 #endif 
-    if (streams(5) == 1) call write_stream5 (zred_now)
+    if (streams(5) == 1) call write_stream5 ()
 
 #ifdef MPILOG     
     write(logf,*) 'output 6'
@@ -216,11 +225,9 @@ contains
 
   !----------------------------------------------------------------------------
 
-   !> produces output for a time frame. See below for format
-   subroutine write_stream1 (zred_now)
+  !> produces output for a time frame. See below for format
+  subroutine write_stream1 ()
 
-    real(kind=dp),intent(in) :: zred_now !< current redshift
-     
     character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".dat"
     character(len=512) :: file1
@@ -234,8 +241,7 @@ contains
        ! Stream 1
        if (streams(1) == 1) then
           ! Construct file name
-          write(file1,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))//basename//trim(adjustl(file1)) &
+          file1=trim(adjustl(results_dir))//basename//trim(adjustl(zred_str)) &
                //base_extension
 
           ! Open file
@@ -268,85 +274,111 @@ contains
           ! Report error
           write(logf,*) "Calling stream 1 output where we should not."
        endif
-       
+
     endif
-    
+
   end subroutine write_stream1
-  
+
   !----------------------------------------------------------------------------
 
   !> produces output for a time frame. See below for format
-  subroutine write_stream2 (zred_now)
-    
-    real(kind=dp),intent(in) :: zred_now !< current redshift
-    
+  subroutine write_stream2 ()
+
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
     character(len=512) :: file1
     integer :: i,j,k
-    
+
+    ! Stream 2
     if (rank == 0) then
-       ! Stream 2
+
        if (streams(2) == 1) then
+
+          allocate(output_array_dp(mesh(1),mesh(2),mesh(3)))
+
           ! Construct file name
-          write(file1,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
-               "xfrac3d_"//trim(adjustl(file1))//base_extension
-          ! Open file
-          open(unit=52,file=file1,form="unformatted",status="unknown")
-          ! Write data header
-          write(52) mesh(1),mesh(2),mesh(3)
-          ! Write data (depending on -DALLFRAC compile option)
+               "xfrac3d_"//trim(adjustl(zred_str))//base_extension
+
 #ifdef ALLFRAC
-          write(52) (((xh(i,j,k,1),i=1,mesh(1)),j=1,mesh(2)),k=1,mesh(3))
+          output_array_dp=xh(1:mesh(1),1:mesh(2),1:mesh(3),1)
 #else
-          write(52) xh
+          output_array_dp=xh(1:mesh(1),1:mesh(2),1:mesh(3))
 #endif
-          close(52)
+          ptr_output_array_dp => output_array_dp
+          
+          call write_sm3d_dp_file_routine(file1, ptr_output_array_dp)
+
+          deallocate(output_array_dp)
+
+          if (.not.isothermal) then
+
+             allocate(output_array(mesh(1),mesh(2),mesh(3)))
+
+             file1=trim(adjustl(results_dir))//"Temper3D_"// &
+                  trim(adjustl(zred_str))//base_extension
+
+             output_array(:,:,:)=temperature_grid(1:mesh(1),1:mesh(2), &
+                  1:mesh(3))%current
+             ptr_output_array => output_array
+
+             call write_sm3d_si_file_routine(file1,ptr_output_array)
+
+             deallocate(output_array)
+
+          endif
+
+       else
+          ! Report error
+          write(logf,*) "Calling stream 2 output where we should not."
        endif
-    endif
+   endif
        
   end subroutine write_stream2
 
   !----------------------------------------------------------------------------
 
   !> produces output for a time frame. See below for format
-  subroutine write_stream3 (zred_now)
-    
-    real(kind=dp),intent(in) :: zred_now !< current redshift
-    
+  subroutine write_stream3 ()
+
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
     character(len=512) :: file1
     integer :: i,j,k
-    
+
+    ! Stream 3
     if (rank == 0) then
-       ! Stream 3
+
+       allocate(output_array(mesh(1),mesh(2),mesh(3)))
+       
        if (streams(3) == 1) then
           ! Construct filename
-          write(file1,"(f6.3)") zred_now
-          file1=trim(adjustl(results_dir))// &
-               "IonRates3_"//trim(adjustl(file1))//".bin"
-          ! Open file
-          open(unit=53,file=file1,form="unformatted",status="unknown")
-          ! Write data header
-          write(53) mesh(1),mesh(2),mesh(3)
-          ! Write data
-          write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
-               k=1,mesh(3))
-          close(53)
+          file1=trim(adjustl(results_dir))//"IonRates3D_"// &
+               trim(adjustl(zred_str))//base_extension
+
+          output_array=real(phih_grid(1:mesh(1),1:mesh(2),1:mesh(3)))
+          ptr_output_array => output_array
           
-          if (.not.isothermal) then
-             file1="Temper3d_"//trim(adjustl(file1))//".bin"
-             open(unit=53,file=file1,form="unformatted",status="unknown")
-             write(53) mesh(1),mesh(2),mesh(3)
-             write(53) ((((temperature_grid%current),i=1,mesh(1)),j=1,mesh(2)), &
-                  k=1,mesh(3))
-             close(53)
-             
-             ! Should add heating rate to this output stream
-          endif
+          call write_sm3d_si_file_routine(file1,ptr_output_array)
+
+          file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
+               trim(adjustl(zred_str))//base_extension
+
+          output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
+          ptr_output_array => output_array
+          
+          call write_sm3d_si_file_routine(file1,ptr_output_array)
+
+          deallocate(output_array)
+#ifdef MPILOG     
+          write(logf,*) 'output 3: IonRates3D'
+          flush(logf)
+#endif 
+       else
+          ! Report error
+          write(logf,*) "Calling stream 3 output where we should not."
        endif
+
     endif
 
   end subroutine write_stream3
@@ -354,9 +386,7 @@ contains
   !----------------------------------------------------------------------------
 
   !> produces output for a time frame. See below for format
-  subroutine write_stream4 (zred_now)
-
-    real(kind=dp),intent(in) :: zred_now !< current redshift
+  subroutine write_stream4 ()
 
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
@@ -365,9 +395,9 @@ contains
     integer :: i,j,k
 
     if (rank == 0) then
+
        ! Stream 4
        if (streams(4) == 1) then
-          write(zred_str,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "Ifront2_xy_"//trim(adjustl(zred_str))//".bin"
           file2=trim(adjustl(results_dir))// &
@@ -387,7 +417,7 @@ contains
                j=1,mesh(2))
 #endif
           close(54)
-          
+
           ! xz cut through source 
           write(55) mesh(1),mesh(3)
 #ifdef ALLFRAC
@@ -398,7 +428,7 @@ contains
                k=1,mesh(3))
 #endif
           close(55)
-          
+
           ! yz cut through source 
           write(56) mesh(2),mesh(3)
 #ifdef ALLFRAC
@@ -409,7 +439,11 @@ contains
                k=1,mesh(3))
 #endif
           close(56)
+       else
+          ! Report error
+          write(logf,*) "Calling stream 4 output where we should not."
        endif
+       
     endif
 
   end subroutine write_stream4
@@ -417,10 +451,8 @@ contains
   !----------------------------------------------------------------------------
 
   !> produces output for a time frame. See below for format
-  subroutine write_stream5 (zred_now)
-    
-    real(kind=dp),intent(in) :: zred_now !< current redshift
-    
+  subroutine write_stream5 ()
+
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
     character(len=512) :: file1,file2,file3
@@ -428,9 +460,9 @@ contains
     integer :: i,j,k
 
     if (rank == 0) then
+
        ! Stream 5
        if (streams(5) == 1) then
-          write(zred_str,"(f6.3)") zred_now
           file1=trim(adjustl(results_dir))// &
                "ndens_xy_"//trim(adjustl(zred_str))//".bin"
           file2=trim(adjustl(results_dir))// &
@@ -441,24 +473,25 @@ contains
           open(unit=57,file=file1,form="unformatted",status="unknown")
           ! xy cut through source 
           write(57) mesh(1),mesh(2)
-          !        write(57) ((real(ndens(i,j,srcpos(3,1))),i=1,mesh(1)),
           write(57) ((real(ndens(i,j,mesh(3)/2)),i=1,mesh(1)),j=1,mesh(2))
           close(57)
-          
+
           ! xz cut through source 
           open(unit=58,file=file2,form="unformatted",status="unknown")
           write(58) mesh(1),mesh(3)
-          !        write(58) ((real(ndens(i,srcpos(2,1),k)),i=1,mesh(1)),
           write(58) ((real(ndens(i,mesh(2)/2,k)),i=1,mesh(1)),k=1,mesh(3))
           close(58)
-          
+
           ! yz cut through source 
           open(unit=59,file=file3,form="unformatted",status="unknown")
           write(59) mesh(2),mesh(3)
-          !        write(59) ((real(ndens(srcpos(1,1),j,k)),j=1,mesh(2)),
           write(59) ((real(ndens(mesh(1)/2,j,k)),j=1,mesh(2)),k=1,mesh(3))
           close(59)
+       else
+          ! Report error
+          write(logf,*) "Calling stream 5 output where we should not."
        endif
+       
     endif
 
   end subroutine write_stream5
@@ -467,20 +500,20 @@ contains
 
   !> produces output for a time frame. See below for format
   subroutine write_photonstatistics (zred_now,time,dt,photcons_flag)
-    
+
     real(kind=dp),intent(in) :: zred_now !< current redshift
     real(kind=dp),intent(in) :: time !< current simulation time
     real(kind=dp),intent(in) :: dt !< time step taken
     integer,intent(out) :: photcons_flag
-    
+
     real(kind=dp) :: totalsrc,photcons,total_photon_loss
     real(kind=dp) :: total_LLS_loss
     real(kind=dp) :: totions,totphots,volfrac(0:2),massfrac(0:2)
-    
+
 #ifdef MPI
     integer :: mympierror
 #endif
-    
+
     if (rank == 0) then
  
        ! Check if we are tracking photon conservation
