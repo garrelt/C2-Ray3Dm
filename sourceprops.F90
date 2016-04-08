@@ -162,7 +162,7 @@ contains
        ! Distribute the source series to the other nodes
        !call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
-      
+    
     else
 
        ! If there are no sources and we are using 
@@ -339,7 +339,7 @@ contains
           open(unit=49,file=sourcelistfilesuppress,status='unknown')
           write(49,*) NumSrc
           do ns0=1,NumSrc
-             write(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
+             write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
                   NormFlux(ns0)
           enddo
           close(49)
@@ -420,10 +420,11 @@ contains
     case ("Iliev et al", "Iliev et al partial supp.")
        do ns=1,NumSrc
           !note that now photons/atom are already included in NormFlux
-          NormFlux(ns)=NormFlux(ns)*M_grid*  &
-               Omega_B/(Omega0*m_p)/S_star_nominal
+          NormFlux(ns)=Luminosity_from_mass(NormFlux(ns),lifetime2)
+                       !NormFlux(ns)*M_grid*  &
+               !Omega_B/(Omega0*m_p)/S_star_nominal
           !NormFlux(ns)=NormFlux(ns)/lifetime
-          NormFlux(ns)=NormFlux(ns)/lifetime2
+          !NormFlux(ns)=NormFlux(ns)/lifetime2
        enddo
     case ("Fixed N_gamma")
        if (nz <= NumZred_uv) then
@@ -437,14 +438,16 @@ contains
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
              NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2* &
-                  NormFlux(ns)/total_SrcMass/S_star_nominal
+                  NormFlux(ns)/(total_SrcMass*S_star_nominal)
           enddo
           ! Subtract extra photons from cumulated photons
           cumulative_uv=max(0.0_dp,cumulative_uv-cumfrac*uv_array(nz))
           !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
        else
+          ! For high redshifts there may not be a uv model.
+          ! Set fluxes to zero.
           NormFlux(:)=0.0
-          if (rank == 0) write(logf,*) & 
+          if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
     case ("Fixed Ndot_gamma")
@@ -467,6 +470,33 @@ contains
     
   end subroutine assign_uv_luminosities
   
+  ! =======================================================================
+  
+  function Luminosity_from_mass (Mass, timeperiod)
+
+    ! The normalized flux (luminosity) for normal sources is expressed
+    ! in terms of a standard ionizing photon rate, called S_star_nominal.
+    ! In radiation the tables have been calculated for a spectrum
+    ! with an ionizing photon rate of S_star_nominal.
+
+    ! Mass is supposed to be total mass of the source MULTIPLIED with
+    ! the efficiency factor (f) which is the product of the star formation
+    ! fraction, the escape fraction and the number of photons produced
+    ! per baryon. Because of the latter factor we need to convert the
+    ! mass to number of baryons by dividing my the proton mass m_p.
+    ! NOTE: number of baryons is the total number of nucleons, which
+    ! is why we divide my m_p and NOT by mu*m_p (where mu is mean mass
+    ! of atoms/ions).
+
+    real(kind=dp),intent(in) :: Mass !< mass in units of grid masses
+    real(kind=dp),intent(in) :: timeperiod !< timeperiod in seconds
+    real(kind=dp) :: Luminosity_from_mass !< photon rate in S_star_nominal
+
+    Luminosity_from_mass = Mass*M_grid*Omega_B/(Omega0*m_p)/ &
+         (timeperiod*S_star_nominal)
+
+  end function Luminosity_from_mass
+
   ! =======================================================================
 
   !> Initialization routine: determine the source model and optionally read 
