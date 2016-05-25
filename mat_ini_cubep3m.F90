@@ -908,7 +908,7 @@ contains
        ! Calculate mean free path
        ! Make sure sim_volume is in proper Mpc
        sim_volume_Mpc=sim_volume/(Mpc*(1.0+zred_now))**3
-       mfp_LLS_pMpc=sim_volume_Mpc/sum(LLS_grid)
+       mfp_LLS_pMpc=sim_volume_Mpc/sum(real(LLS_grid,dp))
 
        ! Do not set LLS column densities if the mfp is too small.
        ! Typically we start using LLS when the mfp is several cells (e.g. 5)
@@ -916,11 +916,9 @@ contains
           LLS_grid(:,:,:)=0.0
        else
           ! Convert units to cgs
-          LLS_grid(:,:,:)=LLS_grid(:,:,:)*Mpc*Mpc
-
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)*(Mpc/dr(1))*(Mpc/dr(1))
           ! fraction of cell covered by LLS (equivalent to n_LLS in 
           ! the routines above)
-          LLS_grid(:,:,:)=LLS_grid(:,:,:)/(dr(1)*dr(1)) 
           ! Convert to column density
           LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
        endif
@@ -933,7 +931,7 @@ contains
 #endif
        
     ! Report on data: min, max, averages, mean free path
-    coldensh_LLS=sum(LLS_grid)/(mesh(1)*mesh(2)*mesh(3)) ! average value
+    coldensh_LLS=sum(real(LLS_grid,dp))/(mesh(1)*mesh(2)*mesh(3)) ! average value
     if (rank == 0) then
        write(logf,*) "Statistics on LLS column density"
        write(logf,*) "minimum: ",minval(LLS_grid)
