@@ -755,16 +755,17 @@ contains
        who = mympi_status(MPI_SOURCE) ! find out who sent us the answer
        sources_done=sources_done+1 ! and the number of sources done
        
-       ! Report on the sending on nth source
-       if (mod(ns1,check_progress) == 0) &
-            write(logf,"(A,I8,A,I6)") &
-            "Sending source ",ns1," to processor ",who
-
        ! put the slave on work again,
        ! but only if not all tasks have been sent.
        ! we use the value of num to detect this */
        if (ns1 < NumSrc) then
           ns1=ns1+1
+          
+          ! Report on the sending on nth source
+          if (mod(ns1,check_progress) == 0) &
+               write(logf,"(A,I12,A,I12)") &
+               "Sending source ",ns1," of ",NumSrc," to processor ",who," sources done ", sources_done
+
           call MPI_Send (ns1, 1, MPI_INTEGER, &
                who,		&	
                1,		&	
