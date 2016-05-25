@@ -38,8 +38,17 @@ module nbody
 
   character(len=10),parameter :: nbody_type="cubep3m" !< ID of Nbody type
 
-  real(kind=dp),parameter :: boxsize=425.0  !< Box size in Mpc/h comoving
-  integer,parameter :: n_box=10976  !< cells/side (in N-body,fine grid)
+  real(kind=dp),parameter :: boxsize=500.0 !< Box size in Mpc/h comoving
+  integer,parameter :: n_box=13824  !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=244.0 !< Box size in Mpc/h comoving       
+  !integer,parameter :: n_box=8000  !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=47.0 !< Box size in Mpc/h comoving
+  !integer,parameter :: n_box=3456  !< cells/side (in N-body,fine grid)
+
+  !real(kind=dp),parameter :: boxsize=425.0  !< Box size in Mpc/h comoving
+  !integer,parameter :: n_box=10976  !< cells/side (in N-body,fine grid)
 
   !real(kind=dp),parameter :: boxsize=37.0  !< Box size in Mpc/h comoving
   !integer,parameter :: n_box=2048  !< cells/side (in N-body,fine grid)

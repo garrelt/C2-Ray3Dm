@@ -199,7 +199,7 @@ contains
     ! End of declarations
 
     ! Initialize wall clock counter (for dumps)
-    call system_clock(wallclock1)
+    wallclock1=timestamp_wallclock ()
 
      ! Initial state (for photon statistics)
     call state_before (xh)
