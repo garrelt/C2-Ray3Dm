@@ -261,9 +261,11 @@ contains
        if (nz > 1) then
           ! First set the previous density and copy the results to
           ! ndens_prev
+#ifdef MH
           call read_density(zred_array(nz-1),nz-1)
           ndens_previous(:,:,:)=ndens(:,:,:)
           avg_ndens_previous=avg_ndens
+#endif
           ! Now read the current density
           call read_density(zred_now,nz)
        else
