@@ -21,6 +21,7 @@ module times
 
   integer :: number_timesteps !< Number of time steps between redshift slices
   integer :: number_outputs !< Number of outputs between redshift slices
+  real(kind=dp) :: dt_nbody
   
 contains
 
@@ -89,11 +90,15 @@ contains
     current_time=zred2time(zred0) !t0*( ( (1.0+zred_t0)/(1.0+zred0) )**1.5-1.0)
     end_time=zred2time(zred_end) !t0*( ( (1.0+zred_t0)/(1.0+zred_end) )**1.5-1.0)
 
+    ! Set value of time interval between two nbody outputs (density fields
+    ! and source lists
+    dt_nbody=end_time-current_time
+
     ! Set value of time step
-    dt=(end_time-current_time)/real(number_timesteps)
+    dt=dt_nbody/real(number_timesteps)
 
     ! Convert to time 
-    output_dt=(end_time-current_time)/real(number_outputs)
+    output_dt=dt_nbody/real(number_outputs)
 
   end subroutine set_timesteps
 
