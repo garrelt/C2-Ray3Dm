@@ -52,10 +52,15 @@ Program C2Ray
        time2zred, zred2time, zred
   use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
        set_LLS
-  use times, only: time_ini, set_timesteps, number_outputs
+  use times, only: time_ini, set_timesteps, number_outputs, dt_nbody
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
   use evolve, only: evolve_ini,evolve3D
   use c2ray_parameters, only: isothermal ! NB: in some versions set in material
+#ifdef MH
+  use source_sub, only: AGrid_properties, MHflag, read_LGnMH_Mpc3, NumAGrid, tot_subsrcM_msun
+  use getjLW, only: get_jLW, jLW, read_jLW
+  use mergesrc, only: merge_allsrc
+#endif
 
 #ifdef XLF
   ! Place for xlf specific statements
@@ -142,7 +147,7 @@ Program C2Ray
 #ifdef MPILOG
   write(logf,*) "Before mat_ini"
 #endif
-  ! Initialize the material properties
+  ! Initialize the material properties and also sets restart
   call mat_ini (restart, nz0, ierror)
   startup_error = startup_error + ierror
 
@@ -155,6 +160,15 @@ Program C2Ray
   ! Find the redshifts we are dealing with
   if (startup_error == 0) call nbody_ini (ierror)
   startup_error=startup_error+ierror
+
+#ifdef MH
+  ! Read in precalculated minihalo data
+  if (MHflag == 1) then
+     write(6,*) 'do something!!!!!!!!!!'
+  elseif (MHflag == 2) then
+     call read_LGnMH_Mpc3
+  endif
+#endif
 
 #ifdef MPILOG
   write(logf,*) "Before source_properties_ini"
@@ -242,8 +256,16 @@ Program C2Ray
      if (.not.isothermal) call temper_ini(zred_interm)
   end if
 
+#ifdef MH
+  ! Assume zero initial LW intensity.
+  jLW = 0d0
+  ! Read in LW intensity if restart.
+  ! GM/160621: Why is this nz0 and not zred_interm?
+  if (restart /= 0) call read_jLW(zred_array(nz0))
+#endif
+
   if (startup_error == 0) then
-     ! Loop over redshifts
+     ! Loop over N-body redshifts
      do nz=nz0,NumZred-1
         
         if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
@@ -266,7 +288,7 @@ Program C2Ray
 #ifdef MPILOG     
         write(logf,*) 'Calling source_properties'
 #endif 
-        call source_properties(zred,nz,end_time-sim_time,restart)
+        call source_properties(zred,nz,dt_nbody,restart)
         
         if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
              "Time after setting sources for step ",nz," :", &
@@ -315,9 +337,15 @@ Program C2Ray
 #ifdef MPILOG     
         write(logf,*) 'Start of loop'
 #endif 
+        ! Flush the output buffers before starting looping over
+        ! sub-timesteps.
         if (rank == 0) flush(logf)
+
         ! Loop until end time is reached
+        ! For minihalos we recalculate the source lists for every
+        ! sub time step.
         do
+
            ! Report memory usage
            if (rank == 0) call report_memory(logf)
            
@@ -340,6 +368,43 @@ Program C2Ray
            if (type_of_clumping /= 5) call set_clumping(zred)
            if (use_LLS .and. type_of_LLS /= 2) call set_LLS(zred)
            
+#ifdef MH
+           NumAGrid = 0
+           ! Based upon LW intensity, xfrac and density, get subgrid sources.
+           if (MHflag == 1 .OR. MHflag == 2) then
+              if (rank ==0) write(6,*) 'before agrid_prop, jlw(1,1,1)', jlw(1,1,1)
+              ! The handling of the previous density field is now contained 
+              ! in dens_ini.
+              ! Also, we do not keep the normalized density field as a 
+              ! seperate array but just divide by the average density when 
+              ! needed.
+              ! GM: should this be dt_nbody (sim_time-end_time)?
+              call AGrid_properties(nz,dt_nbody,jLW)
+           endif
+           if (rank == 0) then
+              write(logf,*) 'Number of active subgrids:', NumAGrid
+              write(logf,*) 'Total active stellar mass in subgrids, in solar mass:', tot_subsrcM_msun
+           endif
+
+           ! Get LW intensity jLW at nz+1; Note carefully you should call
+           ! get_jLW with "nz" for the jLW at "nz+1" !!!
+           ! GM 160617: nz0 is not used in get_jLW!
+           call get_jLW(nz0, nz)
+           if (rank ==0) write(logf,*) 'after get_jLW, jlw(1,1,1)', jlw(1,1,1)
+           
+           ! Read in the source list for zred(nz) to merge it with the MH
+           ! source list; this is forced by using restart=2
+           call source_properties(zred(nz),nz,dt_nbody,2)
+
+           ! Now merge subgrid source and real source lists into one.
+           ! New NumSrc, srcpos, SrcSeries, NormFlux created.
+           if (MHflag == 1 .OR. MHflag == 2) then
+              call merge_allsrc
+           endif
+
+           if (rank == 0) write(6,*) 'sources merged'
+#endif
+
            ! Take one time step
            if (NumSrc > 0) call evolve3D(sim_time,actual_dt,iter_restart)
            
@@ -352,8 +417,8 @@ Program C2Ray
            
            ! Write output
            if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
-              if (NumSrc > 0) call output(time2zred(sim_time),sim_time,actual_dt, &
-                   photcons_flag)
+              if (NumSrc > 0) call output(time2zred(sim_time),sim_time, &
+                   actual_dt, photcons_flag)
               next_output_time=next_output_time+output_time
               if (photcons_flag /= 0 .and. stop_on_photon_violation) then
                  if (rank == 0) write(logf,*) &
