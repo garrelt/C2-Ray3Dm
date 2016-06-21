@@ -59,10 +59,15 @@ module material
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
+  real(kind=si),dimension(:,:,:),allocatable :: ndens
+  real(kind=dp) :: avg_dens !< average density
+#ifdef MH
+  real(kind=si),dimension(:,:,:),allocatable :: ndens_previous
+  real(kind=dp) :: avg_dens_previous !< average density
+#endif
   ! temper - temperature of grid cell under consideration
   ! temperature_grid - temperature (K) of entire grid (only used if not isothermal)
   ! temper_val - initial temperature and the one used if isothermal
-  real(kind=si),dimension(:,:,:),allocatable :: ndens
   ! temper - temperature (K) of a cell
   !real(kind=dp) :: temper ! should no longer be used!
   real(kind=dp) :: temper_val
@@ -76,7 +81,6 @@ module material
   ! Clumping data
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
-  real(kind=dp) :: avg_dens !< average density
   character(len=512) :: clumping_fit_file
   public :: set_clumping, clumping_point
   ! LLS data
@@ -191,12 +195,18 @@ contains
        call MPI_BCAST(nz0,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
 #endif
        
-       ! Allocate density array
+       ! Allocate density arrays
        allocate(ndens(mesh(1),mesh(2),mesh(3)))
+#ifdef MH
+       allocate(ndens_previous(mesh(1),mesh(2),mesh(3)))
+#endif
        ! Assign dummy density to the grid
        ! This should be overwritten later (in dens_ini)
        ndens(:,:,:)=1.0
-       
+#ifdef MH
+       ndens_previous(:,:,:)=1.0
+#endif       
+
        ! Allocate temperature array and initialize if the run is not
        ! isothermal
        if (.not.isothermal) then
@@ -205,6 +215,7 @@ contains
           temperature_grid(:,:,:)%average=temper_val
           temperature_grid(:,:,:)%intermed=temper_val
        endif
+
        ! Report on temperature situation
        if (rank == 0) then
           if (isothermal) then
@@ -241,6 +252,32 @@ contains
   ! ===========================================================================
 
   subroutine dens_ini (zred_now,nz)
+
+    ! Save previous density field if it has been set
+    if ( avg_dens /= 0.0 ) then
+       ndens_previous(:,:,:)=ndens(:,:,:)
+       avg_ndens_previous=avg_ndens
+    else
+       if (nz > 1) then
+          ! First set the previous density and copy the results to
+          ! ndens_prev
+          call read_density(zred_array(nz-1),nz-1)
+          ndens_previous(:,:,:)=ndens(:,:,:)
+          avg_ndens_previous=avg_ndens
+          ! Now read the current density
+          call read_density(zred_now,nz)
+       else
+          ! For the first redshift there is no previous density field
+          ! available: leave ndens_prev to zero and only set ndens.
+          call read_density(zred_now,nz)
+       endif
+    endif
+    
+  end subroutine dens_ini
+
+  ! ===========================================================================
+
+  subroutine read_density (zred_now,nz)
 
     ! Initializes density on the grid (at redshift zred_now)
 
@@ -635,7 +672,7 @@ contains
     real(kind=dp) :: a1
     real(kind=dp) :: a2
     real(kind=dp) :: error
-    real(kind=dp) :: avg_dens !< average density
+    real(kind=dp) :: avg_clumping !< average density
     integer :: io_status
 
     ! clumping in file is in 4B reals, read in via this array
@@ -685,9 +722,9 @@ contains
        close(20)
        
        ! Normalize to average density
-       avg_dens=sum(clumping_grid)/ &
+       avg_clumping=sum(clumping_grid)/ &
             (real(mesh(1),dp)*real(mesh(2),dp)*real(mesh(3),dp))
-       clumping_grid=clumping_grid/avg_dens
+       clumping_grid=clumping_grid/avg_clumping
        clumping_grid=log10(clumping_grid*clumping_grid)
        ! Report on data: min, max, total
        ! Disabled (GM 2009-12-09): if we read in a density field
