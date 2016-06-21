@@ -40,5 +40,6 @@ module cosmology_parameters
   ! Derived parameters
   real(kind=dp),parameter :: H0=h*100.0*1e5/Mpc !< Hubble constant (cgs)
   real(kind=dp),parameter :: rho_crit_0=3.0*H0*H0/(8.0*pi*G_grav) !< critical density (cgs)
+  real(kind=dp),parameter :: HcOm = h*100.0*1e5 /c *sqrt(Omega0)
 
 end module cosmology_parameters
