@@ -29,8 +29,10 @@ module precision
   integer,public,parameter :: si=selected_real_kind(6,37) 
   !> This is double precision (8B)
   integer,public,parameter :: dp=selected_real_kind(15,307) 
-  !> This is integer (4B)
+  !> This is integer (8B)
   integer,public,parameter :: li=selected_int_kind(9)
+  !> This is integer (16B)
+  integer,public,parameter :: i8b=selected_int_kind(18)
   real(kind=dp),public,parameter :: tiny_dp=tiny(1.0_dp) !< smallest dp
 
 end module precision
