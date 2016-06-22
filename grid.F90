@@ -23,11 +23,14 @@ module grid
   ! x,y,z - x,y,z coordinates
   ! vol - volume of one cell
   real(kind=dp),dimension(Ndim) :: dr !< cell size
+  real(kind=dp),dimension(Ndim) :: dr_cMpc !< cell size in comoving Mpc
   real(kind=dp),dimension(:),allocatable :: x !< spatial coordinate x
   real(kind=dp),dimension(:),allocatable :: y !< spatial coordinate y
   real(kind=dp),dimension(:),allocatable :: z !< spatial coordinate z
   real(kind=dp) :: vol !< volume of grid cell
+  real(kind=dp) :: vol_cMpc3 !< volume of grid cell in cMpc^3
   real(kind=dp) :: sim_volume !< volume of entire simulation box
+  real(kind=dp) :: sim_volume_cMpc3 !< volume of entire simulation box in cMpc^3
   
 contains
 
@@ -57,9 +60,6 @@ contains
 #ifdef MPI
     integer :: ierror
 #endif
-
-    ! Simulation volume (comoving)
-    sim_volume=(boxsize/h*Mpc)**3
 
     ! Ask for grid size (if rank 0 and not set in nbody module)
     if (rank == 0) then
@@ -94,14 +94,34 @@ contains
 #endif
 #endif
     
-    xgrid=xgrid*Mpc/h
-    ygrid=ygrid*Mpc/h
-    zgrid=zgrid*Mpc/h
+    ! Simulation volume (comoving)
+    sim_volume_cMpc3=xgrid*ygrid*zgrid/(h**3)
+    sim_volume=sim_volume_Mpc3*Mpc**3
+
+    ! Divide out the Hubble factor
+    xgrid=xgrid/h
+    ygrid=ygrid/h
+    zgrid=zgrid/h
     
-    ! Calculate cell sizes
-    dr(1)=xgrid/real(mesh(1))
-    dr(2)=ygrid/real(mesh(2))
-    dr(3)=zgrid/real(mesh(3))
+    ! Calculate cell sizes in cMpc
+    dr_cMpc(1)=xgrid/real(mesh(1))
+    dr_cMpc(2)=ygrid/real(mesh(2))
+    dr_cMpc(3)=zgrid/real(mesh(3))
+
+    ! Calculate cell sizes in cm
+    dr(:)=dr_cMpc(:)*Mpc
+    
+    ! Volume of a cell.
+    ! do k=1,mesh(3)
+    ! do j=1,mesh(2)
+    ! do i=1,mesh(1)
+    ! vol(i,j,k)=dr(1)*dr(2)*dr(3)
+    ! enddo
+    ! enddo
+    !      enddo
+    ! Scalar version
+    vol=dr(1)*dr(2)*dr(3)
+    vol_cMpc3=vol/(Mpc**3)
     
     ! allocate coordinates
     allocate(x(mesh(1)),stat=alloc_status)
@@ -129,17 +149,6 @@ contains
     do i=1,mesh(1)
        x(i)=(real(i)-0.5)*dr(1)
     enddo
-    
-    ! Volume of a cell.
-    ! do k=1,mesh(3)
-    ! do j=1,mesh(2)
-    ! do i=1,mesh(1)
-    ! vol(i,j,k)=dr(1)*dr(2)*dr(3)
-    ! enddo
-    ! enddo
-    !      enddo
-    ! Scalar version
-    vol=dr(1)*dr(2)*dr(3)
     
 #ifdef MPILOG
     write(logf,*) "End of grid_ini"
