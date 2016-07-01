@@ -369,6 +369,15 @@ Program C2Ray
            if (use_LLS .and. type_of_LLS /= 2) call set_LLS(zred)
            
 #ifdef MH
+           ! Get LW intensity jLW at current redshift; 
+           ! GM 160617: nz0 is not used in get_jLW!
+           ! GM/160623: this has been moved. We now calculate the current
+           ! redshift using the sources from the previous redshift. This
+           ! seems more logical and does not require us to extrapolate
+           ! into the future.
+           call get_jLW(zred_now, nz_out)
+           if (rank ==0) write(logf,*) 'after get_jLW, jlw(1,1,1)', jlw(1,1,1)
+           
            NumAGrid = 0
            ! Based upon LW intensity, xfrac and density, get subgrid sources.
            if (MHflag == 1 .OR. MHflag == 2) then
@@ -386,12 +395,6 @@ Program C2Ray
               write(logf,*) 'Total active stellar mass in subgrids, in solar mass:', tot_subsrcM_msun
            endif
 
-           ! Get LW intensity jLW at nz+1; Note carefully you should call
-           ! get_jLW with "nz" for the jLW at "nz+1" !!!
-           ! GM 160617: nz0 is not used in get_jLW!
-           call get_jLW(nz0, nz)
-           if (rank ==0) write(logf,*) 'after get_jLW, jlw(1,1,1)', jlw(1,1,1)
-           
            ! Read in the source list for zred(nz) to merge it with the MH
            ! source list; this is forced by using restart=2
            call source_properties(zred(nz),nz,dt_nbody,2)

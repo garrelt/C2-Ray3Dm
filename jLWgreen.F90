@@ -10,12 +10,16 @@ module jLWgreen
 
   implicit none
 
-  real(kind=dp)        :: rLW_zobs !< past LW horizon to be used for green.
+  character(len=512) :: dir_gK = "../GKresults/"
+
+  real(kind=dp) :: rLW_zobs !< past LW horizon to be used for green.
 
   complex(kind=dp), dimension(mesh(1)/2+1,mesh(2),mesh(3)) :: greenK !< Fourier component of green
 
 contains
+
 ! ==========================================================================
+
   subroutine read_greenK(zsbegin, zsend, zobs)
 
     ! This routine reads in precalculated k-space green function in 
@@ -53,20 +57,23 @@ contains
 
     ! beginning source zred; ending source zred; observing zred
     real(kind=dp),intent(in) :: zsbegin, zsend, zobs 
+
     ! string corresponding to above redshifts
     character(len=6)         :: zb_str, ze_str, zo_str
-    character(len=512)       :: dir_gK, fname
+    character(len=512)       :: fname
     integer                  :: m1, m2, m3
 
-    dir_gK = "../GKresults/"
-
+    ! Make strings for the three redshifts
     write(zb_str, '(f6.3f)') zsbegin
     write(ze_str, '(f6.3f)') zsend
     write(zo_str, '(f6.3f)') zobs
 
+    ! Construct file name
     fname=trim(adjustl(dir_gK))//"gK_"//trim(adjustl(zb_str))//"-"//trim(adjustl(ze_str))//"-"//trim(adjustl(zo_str))//"_dat"
 
+    ! Open file
     open(unit=15, file=fname, form='binary', status='old')
+    ! Read file content (SM3D format for complex numbers)
     read(15) m1, m2, m3
     if (m1 /= mesh(1) .or. m2 /= mesh(2) .or. m3 /= mesh(3)) then
        write(6,*) 'mesh number not matched for greenK!! Aborting!'
@@ -74,13 +81,13 @@ contains
        stop
     endif
     read(15) greenK
+    ! Close file
     close(15)
 
-    return
-    
   end subroutine read_greenK
 
 ! =========================================================================
+
   subroutine get_rLW(zobs)
 
     ! get past LW horizon from redshift zobs
@@ -95,8 +102,6 @@ contains
 
     rLW_zobs = 2d0/HcOm * (zobs+1d0)**(-0.5d0) * &
          (1d0 - ((15d0/16d0)/(8d0/9d0))**(-0.5d0))
-
-    return
 
   end subroutine get_rLW
 

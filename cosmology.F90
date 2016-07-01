@@ -39,6 +39,10 @@ module cosmology
   real(kind=dp) :: zred    !< current redshift
   real(kind=dp) :: Hz      !< Hubble constant at current redshift
   real(kind=dp),private :: zfactor !< scaling factor between two redshifts
+  !> list of output redshifts
+  real(kind=dp),dimension(:),allocatable :: zred_array_out
+  !> counter of output redshifts
+  integer :: nz_out=0
 
 contains
   ! =======================================================================
@@ -63,11 +67,53 @@ contains
     zred_t0=zred0 ! keep initial redshift
     zred=0.0 ! needs to be zero, so comoving will be changed to proper
     
+    call initialize_zred_array_out()
+
     ! Initialize lengths and volumes to proper units
     call redshift_evol(time)
     call cosmo_evol( )
     
   end subroutine cosmology_init
+
+  ! =======================================================================
+
+  subroutine initialize_zred_array_out
+
+    integer :: ierror=0 
+    integer :: ioflag=0
+
+    ! Allocate array for storing output redshifts (which may be more finely
+    ! spaced than the zred_array from the N-body outputs).
+    allocate(zred_array_out(number_timesteps*NumZred))
+
+    ! If this is a restart there will be a file with previous
+    ! values of output redshifts. This file needs to be read as
+    ! we need to know these previous values for the LW lightcone
+
+    if (rank == 0) then
+       open(unit=71,file=trim(adjustl(results_dir))//"zred_out.dat", &
+            status="old",iostat=ierror)
+       if .not.(ierror) then
+          do while (ioflag >= 0) ! EOF gives a -1 here. Some of the files have
+             ! other errors, which should be ignored.
+             ! Read in catalogues and count sources
+             read(71,*,iostat=ioflag) zred_array_out(nz_out)
+             nz_out=nz_out + 1
+          enddo
+          nz_out=nz_out-1 ! we counted one too many with the above procedure
+       else
+          write(logf,'(A)') "Error opening zred_out.dat"
+       endif
+    endif
+    
+#IFDEF mpi
+    ! Distribute the input parameters to the other nodes
+    call MPI_BCAST(nz_out,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(zred_array_out,number_timesteps*NumZred, &
+         MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+#endif
+    
+  end subroutine initialize_zred_array_out
 
   ! =======================================================================
 
@@ -135,6 +181,8 @@ contains
 
     real(kind=dp) :: zred_prev
 
+    integer :: nz_loop
+
     ! Calculate the change since the previous redshift.
     ! Note: the initial redshift should be ZERO since
     ! the variables are initialized as comoving!
@@ -146,6 +194,21 @@ contains
     zfactor=(1.0+zred_prev)/(1.+zred)
 
     Hz=H0*(1.+zred)**(1.5)*sqrt(Omega0) ! Hubble constant at current redshift (cgs)
+
+    ! Store redshift in list
+    nz_out=nz_out+1
+    zred_array_out(nz_out)=zred
+
+    ! Write output redshift file
+    ! This file should be overwritten every time.
+    if (rank == 0) then
+       open(unit=71,file=trim(adjustl(results_dir))//"zred_out.dat", &
+            status="replace",iostat=ierror)
+       do nz_loop=1,nz_out
+          write(71,'(f6.3)') zred_array_out(nz_loop)
+       enddo
+       close(71)
+    endif
 
   end subroutine redshift_evol
 
