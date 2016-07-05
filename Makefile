@@ -36,30 +36,30 @@
 #-------------------------------------------------------
 
 # Compiler
-#FC = gfortran # GNU compiler
-#MPIFC = mpif90.openmpi # MPI compiler
+FC = gfortran # GNU compiler
+MPIFC = mpif90.openmpi # MPI compiler
 
 # F90 options (gfortran)
-#GFORTFLAGS = -DGFORT -O3
+GFORTFLAGS = -DGFORT -O3
 
 # Processor dependent optimization
-#F90FLAGS1 = $(GFORTFLAGS) 
+F90FLAGS1 = $(GFORTFLAGS) 
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-#MPI_FLAGS = -DMPI # 
+MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
+OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 
 #-------------------------------------------------------
 # Compiler
 # Intel: best tested
-FC = ifort # Intel compiler
-MPIFC = mpif90 # MPI compiler
+#FC = ifort # Intel compiler
+#MPIFC = mpif90 # MPI compiler
 
 # F90 options (ifort)
 #IFORTFLAGS = -DIFORT -O0 -g -u -fpe0 -p
-IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
+#IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 #-check all -traceback
 #IFORTFLAGS = -DIFORT -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel #-check all -traceback
@@ -68,16 +68,16 @@ IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
 #F90FLAGS1 = $(IFORTFLAGS) 
 #F90FLAGS1 = -xCORE-AVX2 $(IFORTFLAGS) # Beskow
 #F90FLAGS1 = -xW $(IFORTFLAGS) 
-F90FLAGS1 = -xHost $(IFORTFLAGS) 
+#F90FLAGS1 = -xHost $(IFORTFLAGS) 
 #F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
 #F90FLAGS1 = -xB $(IFORTFLAGS)
 
 # These flags should be added to the F90FLAGS1 depending on the executable
 # made. Specify this below on a per executable basis.
-MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI # 
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
-NO_OPENMP_FLAGS = 
+#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
+#NO_OPENMP_FLAGS = 
 
 #-------------------------------------------------------
 # Compiler
@@ -200,8 +200,8 @@ C2Ray_3D_pmfast_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_adm
 
 C2Ray_3D_cubep3m_periodic: F90=$(FC)
 C2Ray_3D_cubep3m_periodic: F90FLAGS = $(F90FLAGS1)
-C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o cosmology.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o src_subgrid.o mergesrc.o cooling.o radiation.o jLWgreen.o cosmology.o time_ini.o getjLW.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o src_subgrid.o mergesrc.o cooling.o radiation.o jLWgreen.o cosmology.o getjLW.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS) $(NO_OPENMP_FLAGS)

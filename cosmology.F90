@@ -31,9 +31,12 @@ module cosmology
   use file_admin, only: logf
   use sizes, only: mesh
   use cgsconstants, only: c
+  use nbody, only: NumZred
 
   implicit none
 
+  integer :: max_number_substeps = 10 !< maximum number of substeps allowed
+  ! This number should be larger than the number_timesteps and number_outputs 
   real(kind=dp) :: zred_t0 !< initial redshift
   real(kind=dp) :: t0      !< time of initial redshift
   real(kind=dp) :: zred    !< current redshift
@@ -84,7 +87,7 @@ contains
 
     ! Allocate array for storing output redshifts (which may be more finely
     ! spaced than the zred_array from the N-body outputs).
-    allocate(zred_array_out(number_timesteps*NumZred))
+    allocate(zred_array_out(max_number_substeps*NumZred))
 
     ! If this is a restart there will be a file with previous
     ! values of output redshifts. This file needs to be read as
@@ -93,7 +96,7 @@ contains
     if (rank == 0) then
        open(unit=71,file=trim(adjustl(results_dir))//"zred_out.dat", &
             status="old",iostat=ierror)
-       if .not.(ierror) then
+       if (ierror == 0) then
           do while (ioflag >= 0) ! EOF gives a -1 here. Some of the files have
              ! other errors, which should be ignored.
              ! Read in catalogues and count sources
@@ -106,10 +109,10 @@ contains
        endif
     endif
     
-#IFDEF mpi
+#ifdef MPI
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(nz_out,1,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(zred_array_out,number_timesteps*NumZred, &
+    call MPI_BCAST(zred_array_out,max_number_substeps*NumZred, &
          MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
     
@@ -182,6 +185,7 @@ contains
     real(kind=dp) :: zred_prev
 
     integer :: nz_loop
+    integer :: ierror
 
     ! Calculate the change since the previous redshift.
     ! Note: the initial redshift should be ZERO since

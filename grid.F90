@@ -96,7 +96,7 @@ contains
     
     ! Simulation volume (comoving)
     sim_volume_cMpc3=xgrid*ygrid*zgrid/(h**3)
-    sim_volume=sim_volume_Mpc3*Mpc**3
+    sim_volume=sim_volume_cMpc3*Mpc**3
 
     ! Divide out the Hubble factor
     xgrid=xgrid/h

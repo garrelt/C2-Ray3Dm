@@ -55,7 +55,6 @@ module material
      real(kind=dp) :: average
      real(kind=dp) :: intermed
   end type temperature_states_dbl
-
   ! ndens - number density (cm^-3) of a cell
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
@@ -253,10 +252,16 @@ contains
 
   subroutine dens_ini (zred_now,nz)
 
+    real(kind=dp),intent(in) :: zred_now
+    integer,intent(in) :: nz ! number in the list of redshifts (for
+                             ! compatibility reasons)
+
     ! Save previous density field if it has been set
     if ( avg_dens /= 0.0 ) then
+#ifdef MH
        ndens_previous(:,:,:)=ndens(:,:,:)
        avg_ndens_previous=avg_ndens
+#endif
     else
        if (nz > 1) then
           ! First set the previous density and copy the results to
@@ -409,8 +414,8 @@ contains
             rho_crit_0*Omega_B/(mu*m_p), &
             " cm^-3)"
     endif
-
-  end subroutine dens_ini
+    
+  end subroutine read_density
 
   ! ===========================================================================
 

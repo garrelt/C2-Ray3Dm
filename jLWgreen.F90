@@ -58,21 +58,32 @@ contains
     ! beginning source zred; ending source zred; observing zred
     real(kind=dp),intent(in) :: zsbegin, zsend, zobs 
 
-    ! string corresponding to above redshifts
+#ifdef IFORT
+  ! ifort standard for "binary"
+  character(len=*),parameter :: greenformat="binary"
+  character(len=*),parameter :: greenaccess="sequential"
+#else
+  ! Fortran2003 standard for "binary"
+  character(len=*),parameter :: greenformat="unformatted"
+  character(len=*),parameter :: greenaccess="stream"
+#endif
+
+   ! string corresponding to above redshifts
     character(len=6)         :: zb_str, ze_str, zo_str
     character(len=512)       :: fname
     integer                  :: m1, m2, m3
 
     ! Make strings for the three redshifts
-    write(zb_str, '(f6.3f)') zsbegin
-    write(ze_str, '(f6.3f)') zsend
-    write(zo_str, '(f6.3f)') zobs
+    write(zb_str, '(f6.3)') zsbegin
+    write(ze_str, '(f6.3)') zsend
+    write(zo_str, '(f6.3)') zobs
 
     ! Construct file name
     fname=trim(adjustl(dir_gK))//"gK_"//trim(adjustl(zb_str))//"-"//trim(adjustl(ze_str))//"-"//trim(adjustl(zo_str))//"_dat"
 
     ! Open file
-    open(unit=15, file=fname, form='binary', status='old')
+    open(unit=15, file=fname, form=greenformat, &
+            access=greenaccess, status='old')
     ! Read file content (SM3D format for complex numbers)
     read(15) m1, m2, m3
     if (m1 /= mesh(1) .or. m2 /= mesh(2) .or. m3 /= mesh(3)) then

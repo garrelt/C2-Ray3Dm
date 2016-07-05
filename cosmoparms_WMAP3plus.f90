@@ -17,7 +17,7 @@ module cosmology_parameters
 
   use precision, only: dp
   use mathconstants, only: pi
-  use cgsconstants, only: G_grav
+  use cgsconstants, only: G_grav, c
   use astroconstants, only: Mpc
 
   implicit none

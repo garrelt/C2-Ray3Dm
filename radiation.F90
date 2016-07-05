@@ -136,6 +136,10 @@ module radiation
   !real(kind=dp),public :: phih_in,phih_out
   !real(kind=dp),public :: hvphih_in,hvphih_out
 
+#ifdef MH
+  real(kind=dp),    dimension(mesh(1),mesh(2),mesh(3)), public     :: jLW 
+#endif
+
 #ifdef MPI       
     integer,private :: ierror
 #endif

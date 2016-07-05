@@ -19,14 +19,20 @@ module source_sub
   use astroconstants, only: M_SOLAR
   use cosmology_parameters, only: Omega_B, Omega0, h
   use nbody, only: id_str, M_grid, dir_src, zred_array
-  use material, only: xh, ndens, ndens_previous, avg_dens, avg_dens_previous
+  use material, only: xh, ndens, avg_dens
+#ifdef MH  
+  use material, only: ndens_previous, avg_dens_previous
+#endif
   use grid, only: x,y,z, vol_cMpc3, sim_volume_cMpc3
   use c2ray_parameters, only: phot_per_atom, fstar, &
        lifetime, S_star_nominal, StillNeutral
-  use getjLW, only: jLW
+#ifdef MH
+  use radiation, only: jLW
+#endif
 
   implicit none
 
+#ifdef MH
   ! Model parameters for MH model
   integer, public, parameter :: MHflag = 2 !< Flag indicating type of MH sources
 !!$  integer, public, parameter :: MHflag = 0
@@ -72,7 +78,7 @@ contains
     ! Update: 5-Sep-2009, 15-Jul-2010
 
     ! For random permutation of sources
-    use perm  ! ctrper seems to break if source number too large.
+    !use perm  ! ctrper seems to break if source number too large.
 
     integer,      intent(in) :: nz
     real(kind=dp),intent(in) :: AGlifetime ! time step
@@ -554,12 +560,23 @@ contains
 
   subroutine read_LGnMH_Mpc3
 
+#ifdef IFORT
+  ! ifort standard for "binary"
+  character(len=*),parameter :: tableformat="binary"
+  character(len=*),parameter :: tableaccess="sequential"
+#else
+  ! Fortran2003 standard for "binary"
+  character(len=*),parameter :: tableformat="unformatted"
+  character(len=*),parameter :: tableaccess="stream"
+#endif
+
 #ifdef MPI
     integer :: mympierror
 #endif
 
     if (rank == 0) then
-       open(unit=20, file=trim(adjustl(MHfit_file)), form="binary", status="old")
+       open(unit=20, file=trim(adjustl(MHfit_file)), form=tableformat, &
+            access=tableaccess, status="old")
        read(20) Nzdata, Ndelta1data  
        read(20) zmin, zmax, LGdelta1min, LGdelta1max 
        if (rank==0) write(6,*)  '.................'
@@ -595,6 +612,9 @@ contains
 
   subroutine randomize_source_list ()
 
+    ! For random permutation of sources
+    use  m_ctrper
+
     integer :: ns
 
     ! Create array for containing randomized source list
@@ -609,7 +629,8 @@ contains
        enddo
 
        ! Make a random order
-       call permi(NumAGrid, subSrcSeries)
+       call ctrper(subSrcSeries(1:NumAGrid),1.0)
+       !call permi(NumAGrid, subSrcSeries)
        
     endif
 
@@ -619,5 +640,7 @@ contains
 #endif
 
   end subroutine randomize_source_list
+
+#endif
 
 end module source_sub

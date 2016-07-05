@@ -87,9 +87,13 @@ module c2ray_parameters
   real(kind=dp),parameter :: relative_denergy=0.1
 
   !> Source properties: Number of different sources
-  integer,parameter :: Number_Sourcetypes=2
+  integer,parameter :: Number_Sourcetypes=3
   !> Source properties: Photon per atom for different source types (high to low mass)
-  real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 /)
+  real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0, 3750.0 /)
+  real(kind=dp),dimension(Number_Sourcetypes),parameter :: Ni  = &
+       (/ 6000d0, 50000d0, 55000d0 /)
+  real(kind=dp),dimension(Number_Sourcetypes),parameter :: fstar= &
+       (/ 0.008d0, 0.015d0, 0.015d0 /) !! tune to have same fesc as f10_150S case.
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=20e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo

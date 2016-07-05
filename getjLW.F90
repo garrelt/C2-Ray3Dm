@@ -19,16 +19,29 @@ module getjLW
   use nbody, only: zred_array
   use cosmology, only: zred2time, zred_array_out
   use sourceprops, only: NumSrc, NumMassiveSrc, NumSupprbleSrc, NumSupprsdSrc, srcpos00, srcpos01, sM00_msun, sM01_msun
+#ifdef MH
   use source_sub, only: NumAGrid, sub_srcpos, ssM_msun, MHflag
   ! Catch 22: source_sub needs jLW from getjLW and getjLW needs variables
   ! from source_sub
   ! Solution: new data module for MH source lists.
   use jLWgreen, only: greenK, read_greenK, get_rLW, rLW_zobs
+#endif
   use c2ray_parameters, only: phot_per_atom, Ni, fstar
   use cosmology_parameters, only: Omega0, Omega_B, HcOm
   use file_admin, only: logf, results_dir
-  
+  use radiation, only: jLW
+
   implicit none
+#ifdef MH
+#ifdef IFORT
+  ! ifort standard for "binary"
+  character(len=*),parameter :: binaryformat="binary"
+  character(len=*),parameter :: binaryaccess="sequential"
+#else
+  ! Fortran2003 standard for "binary"
+  character(len=*),parameter :: binaryformat="unformatted"
+  character(len=*),parameter :: binaryaccess="stream"
+#endif
 
   ! LW emissivity for each type of source
   real(kind=dp),parameter :: emis00  = 1.67d21  !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of high-mass source
@@ -51,7 +64,6 @@ module getjLW
   real(kind=dp),    dimension(:,:,:),allocatable                   :: srclum
   complex(kind=dp), dimension(mesh(1)/2+1,mesh(2),mesh(3)), public :: srclumK
 
-  real(kind=dp),    dimension(mesh(1),mesh(2),mesh(3)), public     :: jLW 
   real(kind=dp),    dimension(:,:,:),allocatable                   :: jLWtemp
   complex(kind=dp), dimension(:,:,:),allocatable                   :: gK_sK
 
@@ -84,7 +96,8 @@ contains
        filej=trim(adjustl(results_dir))//"jLW3d_"//trim(adjustl(filej))//".bin"
        
        ! Open file and read data
-       open(unit=33,file=filej,form="binary",status="old")
+       open(unit=33, file=filej, form=binaryformat, access=binaryaccess, &
+            status="old")
        read(33) m1,m2,m3
        if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
           write(logf,*) "Warning: file with jLW unusable"
@@ -345,7 +358,8 @@ contains
     fname = trim(adjustl(dir_sK))//trim(adjustl(z_str))//"-srcK"
 
     ! Open file
-    open(unit=10, file=fname, form='binary', status='unknown')
+    open(unit=10, file=fname, form=binaryformat, access=binaryaccess, &
+         status='unknown')
     ! Write data in SM3D format
     write(10) mesh(1), mesh(2), mesh(3)
     write(10) srclumK
@@ -373,7 +387,8 @@ contains
     fname = trim(adjustl(dir_sK))//trim(adjustl(z_str))//"-srcK"
 
     ! Open file
-    open(unit=10, file=fname, form='binary', status='old')
+    open(unit=10, file=fname, form=binaryformat, access=binaryaccess, &
+         status='old')
     ! Read data (SM3D format)
     read(10) m1, m2, m3
     if (m1 /= mesh(1) .or. m2 /= mesh(2) .or. m3 /= mesh(3)) then
@@ -386,5 +401,7 @@ contains
     close(10)
 
   end subroutine read_srclumK
+
+#endif
 
 end module getjLW

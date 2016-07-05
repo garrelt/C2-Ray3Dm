@@ -18,6 +18,7 @@ module mergesrc
 
   use precision,   only: dp
   use my_mpi
+#ifdef MH
   use file_admin,  only: logf
   use sourceprops, only: NumSrc,      SrcSeries,     srcpos,    NormFlux
   use source_sub,  only: NumAGrid, subSrcSeries, sub_srcpos, subNormFlux
@@ -118,5 +119,5 @@ contains
     endif
 
   end subroutine merge_allsrc
-
+#endif
 end module mergesrc
