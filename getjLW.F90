@@ -25,14 +25,13 @@ module getjLW
   ! from source_sub
   ! Solution: new data module for MH source lists.
   use jLWgreen, only: greenK, read_greenK, get_rLW, rLW_zobs
+  use radiation, only: jLW
 #endif
   use c2ray_parameters, only: phot_per_atom, Ni, fstar
   use cosmology_parameters, only: Omega0, Omega_B, HcOm
   use file_admin, only: logf, results_dir
-  use radiation, only: jLW
 
   implicit none
-#ifdef MH
 #ifdef IFORT
   ! ifort standard for "binary"
   character(len=*),parameter :: binaryformat="binary"
@@ -75,6 +74,7 @@ module getjLW
 
 contains
 
+#ifdef MH
 ! ======================================================================
 
   subroutine read_jLW(zred_now)
@@ -117,9 +117,11 @@ contains
        
     endif
 
+#ifdef MPI
     ! Share the values of jLW with the other nodes
     CALL MPI_BCAST(jLW, mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION, 0, MPI_COMM_NEW, mympierror)
+#endif
     
   end subroutine read_jLW
 
@@ -214,16 +216,17 @@ contains
 
     endif ! end of rank 0 test
 
+#ifdef MPI
     ! Distribute jLW to the other nodes
     CALL MPI_BCAST(jLW, mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION, 0, MPI_COMM_NEW, mympierror)
+#endif
 
     ! Record average value to log file
     IF (rank == 0) THEN
        jLWaver = sum(jLW)/dble(mesh(1)*mesh(2)*mesh(3))
        write(logf,*) "jLW volume average", jLWaver
     ENDIF
-#endif
 
     return
 
@@ -246,78 +249,17 @@ contains
     integer             :: NPROCS, MYRANK, IERR
 
 
-    ! GM/160701: Can we write this conversion from ionizing luminosity
-    ! to LW luminosity directly so we do not need to save the masses?
-    ! GM/160701: Should we move this calculation to the sourceprops
-    ! module where all this information is available? Also this source
-    ! population does not change during one n-body time step so it
-    ! is not necessary to recalculate this.
-
-    ! Find the time step length (between outputs, LW calculation)
-    C2ray_lifetime = abs(zred2time(zred_array_out(nz_LW-1)) - &
-         zred2time(zred_array_out(nz_LW)))
-
-    ! Number of ionizing photons produced per solar mass in C2Ray_lifetime
-    QH_M_C2ray00  = Ni(1) * (M_solar/m_p)  /C2ray_lifetime
-    QH_M_C2ray01  = Ni(2) * (M_solar/m_p)  /C2ray_lifetime
-
-    ! Conversion to normalized value?
-    ! Comments say: conversion from difference between C2Ray_lifetime and 
-    ! true lifetime of low-mass source. However, the scaling number is
-    ! large, about 1e46 or 1e48
-    CC00          = QH_M_C2ray00 / QH_M_real00
-    CC01          = QH_M_C2ray01 / QH_M_real01
-
-    ! Emission per solar mass for star formation efficiency fstar.
-    ! These numbers are multiplied with the source mass (in solar masses)
-    ! below to provide the LW luminosity.
-    coeff00       = emis00 * CC00 * fstar(1) * Omega_B/Omega0
-    coeff01       = emis01 * CC01 * fstar(2) * Omega_B/Omega0
-
-    ! Calculate f_esc to check the values make sense.
-    write(6,*) 'Sanity check: fesc00 = ', phot_per_atom(1) /(Ni(1) *fstar(1) )
-    write(6,*) 'Sanity check: fesc01 = ', phot_per_atom(2) /(Ni(2) *fstar(2) )
-
-    ! Calculate emission per solar mass for star formation efficiency fstar
-    ! for MH sources.
-    ! These numbers are multiplied with the source mass (in solar masses)
-    ! below to provide the LW luminosity.
-    ! There are two options here for different source models. MHflag = 2
-    ! appears to be the standard one.
-    ! Different subgrid source population schemes reflected by MHflag
-    ! MHflag = 1: uniform star formation out of given baryon content
-    !          2: one Pop III star/ one minihalo
-    ! Below ssM_msun differs for different MHflags. Also note difference
-    ! in fstar(3). ssM_msun is total subgrid stellar mass for MHflag=2.
-    if (MHflag == 1) then
-       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)  /C2ray_lifetime
-       CCsub          = QH_M_C2raysub / QH_M_realsub
-       coeffsub       = emissub * CCsub * fstar(3) * Omega_B/Omega0
-       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
-    elseif (MHflag == 2) then
-       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)  /C2ray_lifetime
-       CCsub          = QH_M_C2raysub / QH_M_realsub
-       ! Check out the difference from MHflag=1 case!!!
-       coeffsub       = emissub * CCsub 
-       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
-    endif
 
     ! Allocate the LW luminosity grid
     if (allocated(srclum)) deallocate(srclum)
     allocate(srclum(mesh(1),mesh(2),mesh(3)))
     srclum(:,:,:) = 0d0
 
-    ! Add LW contribution of HMACHs to LW luminosity grid
-    do n00 = 1, NumMassiveSrc
+    ! Add LW contribution of LMACHs and HMACHs to LW luminosity grid
+    do n00 = 1, NumSrc
        srclum(srcpos00(1, n00), srcpos00(2, n00), srcpos00(3, n00)) = &
             srclum(srcpos00(1, n00), srcpos00(2, n00), srcpos00(3, n00)) + &
-            sM00_msun(n00) * coeff00
-    enddo
-    ! LW contribution of LMACHs to LW luminosity grid
-    do n01 = 1, NumSupprbleSrc-NumSupprsdSrc
-       srclum(srcpos01(1, n01), srcpos01(2, n01), srcpos01(3, n01)) = &
-            srclum(srcpos01(1, n01), srcpos01(2, n01), srcpos01(3, n01)) + &
-            sM01_msun(n01) * coeff01
+            NormFlux_LW(n00)
     enddo
 
     ! LW contribution of MHs to LW luminosity grid
@@ -403,5 +345,4 @@ contains
   end subroutine read_srclumK
 
 #endif
-
 end module getjLW

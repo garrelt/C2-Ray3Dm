@@ -154,6 +154,10 @@ contains
        ! subsrcMass
        call assign_uv_luminosities (AGlifetime,nz)
        
+       ! Turn source list masses into luminosities; photons/atom included in 
+       ! subsrcMass
+       call assign_lw_luminosities (AGlifetime,nz)
+       
     endif ! end of rank 0 test
     
 #ifdef MPI
@@ -494,6 +498,47 @@ contains
     endif
     
   end subroutine assign_uv_luminosities
+
+  ! =======================================================================
+
+  subroutine assign_lw_luminosities (lifetime,nz)
+    
+    real(kind=dp),intent(in) :: lifetime
+    integer,intent(in) :: nz
+
+    ! Calculate emission per solar mass for star formation efficiency fstar
+    ! for MH sources.
+    ! These numbers are multiplied with the source mass (in solar masses)
+    ! below to provide the LW luminosity.
+    ! There are two options here for different source models. MHflag = 2
+    ! appears to be the standard one.
+    ! Different subgrid source population schemes reflected by MHflag
+    ! MHflag = 1: uniform star formation out of given baryon content
+    !          2: one Pop III star/ one minihalo
+    ! Below ssM_msun differs for different MHflags. Also note difference
+    ! in fstar(3). ssM_msun is total subgrid stellar mass for MHflag=2.
+    if (MHflag == 1) then
+       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)/lifetime
+       CCsub          = QH_M_C2raysub / QH_M_realsub
+       coeffsub       = emissub * CCsub * fstar(3) * Omega_B/Omega0
+       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
+    elseif (MHflag == 2) then
+       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)/lifetime
+       CCsub          = QH_M_C2raysub / QH_M_realsub
+       ! Check out the difference from MHflag=1 case!!!
+       coeffsub       = emissub * CCsub 
+       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
+    endif
+
+    if (MHflag == 1) then
+       subNormFlux_LW(:) = subNormFlux_LW(:) * M_grid * Omega_B/(Omega0*m_p) &
+            /lifetime
+    elseif (MHflag == 2) then
+       subNormFlux_LW(:) = subNormFlux_LW(:) * M_grid          /        m_p  &
+            /lifetime
+    endif
+    
+  end subroutine assign_lw_luminosities
 
   ! =======================================================================
 

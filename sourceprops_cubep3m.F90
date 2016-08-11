@@ -52,6 +52,7 @@ module sourceprops
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
   !real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
   real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
+  real(kind=dp),dimension(:),allocatable :: NormFlux_LW !< normalized LW flux of sources
   !integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
   real(kind=dp),dimension(:),allocatable :: uv_array  !< list of UV flux evolution (for some sources models)
   !> The cumulative number of uv photons. We save this number so we can add it
@@ -64,9 +65,9 @@ module sourceprops
   integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: total_SrcMass
   character(len=6),private :: z_str !< string value of redshift
-  integer,private :: NumMassiveSrc !< counter: number of massive sources
-  integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
-  integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
+  integer :: NumMassiveSrc !< counter: number of massive sources
+  integer :: NumSupprbleSrc !< counter: number of suppressible sources
+  integer :: NumSupprsdSrc !< counter: number of suppressed sources
   real(kind=dp),private :: cumfrac
 
   character(len=512),private :: sourcelistfile,sourcelistfilesuppress
@@ -103,6 +104,7 @@ contains
     if (allocated(srcpos)) deallocate(srcpos)
     !if (allocated(srcMass)) deallocate(srcMass)
     if (allocated(NormFlux)) deallocate(NormFlux)
+    if (allocated(NormFlux)) deallocate(NormFlux_LW)
     !if (allocated(srcSeries)) deallocate(srcSeries)
     
     Prev_NumSrc=NumSrc
@@ -140,6 +142,7 @@ contains
        allocate(srcpos(3,NumSrc))
        !allocate(SrcMass(NumSrc,0:Number_Sourcetypes))
        allocate(NormFlux(0:NumSrc)) ! 0 will hold lost photons
+       allocate(NormFlux_LW(NumSrc))
        !allocate(SrcSeries(NumSrc))
 
        ! Fill in the source arrays
@@ -169,6 +172,7 @@ contains
        call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
        !call MPI_BCAST(SrcMass,(1+Number_Sourcetypes)*NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(NormFlux,NumSrc+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(NormFlux_LW,NumSrc,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
     
 #ifdef MPI
@@ -310,8 +314,18 @@ contains
 		     UV_model == "Gradual supp.") then
                    NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
                         + srclist(LMACH)*phot_per_atom(2)      !small sources  
+#ifdef MH
+                   NormFlux_LW(ns)=srclist(HMACH)*LWeff(1)  & !massive sources
+                        + srclist(LMACH)*LWeff(2)      !small sources  
+#endif
                 else
+                   ! GM/160804: In what case is this used? There is no 
+                   ! efficiency factor for the HMACHs used.
+                   ! Setting LW to zero
                    NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
+#ifdef MH
+                   NormFlux_LW(ns)=0 !LWeff(1)*srclist(HMACH)!+srclist(LMACH)
+#endif MH
                 endif
              endif
           elseif (srclist(HMACH) > 0.0d0 .or. &
@@ -330,14 +344,32 @@ contains
              ! assign_uv_luminosities to calculate ionizing photon rates
              if (UV_Model == "Iliev et al") then
                 NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  !massive sources
+#ifdef MH
+                NormFlux_LW(ns)=srclist(HMACH)*LWeff(1) !massive sources
+#endif
              elseif (UV_Model == "Iliev et al partial supp.") then !make low-mass sources as efficient as HMACHs (so typically less efficient)
                 NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
                      + srclist(LMACH)*phot_per_atom(1)      !low-mass sources
+#ifdef MH
+                ! We set the LW efficiency of the LMACHs also equal
+                ! to the HMACHs. This thus becomes an assumption of the
+                ! partial suppression model.
+                NormFlux_LW(ns)=srclist(HMACH)*LWeff(1)  & !massive sources
+                     + srclist(LMACH)*LWeff(1)      !small sources  
+#endif
 	     elseif (UV_Model == "Gradual supp.") then !make low-mass sources less efficient
-	     	NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources		
+                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources		
 		     + srclist(LMACH_SUPPR)*phot_per_atom(2)      !low-mass sources with effective mass KLD
+#ifdef MH
+                NormFlux_LW(ns)=srclist(HMACH)*LWeff(1)  & !massive sources
+                        + srclist(LMACH_SUPPR)*LWeff(2)    !low-mass sources with effective mass
+#endif
              else
                 NormFlux(ns)=srclist(HMACH)
+#ifdef MH
+                NormFlux_LW(ns)=srclist(HMACH)*LWeff(1) !massive sources
+#endif
+
              endif
           endif
        enddo
@@ -347,7 +379,7 @@ contains
        write(49,*) NumSrc
        do ns0=1,NumSrc
           write(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-               NormFlux(ns0)
+               NormFlux(ns0), NormFlux_LW(ns0)
        enddo
        close(49)
     else ! of restart test
@@ -358,7 +390,7 @@ contains
        read(49,*) NumSrc
        do ns0=1,NumSrc
           read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-                NormFlux(ns0)
+                NormFlux(ns0), NormFlux_LW(ns0)
        enddo
        close(49)
     endif ! of restart test
@@ -422,6 +454,26 @@ contains
   
   ! =======================================================================
 
+  subroutine assign_lw_luminosities (lifetime2,nz)
+    
+    real(kind=dp),intent(in) :: lifetime2 ! time step
+    integer,intent(in) :: nz
+
+    integer :: ns
+
+    ! Turn masses into luminosities
+    do ns=1,NumSrc
+       ! note that the mass-dependent photons/atom are already included
+       ! in NormFlux_LW
+       NormFlux_LW(ns)=NormFlux_LW(ns)*M_grid*  &
+            Omega_B/(Omega0*m_p)
+       NormFlux_LW(ns)=NormFlux_LW(ns)/lifetime2
+    enddo
+    
+  end subroutine assign_lw_luminosities
+  
+  ! =======================================================================
+
   !> Initialization routine: determine the source model and optionally read 
   !! in source properties
   !! Author: Garrelt Mellema
@@ -446,6 +498,14 @@ contains
     integer :: mympierror
 #endif
 
+    ! Calculate f_esc to check the values make sense.
+    if (rank == 0) then
+       write(logf,*) 'Sanity check: fesc00 = ', &
+            phot_per_atom(1) /(Ni(1) *fstar(1) )
+       write(logf,*) 'Sanity check: fesc01 = ', &
+            phot_per_atom(2) /(Ni(2) *fstar(2) )
+    endif
+    
     ! Ask for redshift file
     if (rank == 0) then
        if (.not.file_input) write(*,"(A,$)") "UV Luminosity recipe (0,1,2,3,4): "
