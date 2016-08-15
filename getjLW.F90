@@ -18,9 +18,9 @@ module getjLW
   use sizes, only: mesh
   use nbody, only: zred_array
   use cosmology, only: zred2time, zred_array_out
-  use sourceprops, only: NumSrc, NumMassiveSrc, NumSupprbleSrc, NumSupprsdSrc, srcpos00, srcpos01, sM00_msun, sM01_msun
+  use sourceprops, only: NumSrc, NumMassiveSrc, NumSupprbleSrc, NumSupprsdSrc, srcpos, NormFlux_LW
 #ifdef MH
-  use source_sub, only: NumAGrid, sub_srcpos, ssM_msun, MHflag
+  use source_sub, only: NumAGrid, sub_srcpos, subNormFlux_LW, MHflag
   ! Catch 22: source_sub needs jLW from getjLW and getjLW needs variables
   ! from source_sub
   ! Solution: new data module for MH source lists.
@@ -41,24 +41,6 @@ module getjLW
   character(len=*),parameter :: binaryformat="unformatted"
   character(len=*),parameter :: binaryaccess="stream"
 #endif
-
-  ! LW emissivity for each type of source
-  real(kind=dp),parameter :: emis00  = 1.67d21  !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of high-mass source
-  real(kind=dp),parameter :: emis01  = 3d21   !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of low-mass source
-  real(kind=dp),parameter :: emissub = 3d21   !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of subgrid source
-
-  real(kind=dp) :: CC00   !< conversion from difference between C2Ray lifetime and true lifetime of high-mass source
-  real(kind=dp) :: QH_M_C2ray00
-!  real(kind=dp),parameter :: QH_M_real00 = 10d0**46.8d0
-  real(kind=dp),parameter :: QH_M_real00 = 6.309573445d46 ! = 10^46.8
-
-  real(kind=dp) :: CC01   !< conversion from difference between C2Ray lifetime and true lifetime of low-mass source
-  real(kind=dp) :: QH_M_C2ray01
-  real(kind=dp),parameter :: QH_M_real01 = 1.2d48
-
-  real(kind=dp) :: CCsub   !< conversion from difference between C2Ray lifetime and true lifetime of subgrid source
-  real(kind=dp) :: QH_M_C2Raysub
-  real(kind=dp),parameter :: QH_M_realsub = 1.2d48
 
   real(kind=dp),    dimension(:,:,:),allocatable                   :: srclum
   complex(kind=dp), dimension(mesh(1)/2+1,mesh(2),mesh(3)), public :: srclumK
@@ -153,9 +135,9 @@ contains
        ! Calculate srclumK, the Fourier transform of the LW luminosity field.
        ! We calculate this for the previous redshift as it depends on the
        ! source properties which have not yet been calculated.
-       call get_srclumK(zred_array_out(nz_LW-1))
+       call get_srclumK(nz_LW-1)
        ! Write this to a file for future use
-       call output_srclumK(zred_array_out(nz_LW-1))
+       call output_srclumK(nz_LW-1)
 
        ! Determine lookback redshift for LW field calculation
        zobs = zred ! should be equal to zred_array_out(nz_out)
@@ -248,8 +230,6 @@ contains
     ! for MPI
     integer             :: NPROCS, MYRANK, IERR
 
-
-
     ! Allocate the LW luminosity grid
     if (allocated(srclum)) deallocate(srclum)
     allocate(srclum(mesh(1),mesh(2),mesh(3)))
@@ -257,8 +237,8 @@ contains
 
     ! Add LW contribution of LMACHs and HMACHs to LW luminosity grid
     do n00 = 1, NumSrc
-       srclum(srcpos00(1, n00), srcpos00(2, n00), srcpos00(3, n00)) = &
-            srclum(srcpos00(1, n00), srcpos00(2, n00), srcpos00(3, n00)) + &
+       srclum(srcpos(1, n00), srcpos(2, n00), srcpos(3, n00)) = &
+            srclum(srcpos(1, n00), srcpos(2, n00), srcpos(3, n00)) + &
             NormFlux_LW(n00)
     enddo
 
@@ -266,7 +246,7 @@ contains
     do nsub = 1, NumAGrid
        srclum(sub_srcpos(1,nsub), sub_srcpos(2,nsub), sub_srcpos(3,nsub))= &
             srclum(sub_srcpos(1,nsub), sub_srcpos(2,nsub), sub_srcpos(3,nsub)) &
-            + ssM_msun(nsub) * coeffsub
+            + subNormFlux_LW(nsub)
     enddo
 
     ! FFT srclum into srclumK

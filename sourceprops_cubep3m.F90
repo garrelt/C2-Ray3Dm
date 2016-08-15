@@ -24,6 +24,7 @@ module sourceprops
   use grid, only: x,y,z
   use c2ray_parameters, only: phot_per_atom, lifetime, &
        S_star_nominal, StillNeutral, Number_Sourcetypes
+  use c2ray_parameters, only: fstar, Ni, emiss, QH_M_real
 
   implicit none
 
@@ -70,6 +71,8 @@ module sourceprops
   integer :: NumSupprsdSrc !< counter: number of suppressed sources
   real(kind=dp),private :: cumfrac
 
+  real(kind=dp),dimension(Number_Sourcetypes) :: LWeff
+  
   character(len=512),private :: sourcelistfile,sourcelistfilesuppress
 
 contains
@@ -325,7 +328,7 @@ contains
                    NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
 #ifdef MH
                    NormFlux_LW(ns)=0 !LWeff(1)*srclist(HMACH)!+srclist(LMACH)
-#endif MH
+#endif
                 endif
              endif
           elseif (srclist(HMACH) > 0.0d0 .or. &
@@ -505,6 +508,10 @@ contains
        write(logf,*) 'Sanity check: fesc01 = ', &
             phot_per_atom(2) /(Ni(2) *fstar(2) )
     endif
+    
+    ! Calculate efficiency for LW luminosity from the various
+    ! mass dependent factors
+    LWeff(:)=emiss(:) * Ni(:) *fstar(:) / QH_M_real(:)
     
     ! Ask for redshift file
     if (rank == 0) then

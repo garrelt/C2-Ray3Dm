@@ -59,10 +59,10 @@ module material
   ! SINGLE PRECISION! Be careful when passing this as argument to
   ! functions and subroutines.
   real(kind=si),dimension(:,:,:),allocatable :: ndens
-  real(kind=dp) :: avg_dens !< average density
+  real(kind=si) :: avg_dens !< average density
 #ifdef MH
   real(kind=si),dimension(:,:,:),allocatable :: ndens_previous
-  real(kind=dp) :: avg_dens_previous !< average density
+  real(kind=si) :: avg_dens_previous !< average density
 #endif
   ! temper - temperature of grid cell under consideration
   ! temperature_grid - temperature (K) of entire grid (only used if not isothermal)
@@ -260,7 +260,7 @@ contains
     if ( avg_dens /= 0.0 ) then
 #ifdef MH
        ndens_previous(:,:,:)=ndens(:,:,:)
-       avg_ndens_previous=avg_ndens
+       avg_dens_previous=avg_dens
 #endif
     else
        if (nz > 1) then
@@ -269,7 +269,7 @@ contains
 #ifdef MH
           call read_density(zred_array(nz-1),nz-1)
           ndens_previous(:,:,:)=ndens(:,:,:)
-          avg_ndens_previous=avg_ndens
+          avg_dens_previous=avg_dens
 #endif
           ! Now read the current density
           call read_density(zred_now,nz)

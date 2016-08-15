@@ -40,7 +40,7 @@ FC = gfortran # GNU compiler
 MPIFC = mpif90.openmpi # MPI compiler
 
 # F90 options (gfortran)
-GFORTFLAGS = -DGFORT -O3
+GFORTFLAGS = -DGFORT -O3 -I/usr/include
 
 # Processor dependent optimization
 F90FLAGS1 = $(GFORTFLAGS) 
@@ -144,7 +144,7 @@ OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
 #LDR     = $(F90)
 
 LDFLAGS = $(F90FLAGS) #-L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
-LIBS = #-lirc -limf
+LIBS = -lfftw3 #-lirc -limf
 
 #-------------------------------------------------------
 
@@ -199,9 +199,9 @@ C2Ray_3D_pmfast_periodic_omp: precision.o $(CONSTANTS) $(UTILS) sizes.o file_adm
 #--------CUBEP3M-------------------------------------------------------------
 
 C2Ray_3D_cubep3m_periodic: F90=$(FC)
-C2Ray_3D_cubep3m_periodic: F90FLAGS = $(F90FLAGS1)
-C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o src_subgrid.o mergesrc.o cooling.o radiation.o jLWgreen.o cosmology.o time_ini.o getjLW.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
-	$(F90) $(F90FLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o src_subgrid.o mergesrc.o cooling.o radiation.o jLWgreen.o cosmology.o getjLW.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+C2Ray_3D_cubep3m_periodic: F90FLAGS = $(F90FLAGS1) -DMH
+C2Ray_3D_cubep3m_periodic: precision.o $(CONSTANTS) $(UTILS) sizes.o file_admin.o no_mpi.o clocks.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o src_subgrid.o mergesrc.o jLWgreen.o cosmology.o time_ini.o getjLW.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o
+	$(F90) $(LDFLAGS) -o $@ precision.o $(UTILS) sizes.o no_mpi.o clocks.o file_admin.o cubep3m.o grid.o tped.o mat_ini_cubep3m.o sourceprops_cubep3m.o cooling.o radiation.o src_subgrid.o mergesrc.o jLWgreen.o cosmology.o getjLW.o time_ini.o doric.o photonstatistics.o evolve8.o output.o C2Ray.o $(LIBS)
 
 C2Ray_3D_cubep3m_periodic_mpi: F90=$(MPIFC)
 C2Ray_3D_cubep3m_periodic_mpi: F90FLAGS = $(F90FLAGS1) $(MPI_FLAGS) $(NO_OPENMP_FLAGS)

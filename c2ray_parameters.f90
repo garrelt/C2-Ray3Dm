@@ -94,12 +94,14 @@ module c2ray_parameters
        (/ 6000d0, 50000d0, 55000d0 /)
   real(kind=dp),dimension(Number_Sourcetypes),parameter :: fstar= &
        (/ 0.008d0, 0.015d0, 0.015d0 /) !! tune to have same fesc as f10_150S case.
+  !> Number of LW photons produced by a stellar population within its life
+  !! time; for each source type.
   real(kind=dp),dimension(Number_Sourcetypes),parameter :: QH_M_real = &
-       (/ 6.309573445d46, 1.2d48 /)
+       (/ 6.309573445d46, 1.2d48, 1.2d48/)
+  !> LW emissivity for each type of source (erg s^-1 Hz^-1 Msun^-1)
   real(kind=dp),dimension(Number_Sourcetypes),parameter :: emiss = &
-       (/ 1.67d21, 3d21 /)
-  real(kind=dp), parameter,dimension(Number_Sourcetypes) :: LWeff(:) = &
-       emiss(:) * Ni(:) *fstar(:) / QH_M_real(:)
+       (/ 1.67d21, 3d21, 3d21 /)
+  
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=20e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo

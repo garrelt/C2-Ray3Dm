@@ -16,7 +16,7 @@ module source_sub
   use file_admin, only: logf, results_dir
   use cgsconstants, only: m_p
   use sizes, only: mesh
-  use astroconstants, only: M_SOLAR
+  use astroconstants, only: M_solar
   use cosmology_parameters, only: Omega_B, Omega0, h
   use nbody, only: id_str, M_grid, dir_src, zred_array
   use material, only: xh, ndens, avg_dens
@@ -26,6 +26,7 @@ module source_sub
   use grid, only: x,y,z, vol_cMpc3, sim_volume_cMpc3
   use c2ray_parameters, only: phot_per_atom, fstar, &
        lifetime, S_star_nominal, StillNeutral
+  use c2ray_parameters, only: emiss, QH_M_real, Ni
 #ifdef MH
   use radiation, only: jLW
 #endif
@@ -35,8 +36,9 @@ module source_sub
 #ifdef MH
   ! Model parameters for MH model
   integer, public, parameter :: MHflag = 2 !< Flag indicating type of MH sources
-!!$  integer, public, parameter :: MHflag = 0
-  real   (kind=dp), parameter, public :: M_PIIIstar_msun = 300d0 !< mass of PopIII star in solar mass unit.
+
+  !> mass of PopIII star in solar mass unit.
+  real   (kind=dp), parameter, public :: M_PIIIstar_msun = 300d0 
   !> Name of file with fit parameters
   character(len=100), parameter :: MHfit_file="zred_halodelta1_nMHMpc3_WMAP5"
 
@@ -50,10 +52,8 @@ module source_sub
   real(kind=dp) :: densNDcrit, densNDcrit_prev 
 
   integer,dimension(:,:),allocatable     :: sub_srcpos !< mesh position of subgrid sources
-  real(kind=dp),dimension(:,:),allocatable :: rsub_srcpos !< grid position of subgrid sources
-  real(kind=dp),dimension(:),allocatable :: ssM_msun !< array of mass of subgrid sources (one source) in solar mass unit. Similar to sM00_msun.
-  real(kind=dp),dimension(:),allocatable :: subsrcMass !< masses of subgrid sources. Similar to srcMass.
   real(kind=dp),dimension(:),allocatable :: subNormFlux !< normalized ionizing flux of subgrid sources
+  real(kind=dp),dimension(:),allocatable :: subNormFlux_LW !< normalized ionizing flux of subgrid sources
   integer,dimension(:),allocatable       :: subSrcSeries !< a randomized list of sources
   
   ! Definitions for reading precalculated # density of minihalos
@@ -71,7 +71,7 @@ contains
   
   ! =======================================================================
 
-  subroutine AGrid_properties(nz,AGlifetime)
+  subroutine AGrid_properties(nz,AGlifetime,restart)
 
     ! Input routine: establish the subgrid source properties
     ! Author: Kyungjin Ahn
@@ -82,6 +82,7 @@ contains
 
     integer,      intent(in) :: nz
     real(kind=dp),intent(in) :: AGlifetime ! time step
+    integer,intent(in) :: restart
 
     real(kind=dp)            :: zred_prev,zred_now ! previous, current redshift
 
@@ -135,20 +136,16 @@ contains
 
     ! Now that we know the number of active sources, allocate source list 
     ! arrays
-    if (allocated(ssM_msun   ))  deallocate(ssM_msun   )
-    if (allocated(subsrcMass ))  deallocate(subsrcMass )
-    if (allocated(subNormFlux))  deallocate(subNormFlux)
     if (allocated(sub_srcpos ))  deallocate(sub_srcpos )
-    !if (allocated(rsub_srcpos))  deallocate(rsub_srcpos)
-    allocate(ssM_msun    (NumAGrid   ))
-    allocate(subsrcMass  (NumAGrid   ))
-    allocate(subNormFlux (NumAGrid   ))
+    if (allocated(subNormFlux))  deallocate(subNormFlux)
+    if (allocated(subNormFlux_LW))  deallocate(subNormFlux_LW)
     allocate(sub_srcpos  (3, NumAGrid))
-    !allocate(rsub_srcpos (3, NumAGrid))
+    allocate(subNormFlux (NumAGrid   ))
+    allocate(subNormFlux_LW (NumAGrid   ))
     
     if (rank == 0) then
        ! Fill the source list with values (for the mass)
-       call set_MH_sources(zred_now, zred_prev, restart)
+       call set_MH_sources(zred_now, zred_prev, nz, restart)
        
        ! Turn source list masses into luminosities; photons/atom included in 
        ! subsrcMass
@@ -162,11 +159,9 @@ contains
     
 #ifdef MPI
     ! Distribute source list to the other nodes
-    call MPI_BCAST(ssM_msun,     NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(subsrcMass,   NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
-    call MPI_BCAST(subNormFlux,  NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
     call MPI_BCAST(sub_srcpos, 3*NumAGrid, MPI_INTEGER,         0,MPI_COMM_NEW,mympierror)
-    !call MPI_BCAST(rsub_srcpos,3*NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(subNormFlux,  NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+    call MPI_BCAST(subNormFlux_LW,  NumAGrid, MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
 #endif
              
 #ifdef MPILOG
@@ -178,7 +173,6 @@ contains
        write(logf,*) 'Subgrid Source lifetime=', AGlifetime/3.1536e13
        write(logf,*) 'Subgrid Total flux= ',sum(subNormFlux)
 
-       !write(6,*)  'almost ready with MH sources'
     endif
 
     ! Randomize source list
@@ -355,7 +349,11 @@ contains
              ! subgrid is active when neutral & containing minihalos
              ! which are fresh at current redshift!!!!
              ! NOTE THE CRITERION!! XH(x,y,z,1) < StillNeutral
+#ifdef ALLFRAC
              if (xh(i,j,k,1) < StillNeutral &
+#else
+             if (xh(i,j,k) < StillNeutral &
+#endif                  
                   .AND. jLW(i,j,k) < jLWcrit_now &
                   .AND. diff_subsrcMsun > 0d0) then
                 AGflag(i,j,k) = .true.
@@ -387,7 +385,6 @@ contains
     ! like this.
     real(kind=dp)            :: diff_subsrcMsun
 
-    ssM_msun         = 0d0
     source_counter = 0
     tot_subsrcM_msun = 0d0
     
@@ -417,10 +414,12 @@ contains
                 ! Determine source mass using suppression recipe
                 if (jLW(i,j,k) <= jLWcrit_min) then
                    ! No suppression, differential mass only.
-                   ssM_msun(source_counter) = diff_subsrcMsun
+                   ! Stored in NormFlux variable for now
+                   subNormFlux(source_counter) = diff_subsrcMsun
                 else 
                    ! suppression by jLW. Use differential mass.
-                   ssM_msun(source_counter) = diff_subsrcMsun &
+                   ! Stored in NormFlux variable for now
+                   subNormFlux(source_counter) = diff_subsrcMsun &
                         * (jLWcrit_now - jLW(i,j,k)) &
                         / (jLWcrit_now - jLWcrit_min)
                 endif
@@ -428,32 +427,39 @@ contains
           enddo
        enddo
     enddo
-    
-    tot_subsrcM_msun = sum(ssM_msun)
-    
+
+    ! Total source mass of MH sources (stored in NormFlux)
+    tot_subsrcM_msun = sum(subNormFlux)
+
+    ! Save source masses in subNormFlux_LW before modifying subNormFlux
+    subNormFlux_LW(:) = subNormFlux(:)
+
     ! Convert subgrid source masses into grid mass unit, and then
     ! multiply phot_per_atom(3). Result is similar to srcMass under
-    ! source_properties(but see below for difference when MHflag=2, 
+    ! source_properties (but see below for difference when MHflag=2, 
     ! need to divide by fstar(3), since stellar mass is used then.). 
     ! Use it just internally.
-    ! Also see below for the subNormFlux for the difference.
+    ! We divide by M_grid here for consistency with the processed source
+    ! list produced by sourceprops.
+    ! See below in assign_uv_luminosities for how these quantities
+    ! are further used to produce EUV photon rates.
     if (MHflag == 1) then
-       subsrcMass(:) = ssM_msun(:) * (M_SOLAR/M_grid) * phot_per_atom(3)
+       subNormFlux(:) = subNormFlux(:) * (M_solar/M_grid) * phot_per_atom(3)
     elseif (MHflag == 2) then
-       subsrcMass(:) = ssM_msun(:) * (M_SOLAR/M_grid) * phot_per_atom(3) &
+       subNormFlux(:) = subNormFlux(:) * (M_solar/M_grid) * phot_per_atom(3) &
             / fstar(3)
     endif
     
-    ! Save new subgrid source list, just 
+    ! Save new subgrid source list, just as in sourceprops.
     open(unit=49,file=sourcelistfile_sub,status='unknown')
     write(49,*) NumAGrid
     ! Write MHflag to distinguish physical meaning of
-    ! subsrcMass & ssM_msun. When MHflag=2, ssM_msun is the STELLAR
-    ! BARYON MASS, not BARYON+DM HALO MASS.
+    ! subNormFlux and subNormFlux_LW. When MHflag=2, subNormFlux_LW here
+    ! contains the STELLAR BARYON MASS, not BARYON+DM HALO MASS.
     write(49,*) MHflag
     do ns = 1,NumAgrid
        write(49,"(3I5,2e13.4)") sub_srcpos(1,ns), sub_srcpos(2,ns), &
-            sub_srcpos(3,ns), subsrcMass(ns), ssM_msun(ns)
+            sub_srcpos(3,ns), subNormFlux(ns), subNormFlux_LW(ns)
     enddo
     close(49)
     
@@ -489,11 +495,25 @@ contains
     real(kind=dp),intent(in) :: lifetime
     integer,intent(in) :: nz
 
+    ! The quantity subNormFlux is the mass (in grid masses) multiplied
+    ! with the efficiency factor. Here it is converted into ionizing
+    ! photon rate for the source.
     if (MHflag == 1) then
-       subNormFlux(:) = subsrcMass(:) * M_grid * Omega_B/(Omega0*m_p) &
+       ! The MH source is a photon efficiency x the mass of the MH:
+       ! Mass * phot_per_atom(3) / m_p * Omega_B/Omega0 / lifetime
+       ! subNormFlux was previously set to Mass * phot_per_atom(3)
+       ! in grid masses.
+       subNormFlux(:) = subNormFlux(:) * M_grid * Omega_B/(Omega0*m_p) &
             /S_star_nominal /lifetime
     elseif (MHflag == 2) then
-       subNormFlux(:) = subsrcMass(:) * M_grid          /        m_p  &
+       ! The MH source is a single PopIII star. Its EUV photon rate is
+       ! given by
+       ! Mass * phot_per_atom(3) / fstar(3) / m_p / lifetime
+       ! equivalent to
+       ! Mass * Ni(3) * fesc(3) / m_p / lifetime
+       ! subNormFlux was previously set to Mass * phot_per_atom(3) / fstar(3)
+       ! in grid masses.
+       subNormFlux(:) = subNormFlux(:) * M_grid          /        m_p  &
             /S_star_nominal /lifetime
     endif
     
@@ -506,37 +526,36 @@ contains
     real(kind=dp),intent(in) :: lifetime
     integer,intent(in) :: nz
 
-    ! Calculate emission per solar mass for star formation efficiency fstar
-    ! for MH sources.
-    ! These numbers are multiplied with the source mass (in solar masses)
-    ! below to provide the LW luminosity.
+    ! Calculate the LW photon rate for MH sources.
+
     ! There are two options here for different source models. MHflag = 2
     ! appears to be the standard one.
     ! Different subgrid source population schemes reflected by MHflag
     ! MHflag = 1: uniform star formation out of given baryon content
     !          2: one Pop III star/ one minihalo
-    ! Below ssM_msun differs for different MHflags. Also note difference
-    ! in fstar(3). ssM_msun is total subgrid stellar mass for MHflag=2.
+    ! The quantity subNormFlux_LW contains the total mass of the MH (MHflag=1)
+    ! or the stellar mass inside the MH (MHflag=2). Both are in solar masses.
     if (MHflag == 1) then
-       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)/lifetime
-       CCsub          = QH_M_C2raysub / QH_M_realsub
-       coeffsub       = emissub * CCsub * fstar(3) * Omega_B/Omega0
-       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
+       ! For MHflag=1 the quantity
+       ! subNormFlux_LW(:) * M_solar / m_p * Omega_B/Omega0 * fstar(3)
+       ! is the total number of baryons inside the halo in stars
+       subNormFlux_LW(:) = subNormFlux_LW(:) * M_solar / m_p * &
+            Omega_B/Omega0 * fstar(3)
     elseif (MHflag == 2) then
-       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)/lifetime
-       CCsub          = QH_M_C2raysub / QH_M_realsub
-       ! Check out the difference from MHflag=1 case!!!
-       coeffsub       = emissub * CCsub 
-       write(6,*) 'Sanity check: fesc_sub = ', phot_per_atom(3) /(Ni(3) *fstar(3))
+       ! For MHflag=1 the quantity
+       ! subNormFlux_LW(:) * M_solar / m_p 
+       ! is the total number of baryons inside the single star in the MH
+       subNormFlux_LW(:) = subNormFlux_LW(:) * M_solar / m_p
     endif
 
-    if (MHflag == 1) then
-       subNormFlux_LW(:) = subNormFlux_LW(:) * M_grid * Omega_B/(Omega0*m_p) &
-            /lifetime
-    elseif (MHflag == 2) then
-       subNormFlux_LW(:) = subNormFlux_LW(:) * M_grid          /        m_p  &
-            /lifetime
-    endif
+    ! Next we convert this number of baryons into a LW luminosity.
+    ! - Ni(3) is the number of ionizing photons produced per baryon.
+    ! - emiss is the LW emissivity (erg s^-1 Hz^-1 Msun^-1)--- THESE
+    !    UNITS DO NOT MAKE SENSE!
+    ! - QH_M_real(3) is the number of LW photons produced by a solar
+    !    mass (????) in the life time of the population.
+    subNormFlux_LW(:) = subNormFlux_LW(:) * Ni(3) * emiss(3) / &
+         QH_M_real(3) / lifetime
     
   end subroutine assign_lw_luminosities
 

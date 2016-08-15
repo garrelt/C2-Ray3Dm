@@ -58,7 +58,8 @@ module radiation
   use astroconstants, only: R_SOLAR, L_SOLAR
   use romberg, only: scalar_romberg,vector_romberg,romberg_initialisation
   use c2ray_parameters, only: teff_nominal, S_star_nominal, isothermal
-
+  use sizes, only: mesh
+  
   implicit none
 
   !-----------------------------------------------------------------------

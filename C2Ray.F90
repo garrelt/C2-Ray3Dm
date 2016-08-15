@@ -49,7 +49,7 @@ Program C2Ray
   use radiation, only: rad_ini
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
-       time2zred, zred2time, zred
+       time2zred, zred2time, zred, nz_out
   use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
        set_LLS
   use times, only: time_ini, set_timesteps, number_outputs, dt_nbody
@@ -375,7 +375,7 @@ Program C2Ray
            ! redshift using the sources from the previous redshift. This
            ! seems more logical and does not require us to extrapolate
            ! into the future.
-           call get_jLW(zred_now, nz_out)
+           call get_jLW(zred, nz_out)
            if (rank ==0) write(logf,*) 'after get_jLW, jlw(1,1,1)', jlw(1,1,1)
            
            NumAGrid = 0
@@ -388,7 +388,7 @@ Program C2Ray
               ! seperate array but just divide by the average density when 
               ! needed.
               ! GM: should this be dt_nbody (sim_time-end_time)?
-              call AGrid_properties(nz,dt_nbody,jLW)
+              call AGrid_properties(nz,dt_nbody,restart)
            endif
            if (rank == 0) then
               write(logf,*) 'Number of active subgrids:', NumAGrid
@@ -397,7 +397,7 @@ Program C2Ray
 
            ! Read in the source list for zred(nz) to merge it with the MH
            ! source list; this is forced by using restart=2
-           call source_properties(zred(nz),nz,dt_nbody,2)
+           call source_properties(zred_array(nz),nz,dt_nbody,2)
 
            ! Now merge subgrid source and real source lists into one.
            ! New NumSrc, srcpos, SrcSeries, NormFlux created.
