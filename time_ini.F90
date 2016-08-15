@@ -53,7 +53,17 @@ contains
             write(*,'(A,$)') 'Enter number of outputs between slices: '
        read(stdinput,*) number_outputs
     endif
-
+    
+#ifdef MH
+    ! Impose six time steps for the minihalo/LW case. This assumes
+    ! that the nbody time step is about 11 Myr and thus makes each
+    ! time step about 2 Myr, the age of a Pop III star. If the nbody
+    ! time step is different, this should also be changed.
+    ! This overrules any input given above.
+    number_timesteps=6
+    number_outputs=6
+#endif
+    
 #ifdef MPI       
     ! Distribute the input parameters to the other nodes
     call MPI_BCAST(number_timesteps,1,MPI_INTEGER,0,&
