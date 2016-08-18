@@ -26,6 +26,7 @@ module output_module
   use material, only: temper_val, temperature_grid, temperature_states
   use material, only: temperature_states_dbl, get_temperature_point
   use evolve, only: phih_grid
+  use radiation, only: jLW
   use sourceprops, only: srcpos, NormFlux, NumSrc
   use photonstatistics, only: initialize_photonstatistics
   use photonstatistics, only: do_photonstatistics, total_ion, totrec
@@ -314,7 +315,17 @@ contains
           write(53) (((real(phih_grid(i,j,k)),i=1,mesh(1)),j=1,mesh(2)), &
                k=1,mesh(3))
           close(53)
-          
+
+#ifdef MH
+          write(file1,"(f6.3)") zred_now
+          file1=trim(adjustl(results_dir))//"jLW3d_"//trim(adjustl(file7))//".bin"
+          open(unit=52,file=file1,form="unformatted",status="unknown")
+          write(52) mesh(1),mesh(2),mesh(3)
+          write(52) jLW
+          close(52)
+       endif
+#endif
+       
           if (.not.isothermal) then
              file1="Temper3d_"//trim(adjustl(file1))//".bin"
              open(unit=53,file=file1,form="unformatted",status="unknown")

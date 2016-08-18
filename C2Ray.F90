@@ -3,7 +3,7 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 22-May-2008
+!! \b Date: 15-Aug-2016 (22-May-2008)
 !<
 Program C2Ray
 
@@ -18,7 +18,7 @@ Program C2Ray
   ! Does not include hydrodynamics
   ! Assumes constant time step
 
-  ! Needs following `modules'
+  ! Needs following `modules' (incomplete list)
   ! precision: definition of single and double precision
   ! clocks: data and routines related to clocks (cpu and wall clocks)
   ! file_admin: parameters related to file I/O
@@ -63,12 +63,13 @@ Program C2Ray
 #endif
 
 #ifdef XLF
-  ! Place for xlf specific statements
+  ! Place for xlf compiler specific statements
 #endif
 
   implicit none
 
 #ifdef PGI
+  ! Place for pgi compiler specific statements
   include 'lib3f.h' ! for iargc, getargc
 #endif
 
@@ -164,7 +165,7 @@ Program C2Ray
 #ifdef MH
   ! Read in precalculated minihalo data
   if (MHflag == 1) then
-     write(6,*) 'do something!!!!!!!!!!'
+     if (rank == 0) write(logf,*) "MH model type 1: do something!!!!!!!!!!"
   elseif (MHflag == 2) then
      call read_LGnMH_Mpc3
   endif
@@ -236,10 +237,12 @@ Program C2Ray
 
   ! If a restart, read ionization fractions from file
   if (restart == 1) then
+     ! the redshift is one from the list of nbody redshifts, zred_array(nz0)
      call xfrac_ini(zred_array(nz0))
      if (.not.isothermal) call temper_ini(zred_array(nz0))
   endif
   if (restart == 2) then
+     ! the redshift is not in the nbody list, it is an intermediate value
      if (rank == 0) then
         if (.not.file_input) &
              write(*,"(A,$)") "At which redshift to restart x_frac?: "
@@ -249,20 +252,14 @@ Program C2Ray
      call MPI_BCAST(zred_interm,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW, &
           mympierror)
 #endif
-     ! Check the value for consistency
+     ! Check the value for consistency:
+     ! the restart redshift should lie in between two entries of the
+     ! nbody list of redshifts, namely between position nz0 and nz0+1
      if (zred_interm > zred_array(nz0) .or. &
           zred_interm < zred_array(nz0+1) ) startup_error=5
      call xfrac_ini(zred_interm)
      if (.not.isothermal) call temper_ini(zred_interm)
   end if
-
-#ifdef MH
-  ! Assume zero initial LW intensity.
-  jLW = 0d0
-  ! Read in LW intensity if restart.
-  ! GM/160621: Why is this nz0 and not zred_interm?
-  if (restart /= 0) call read_jLW(zred_array(nz0))
-#endif
 
   if (startup_error == 0) then
      ! Loop over N-body redshifts
@@ -375,9 +372,10 @@ Program C2Ray
            ! redshift using the sources from the previous redshift. This
            ! seems more logical and does not require us to extrapolate
            ! into the future.
-           call get_jLW(zred, nz_out)
+           call get_jLW(zred, nz_out, restart)
            if (rank ==0) write(logf,*) 'after get_jLW, jlw(1,1,1)', jlw(1,1,1)
-           
+
+           ! Set number of cells with MHs to zero (why here?)
            NumAGrid = 0
            ! Based upon LW intensity, xfrac and density, get subgrid sources.
            if (MHflag == 1 .OR. MHflag == 2) then
