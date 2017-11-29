@@ -42,10 +42,11 @@ module evolve_point
   use temperature_module, only: temper, temperature_grid
   use temperature_module, only: temperature_states_dbl
   use temperature_module, only: get_temperature_point, set_temperature_point
-  use temperature_module, only: set_final_temperature_point, isothermal
+  use temperature_module, only: set_final_temperature_point
+  use c2ray_parameters, only: isothermal
   use ionfractions_module, only: ionstates
   use clumping_module, only: clumping_point
-  use lls_module, only: coldensh_LLS, LLS_point
+  use LLS_module, only: coldensh_LLS, LLS_point
   use sourceprops, only: srcpos
   use radiation_photoionrates, only: photrates, photoion_rates
   !use thermalevolution, only: thermal

@@ -186,6 +186,10 @@ contains
        ! Iteration loop counter
        niter=niter+1
 
+       ! Set all photo-ionization rates to zero
+       call set_rates_to_zero
+
+       ! Pass over all sources
        call pass_all_sources (niter,dt)
 
        ! Report subbox statistics
@@ -208,6 +212,7 @@ contains
           endif
        endif
 
+       ! Do a global pass applying all the rates
        call global_pass (conv_flag,dt)
 
        ! Report time
@@ -292,7 +297,7 @@ contains
           ! Report time
           write(timefile,"(A,F8.1)") &
                "Time before reading iterdump: ", timestamp_wallclock ()
-          
+
           ! Set file to read (depending on restart flag)
           select case (restart)
           case (1) 
@@ -302,10 +307,10 @@ contains
           case (3) 
              iterfile="iterdump.bin"
           end select
-          
+
           open(unit=iterdump,file=trim(adjustl(dump_dir))//iterfile, &
                form="unformatted",status="old")
-          
+
           read(iterdump) niter
           read(iterdump) photon_loss_all
           read(iterdump) phih_grid
@@ -315,7 +320,7 @@ contains
              read(iterdump) phiheat
              read(iterdump) temperature_grid
           endif
-          
+
           close(iterdump)
           
           ! Report to log file
@@ -364,8 +369,22 @@ contains
             "Time after reading iterdump: ", timestamp_wallclock ()
 
     endif
- 
+
   end subroutine start_from_dump
+
+  ! ===========================================================================
+  
+  subroutine set_rates_to_zero
+    
+    ! reset global rates to zero for this iteration
+    phih_grid(:,:,:)=0.0
+    !phihe_grid(:,:,:,:)=0.0    
+    phiheat(:,:,:)=0.0
+    ! reset photon loss counters
+    photon_loss(:)=0.0
+    LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
+
+  end subroutine set_rates_to_zero
 
   ! ===========================================================================
 
@@ -385,12 +404,6 @@ contains
 #endif
 
     if (rank == 0) write(logf,*) 'Doing all sources '
-    ! reset global rates to zero for this iteration
-    phih_grid(:,:,:)=0.0
-    phiheat(:,:,:)=0.0
-    ! reset photon loss counters
-    photon_loss(:)=0.0
-    LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
 
     ! Reset sum of subboxes counter
     sum_nbox=0

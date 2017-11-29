@@ -5,7 +5,6 @@ module radiation_sizes
   use precision, only: dp
   use cgsphotoconstants, only: ion_freq_HI,& ! HI ionization energy in frequency
                                sigma_HI_at_ion_freq ! HI cross section at its ionzing frequency
-  !use material, only: isothermal
   use c2ray_parameters, only: isothermal
 
   

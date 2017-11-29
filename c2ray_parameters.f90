@@ -14,9 +14,10 @@ module c2ray_parameters
   ! This module collects parameters needed by C2-Ray
 
   use precision, only: dp
-  use astroconstants, only: YEAR
   use cgsconstants, only: ev2fr
   use cgsphotoconstants, only: ion_freq_HeII
+  use astroconstants, only: YEAR
+  use sizes, only: mesh
 
   implicit none
 
@@ -53,11 +54,13 @@ module c2ray_parameters
   !> Add photon losses back into volume or not
   logical,parameter :: add_photon_losses=.false.
 
-  !> Parameters for nominal SED
-  real(kind=dp),parameter :: teff_nominal=50000.0
-  real(kind=dp),parameter :: s_star_nominal=1e48_dp
-  !real(kind=dp),parameter :: s_star_nominal=1e50_dp
-  
+  !> Parameters for nominal SED (BB)
+  !> Effective temperature (K); if set to zero, the code will ask
+  !! for SED parameters
+  real(kind=dp),parameter :: T_eff_nominal=5.0e4
+  !> Number of ionizing photons / second
+  real(kind=dp),parameter :: S_star_nominal=1e48_dp
+
   !> nominal Eddington efficiency
   real(kind=dp),parameter :: EddLeff_nominal=1.0_dp
   !> nominal power law index (for photon number)
@@ -94,8 +97,8 @@ module c2ray_parameters
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.
 
-  !> Cosmological cooling
-  logical,parameter :: cosmological=.true.
+  !> Cosmology (in C2Ray.F90 and mat_ini) and Cosmological cooling (in cosmology)
+  logical,parameter :: cosmological=.true. 
 
   !> Thermal: minimum temperature
   real(kind=dp),parameter :: minitemp=1.0 ! minimum temperature
@@ -106,6 +109,11 @@ module c2ray_parameters
   integer,parameter :: Number_Sourcetypes=2
   !> Source properties: Photon per atom for different source types (high to low mass)
   real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 /)
+  !real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 , 0.0 /)
+  !> Source properties: X-ray photons per baryon. Mesinger et al. (2012) use
+  !! 0.02 as their nominal value. Note that this depends on your integration
+  !! limits. Mesinger et al. use 300 eV as lowest energy.
+  real,parameter :: xray_phot_per_atom = 0.02
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=20e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo
@@ -119,5 +127,3 @@ module c2ray_parameters
   !real,parameter :: StillNeutral=-0.1 ! ALWAYS suppress
 
 end module c2ray_parameters
-
-
