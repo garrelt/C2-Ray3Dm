@@ -2,7 +2,7 @@
 #
 # Author: Garrelt Mellema
 
-# This Makefile can make different versions of C2Ray_3D.
+# This partial Makefile is used to make different versions of C2Ray_3D.
 # These versions differ in their parallelization and/or
 # in their connection to specific N-body results.
 #
@@ -20,132 +20,6 @@
 # LG - interface to Local Group simulations (GADGET)
 # Gadget - interface to LOFAR EoR GADGET simulations (not working)
 #
-# Note 3: Compiler & Flags
-# The compiler is specified by the FC variable (MPIFC for the MPI
-# compiler). We have only extensively used the Intel F90 compiler. 
-# Support for other compilers will have to be added.
-# Parts of the code need to know about the compiler, this is
-# done through preprocessor statements. So when compiling with
-# intel compiler, -DIFORT needs to be specified. Support for
-# new compilers thus needs to be added in the code too.
-#
-# Note 4: Recompiling
-# Some dependencies are through module parameters, and thus
-# not recognized by make. Best practise is to run "make clean"
-# before running "make".
-#-------------------------------------------------------
-
-# Compiler
-#FC = gfortran # GNU compiler
-#MPIFC = mpif90.openmpi # MPI compiler
-
-# F90 options (gfortran)
-#GFORTFLAGS = -DGFORT -O3
-
-# Processor dependent optimization
-#F90FLAGS1 = $(GFORTFLAGS) 
-
-# These flags should be added to the F90FLAGS1 depending on the executable
-# made. Specify this below on a per executable basis.
-#MPI_FLAGS = -DMPI # 
-#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
-
-#-------------------------------------------------------
-# Compiler
-# Intel: best tested
-FC = ifort # Intel compiler
-MPIFC = mpif90 # MPI compiler
-
-# F90 options (ifort)
-#IFORTFLAGS = -DIFORT -O0 -g -u -fpe0 -p
-IFORTFLAGS = -DIFORT -O3 -u -fpe0 -ipo -shared-intel #-check all -traceback
-#IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 -ipo -shared-intel #-check all -traceback
-#IFORTFLAGS = -DIFORT -Ofast -fp-model fast=2 -u -fpe0 #-check all -traceback
-#IFORTFLAGS = -DIFORT -O3 -vec_report -u -fpe0 -ipo -mcmodel=medium -shared-intel #-check all -traceback
-
-# Processor dependent optimization
-#F90FLAGS1 = $(IFORTFLAGS) 
-#F90FLAGS1 = -xCORE-AVX2 $(IFORTFLAGS) # Beskow
-#F90FLAGS1 = -xW $(IFORTFLAGS) 
-F90FLAGS1 = -xHost $(IFORTFLAGS) 
-#F90FLAGS1 = -xT $(IFORTFLAGS) # Laptop 
-#F90FLAGS1 = -xB $(IFORTFLAGS)
-
-# These flags should be added to the F90FLAGS1 depending on the executable
-# made. Specify this below on a per executable basis.
-MPI_FLAGS = -DMPI # 
-#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -openmp -DMY_OPENMP # For Intel compiler
-NO_OPENMP_FLAGS = 
-
-#-------------------------------------------------------
-# Compiler
-# Cray: 
-#FC = ftn # Cray compiler
-#MPIFC = ftn # Cray compiler
-
-# F90 options (ifort)
-#CRAYFLAGS = -O3 -hfp3 -rm -DCRAY #-check all -traceback
-# Processor dependent optimization
-#F90FLAGS1 = $(CRAYFLAGS) 
-
-# These flags should be added to the F90FLAGS1 depending on the executable
-# made. Specify this below on a per executable basis.
-#MPI_FLAGS = -DMPI # For the code
-#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -DMY_OPENMP # For the code
-#NO_OPENMP_FLAGS = -Othread0
-#-------------------------------------------------------
-
-# Compiler
-# Sun: problems with constant definition. Cannot have sqrt in constant
-# definition.
-#FC = f95 # Sun compiler
-#MPIFC = mpif90 # MPI compiler
-
-# F90 options (ifort)
-#SUNFLAGS = -O3 -DSUN
-# Processor dependent optimization
-#F90FLAGS1 = $(SUNFLAGS) 
-#F90FLAGS1 = -xW $(SUNFLAGS) 
-
-# These flags should be added to the F90FLAGS1 depending on the executable
-# made. Specify this below on a per executable basis.
-#MPI_FLAGS = -I/usr/include/lam -DMPI # For LAM mpi (Stockholm)
-#MPI_FLAGS = -DMPI # 
-#MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -openmp -DMY_OPENMP # For Sun compiler
-
-#-------------------------------------------------------
-
-# PGI compiler
-#FC = pf90
-#MPIFC = mpif77
-#MPIFC = mpif90
-
-# F90 options (pgi)
-#PGIFLAGS = -O3 -fast -DPGI
-#F90FLAGS1 = -tp barcelona-64  $(PGIFLAGS) # ranger processors
-
-# These flags should be added to the F90FLAGS1 depending on the executable
-# made. Specify this below on a per executable basis.
-#MPI_FLAGS = -DMPI 
-#MPI_FLAGS = $(MPI_FLAGS) -DMPILOG # Add more (MPI node) diagnostic output
-#OPENMP_FLAGS = -mp -DMY_OPENMP
-
-#-------------------------------------------------------
-
-# Other F90 compilers
-#FC = f90
-
-#-------------------------------------------------------
-
-#LDR     = $(F90)
-
-LDFLAGS = $(F90FLAGS) #-L/afs/astro.su.se/pkg/intel/Compiler/11.1/056/lib/intel64/
-LIBS = #-lirc -limf
-
 #-------------------------------------------------------
 
 UTILS=mrgrnk.o ctrper.o romberg.o report_memory.o
