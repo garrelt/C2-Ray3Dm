@@ -126,7 +126,11 @@ contains
 
     ! Figure out hostname
     ! NOTE: compiler dependent!!!
+#ifdef CRAY
+    hostname="cray"
+#else
     ierror=hostnm(hostname)
+#endif
     if (ierror == 0) then
        write(logf,*) "Running on processor named ",trim(adjustl(hostname))
     else 
