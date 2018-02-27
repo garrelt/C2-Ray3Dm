@@ -19,10 +19,10 @@ module sourceprops
   use cgsconstants, only: m_p
   use astroconstants, only: M_SOLAR, YEAR
   use cosmology_parameters, only: Omega_B, Omega0
-  use nbody, only: id_str, M_grid, dir_src, NumZred
+  use nbody, only: id_str, M_grid, dir_src, NumZred, n_box, zred_array
   use material, only: xh
   use grid, only: x,y,z
-  use c2ray_parameters, only: phot_per_atom, lifetime, &
+  use c2ray_parameters, only: phot_per_atom, zeta, lifetime, &
        S_star_nominal, StillNeutral, Number_Sourcetypes
 
   implicit none
@@ -64,12 +64,21 @@ module sourceprops
   integer,dimension(3),private :: srcpos0
   real(kind=dp),private :: total_SrcMass
   character(len=6),private :: z_str !< string value of redshift
+  character(len=6),private :: z_previous_str !< string value of redshift
   integer,private :: NumMassiveSrc !< counter: number of massive sources
   integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
   integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
+  real(kind=dp),private :: MassHMACH !< total mass of high mass sources
+  real(kind=dp),private :: MassLMACH !< total mass of suppressible sources
+  real(kind=dp),private :: MassLMACHsupprsd !< total mass of suppressed sources
+  real(kind=dp),private :: dMassHMACH !< change in HMACH mass
+  real(kind=dp),private :: dMassLMACHactive !< change in active LMACH mass
+  real(kind=dp),private :: MassHMACH_previous !< previous mass in HMACH
+  real(kind=dp),private :: MassLMACHactive_previous !< previous mass in active LMACH
   real(kind=dp),private :: cumfrac
-
-  character(len=512),private :: sourcelistfile,sourcelistfilesuppress
+  real(kind=dp),private :: xh_ion !< keeps local ionization fraction
+  character(len=512),private :: sourcelistfile,sourcelistfilesuppress, &
+       sourcelistfile_previous
 
 contains
   
@@ -113,17 +122,52 @@ contains
        ! Sources are read from files with redshift in the file name:
        ! construct redshift string
        write(z_str,'(f6.3)') zred_now
+       if (nz > 1) write(z_previous_str,'(f6.3)') zred_array(nz-1)
        
        ! Construct the file names
        sourcelistfile=trim(adjustl(dir_src))//&
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
             trim(adjustl(sourcelistfile_base))
+       sourcelistfile_previous=trim(adjustl(dir_src))//&
+            trim(adjustl(z_previous_str))//"-"//trim(adjustl(id_str))// &
+            trim(adjustl(sourcelistfile_base))
        sourcelistfilesuppress=trim(adjustl(dir_src))//&
             trim(adjustl(z_str))//"-"//trim(adjustl(id_str))// &
             trim(adjustl(sourcelistfilesuppress_base))
 
-       call establish_number_of_active_sources (restart)
+       ! Find the total masses of sources for the previous time step.
+       ! These will be used to calculate the change of mass and from
+       ! this the luminosity.
+       if (UV_model == "Collapsed fraction growth") then
+          if (nz>1) then
+             call establish_number_of_active_sources (-1,sourcelistfile_previous)
+             MassHMACH_previous=MassHMACH
+             MassLMACHactive_previous=MassLMACH-MassLMACHsupprsd
+          else
+             MassHMACH_previous=0.0
+             MassLMACHactive_previous=0.0
+          endif
+       endif
 
+       call establish_number_of_active_sources (restart,sourcelistfile)
+
+       ! Calculate change in mass, this will be used to calculate the luminosity
+       if (UV_model == "Collapsed fraction growth") then
+          
+          dMassHMACH=MassHMACH-MassHMACH_previous
+          write(logf,*) "Change in HMACH mass: ",dMassHMACH
+          if (dMassHMACH < 0.0) then
+             dMassHMACH=0.0
+             write(logf,*) "Change in HMACH mass set to zero"
+          endif
+          dMassLMACHactive=MassLMACH-MassLMACHsupprsd-MassLMACHactive_previous
+          write(logf,*) "Change in active LMACH mass: ",dMassLMACHactive
+          if (dMassLMACHactive < 0.0) then
+             dMassLMACHactive=0.0
+             write(logf,*) "Change in activeLMACH mass set to zero"
+          endif
+       endif
+       
     endif ! end of rank 0 test
 
 #ifdef MPI
@@ -189,17 +233,27 @@ contains
 
   ! =======================================================================
 
-  subroutine establish_number_of_active_sources (restart)
+  subroutine establish_number_of_active_sources (restart,file_to_use)
 
     integer,intent(in) :: restart
-
+  character(len=512),intent(in) :: file_to_use
     real :: odens	
 
     integer :: ns0
     integer :: ns
+    real(kind=dp) :: xh_ion
+    
+    if (restart == 0 .or. restart == 1 .or. restart == -1) then
 
-    if (restart == 0 .or. restart == 1) then
-       open(unit=50,file=sourcelistfile,status='old')
+       ! Initialise counters to zero
+       NumSrc = 0
+       NumMassiveSrc = 0
+       NumSupprbleSrc = 0
+       NumSupprsdSrc = 0
+       MassHMACH=0.0
+       MassLMACH=0.0
+       MassLMACHsupprsd=0.0
+       open(unit=50,file=file_to_use,status='old')
        ! Number of sources
        read(50,*) NumSrc0
        
@@ -209,44 +263,51 @@ contains
        
        ! Read in source positions and mass to count the number
        ! of non-suppressed sources
-       NumSrc = 0
-       NumMassiveSrc = 0
-       NumSupprbleSrc = 0
-       NumSupprsdSrc = 0
        do ns0=1,NumSrc0
           ! If you change the following lines, also change it below in
           ! read_in_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
 
-          ! Massive sources are never suppressed.
-          if (srclist(HMACH) /= 0.0 .or. UV_Model == "Iliev et al partial supp." &
-	     .or. (UV_model == "Gradual supp." .and. srclist(LMACH_SUPPR) /= 0.0)) then
-             NumSrc=NumSrc+1
-          ! if the cell is still neutral, no suppression (if we use the Iliev
-          ! et al source model)   
+          ! Retrieve ionized fraction in source cell
 #ifdef ALLFRAC
-          elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral .and. &
+          xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
-          elseif (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral .and. &
+          xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
+
+          ! Massive sources are never suppressed.
+          if (srclist(HMACH) /= 0.0 .or. &
+               UV_Model == "Iliev et al partial supp." .or. &
+               (UV_model == "Gradual supp." .and. srclist(LMACH_SUPPR) /= 0.0))&
+               then
+             NumSrc=NumSrc+1
+             ! if the cell is still neutral, no suppression (if we use the Iliev
+             ! et al source model)   
+          elseif (xh_ion < StillNeutral .and. &
                UV_Model == "Iliev et al") then
              NumSrc=NumSrc+1
           endif
 
           ! Count different types of sources
-          if (srclist(HMACH) /= 0.0) NumMassiveSrc=NumMassiveSrc+1
-          if (srclist(LMACH) /= 0.0) NumSupprbleSrc=NumSupprbleSrc+1
+          if (srclist(HMACH) /= 0.0) then
+             NumMassiveSrc=NumMassiveSrc+1
+             MassHMACH=MassHMACH+srclist(HMACH)
+          endif
+          if (srclist(LMACH) /= 0.0) then
+             NumSupprbleSrc=NumSupprbleSrc+1
+             MassLMACH=MassLMACH+srclist(LMACH)
+          endif
           ! How many suppressed?
           if (srclist(LMACH) /= 0.0) then
-#ifdef ALLFRAC
-             if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) > StillNeutral .or. &
-#else
-             if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) > StillNeutral .or. &
-#endif
-               (UV_Model /= "Iliev et al" .and. &
-               UV_Model /= "Iliev et al partial supp." .and. &
-	       UV_model /= "Gradual supp.")) NumSupprsdSrc=NumSupprsdSrc+1
+             if (xh_ion > StillNeutral .or. &
+                  (UV_Model /= "Iliev et al" .and. &
+                  UV_Model /= "Iliev et al partial supp." .and. &
+                  UV_model /= "Gradual supp." .and. &
+                  UV_Model /= "Collapsed fraction growth")) then
+                NumSupprsdSrc=NumSupprsdSrc+1
+                MassLMACHsupprsd=MassLMACHsupprsd+srclist(LMACH)
+             endif
           endif
        enddo
        close(50)
@@ -255,7 +316,21 @@ contains
        write(logf,*) "Number of massive sources: ",NumMassiveSrc
        if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
             real(NumSupprsdSrc)/real(NumSupprbleSrc)
+       ! Collapsed fraction calculation
+       ! f_coll = M_halo / M_vol
+       ! However, M_halo is given in units of M_grid which is M_vol/n_box^3
+       ! so f_coll = M_halo / n_box^3
+       write(logf,*) "Collapsed fraction in massive sources: ", &
+            MassHMACH/(real(n_box)**3)
+       write(logf,*) "Collapsed fraction in suppressable sources: ", &
+            MassLMACH/(real(n_box)**3)
+       write(logf,*) "Collapsed fraction in suppressed sources: ", &
+            MassLMACHsupprsd/(real(n_box)**3)
+       if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
+            MassLMACHsupprsd/MassLMACH
+       
     else
+       
        ! Upon restart from intermediate redshift use the previously 
        ! calculated suppressed source list
        open(unit=49,file=sourcelistfilesuppress,status='unknown')
@@ -287,12 +362,14 @@ contains
           ! establish_number_of_active_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          
+          ! Retrieve ionized fraction in source cell
 #ifdef ALLFRAC
-          if (xh(srcpos0(1),srcpos0(2),srcpos0(3),1) < StillNeutral) then
+          xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
-          if (xh(srcpos0(1),srcpos0(2),srcpos0(3)) < StillNeutral) then
+          xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
+
+          if (xh_ion < StillNeutral) then
              if (UV_Model == "Iliev et al" .or. &
                   UV_Model == "Iliev et al partial supp." .or. &
                   UV_model == "Gradual supp." .or. &
@@ -308,15 +385,23 @@ contains
                 if (UV_Model == "Iliev et al" .or. &
                      UV_Model == "Iliev et al partial supp." .or. &
 		     UV_model == "Gradual supp.") then
-                   NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
+                   NormFlux(ns)=srclist(HMACH)*phot_per_atom(1) & !massive sources
                         + srclist(LMACH)*phot_per_atom(2)      !small sources  
+                elseif (UV_Model == "Collapsed fraction growth") then
+                   NormFlux(ns)=srclist(HMACH)*zeta(1)* &
+                        dMassHMACH/MassHMACH  & ! high mass sources
+                        ! low mass sources  
+                        + srclist(LMACH)*zeta(2)* &
+                        dMassLMACHactive/(MassLMACH-MassLMACHsupprsd) 
                 else
                    NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
                 endif
              endif
           elseif (srclist(HMACH) > 0.0d0 .or. &
-	  	 (UV_Model == "Iliev et al partial supp." .and. srclist(LMACH) > 0.0d0) &
-		 .or. (UV_model == "Gradual supp." .and. srclist(LMACH_SUPPR) > 0.0d0)) then
+               (UV_Model == "Iliev et al partial supp." &
+               .and. srclist(LMACH) > 0.0d0) &
+               .or. (UV_model == "Gradual supp." &
+               .and. srclist(LMACH_SUPPR) > 0.0d0)) then
              !the cell is ionized but source is massive enough to survive
              !and is assumed Pop. II, or source is low-mass, but we assume
              !partial suppression, tuning down its efficiency  
@@ -330,12 +415,21 @@ contains
              ! assign_uv_luminosities to calculate ionizing photon rates
              if (UV_Model == "Iliev et al") then
                 NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  !massive sources
-             elseif (UV_Model == "Iliev et al partial supp.") then !make low-mass sources as efficient as HMACHs (so typically less efficient)
+                
+             elseif (UV_Model == "Iliev et al partial supp.") then
+                !make low-mass sources as efficient as HMACHs
+                ! (so typically less efficient)
                 NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
                      + srclist(LMACH)*phot_per_atom(1)      !low-mass sources
-	     elseif (UV_Model == "Gradual supp.") then !make low-mass sources less efficient
-	     	NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources		
-		     + srclist(LMACH_SUPPR)*phot_per_atom(2)      !low-mass sources with effective mass KLD
+                
+	     elseif (UV_Model == "Gradual supp.") then
+                !make low-mass sources less efficient
+                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & 
+                     !low-mass sources with effective mass KLD
+                     + srclist(LMACH_SUPPR)*phot_per_atom(2)      
+                
+             elseif (UV_Model == "Collapsed fraction growth") then
+                NormFlux(ns)=srclist(HMACH)*zeta(1)*dMassHMACH/MassHMACH 
              else
                 NormFlux(ns)=srclist(HMACH)
              endif
@@ -378,10 +472,16 @@ contains
     select case (UV_Model)
     case ("Iliev et al", "Iliev et al partial supp.","Gradual supp.")
        do ns=1,NumSrc
-          !note that now photons/atom are already included in NormFlux
           NormFlux(ns)=NormFlux(ns)*M_grid*  &
                Omega_B/(Omega0*m_p)/S_star_nominal
+          !note that now photons/atom are already included in NormFlux
           !NormFlux(ns)=NormFlux(ns)/lifetime
+          NormFlux(ns)=NormFlux(ns)/lifetime2
+       enddo
+    case ("Collapsed fraction growth")
+       do ns=1,NumSrc
+          NormFlux(ns)=NormFlux(ns)*M_grid*  &
+               Omega_B/(Omega0*m_p)/S_star_nominal
           NormFlux(ns)=NormFlux(ns)/lifetime2
        enddo
     case ("Fixed N_gamma")
@@ -434,6 +534,8 @@ contains
   !! 3: Iliev et al source as above, but partial suppression of LMACHs
   !!    by tuning them down to lower efficiency 
   !! 4: Gradual suppression based on mass
+  !! 5: Ndot_gamma proportional to mass but scaled with the total mass
+  !!    growth of halos during the time step.
   subroutine source_properties_ini ()
     
 
@@ -461,6 +563,8 @@ contains
           UV_Model = "Iliev et al partial supp."
        case(4)
 	  UV_Model = "Gradual supp."
+       case(5)
+	  UV_Model = "Collapsed fraction growth"
        end select
 
        if (uv_answer == 1 .or. uv_answer == 2) then
