@@ -36,7 +36,7 @@ module sourceprops
        sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
   !> number of columns in source list
-  integer,parameter,private :: ncolumns_srcfile=7
+  integer,parameter,private :: ncolumns_srcfile=5
   real,dimension(ncolumns_srcfile),private :: srclist
 
   !> Definitions to help accessing the read in source list array
@@ -435,6 +435,7 @@ contains
              endif
           endif
        enddo
+       close(50)
        
        ! Save new source list, without the suppressed ones
        open(unit=49,file=sourcelistfilesuppress,status='unknown')
