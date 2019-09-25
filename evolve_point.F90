@@ -423,7 +423,7 @@ contains
     !temper0   =temper1
   
     ! Initialize local clumping (if type of clumping is appropriate)
-    if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
+    if (type_of_clumping == 5 .or. type_of_clumping == 6) call clumping_point (pos(1),pos(2),pos(3))
     
     nit=0
     do 

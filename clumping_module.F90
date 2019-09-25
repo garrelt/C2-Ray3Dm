@@ -7,6 +7,7 @@ module clumping_module
   use c2ray_parameters, only: type_of_clumping,clumping_factor
   use nbody, only: nbody_type, id_str, dir_dens, NumZred, Zred_array, dir_clump, dir_LLS
   use nbody, only: clumpingformat, clumpingaccess, clumpingheader
+  use density_module, only: ndens
 
   implicit none
 
@@ -14,7 +15,7 @@ module clumping_module
   real,public :: clumping
   real,dimension(:,:,:),allocatable :: clumping_grid
   real(kind=dp) :: avg_dens !< average density
-  character(len=512) :: clumping_fit_file
+  character(len=512) :: clumping_fit_file, clumping_file
   public :: set_clumping, clumping_point
 
 #ifdef MPI
@@ -46,11 +47,23 @@ contains
        clumping = 17.57*exp(-0.101*z+0.0011*z*z)
     case(5)
        call clumping_init (z)
+    case(6)
+       if(rank == 0) then
+            write(logf,*) "Setting sub-grid clumping factor (type ", type_of_clumping,")"
+            clumping_file = construct_clumpingfilename(z)
+            call read_clumping_file(clumping_file)
+       end if
     end select
 
-    if (rank == 0) write(logf,*) "Setting (mean) global clumping factor to ", &
-         clumping,"(type ", type_of_clumping,")"
-    
+#ifdef MPI       
+      ! Distribute the clumping to the other nodes
+      call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,MPI_COMM_NEW,mympierror)
+      call MPI_BARRIER(MPI_COMM_NEW,mympierror)
+#endif
+
+   if (rank == 0 .and. type_of_clumping /= 6) write(logf,*) "Setting (mean) global clumping factor to ", & 
+      clumping,"(type ", type_of_clumping,")"
+
   end subroutine set_clumping
 
   ! ===========================================================================
@@ -67,6 +80,50 @@ contains
     endif
 
   end subroutine clumping_point
+
+  ! ===========================================================================
+
+  function construct_clumpingfilename(redshift) result(filename)
+      !> Create file name for clumping input from redshift 
+      !! Note: nomenclature has the format from the sub-grid code (Bianco et al. 2020?)
+      !! i.e: "[redshift]_scat.dat"
+
+      real(kind=dp), intent(in) :: redshift
+      character(len=512) :: filename, redshift_string 
+  
+      write(redshift_string, "(f6.3)") redshift
+      filename = trim(trim(adjustl(dir_clump))//trim(adjustl(redshift_string))//"_scat.dat")
+  end function 
+
+  ! ===========================================================================
+  subroutine read_clumping_file(filename)
+      implicit none
+      integer :: m1, m2, m3
+      character(len=512), intent(in) :: filename
+
+      !> Open precomputed clumping files
+      !! For files calculated with the sub-grid code (Bianco et al. 2020)
+      !! variables for open are: form="unformatted", access="stream"
+      open(unit=20, file=filename, form=clumpingformat, access=clumpingaccess, status="old")
+      ! Read in data header
+      if (clumpingheader) then
+         read(20) m1, m2, m3
+         if (m1 /= mesh(1).or.m2 /= mesh(2).or.m3 /= mesh(3)) then
+            write(logf,*) "Warning: file with clumpiness unusable"
+            write(logf,*) "mesh found in file: ", m1, m2, m3
+            stop
+         endif
+      endif
+
+      ! Allocate clumping array
+      allocate(clumping_grid(m1, m2, m3))
+
+      ! Read in data and store it in clumping_grid
+      read(20) clumping_grid
+      close(20)
+
+      write(unit=logf,fmt="(2A)") "Reading clumping input from ", trim(filename)
+  end subroutine read_clumping_file
 
   ! ===========================================================================
 
