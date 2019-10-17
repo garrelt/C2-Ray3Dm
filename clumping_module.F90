@@ -73,7 +73,7 @@ contains
     case(1)
        clumping = clumping_factor
     case(2) 
-       clumping = params_gcm(1)*exp(params_gcm(2)*zred+params_gcm(3)*zred*zred)
+       clumping = params_gcm(1)*exp(params_gcm(2)*zred+params_gcm(3)*zred*zred)+1.0
     case(3)
        if(rank == 0) call deterministic_clumping(zred)
     case(4)
