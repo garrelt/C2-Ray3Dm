@@ -72,12 +72,12 @@ module c2ray_parameters
   real(kind=dp),parameter :: pl_MinFreq_nominal=0.3*1e3*ev2fr
   real(kind=dp),parameter :: pl_MaxFreq_nominal=ion_freq_HeII * 100.00_dp
 
-  !> Subgrid clumping\n
-  !! 1: constant clumping (with clumping_factor)\n
-  !! 2: 3.5Mpc PM, WMAP1 clumping\n
-  !! 3: 3.5Mpc PM, WMAP3 clumping\n
-  !! 4: 1 Mpc P3M\n
-  !! 5: position dependent clumping
+  !> Subgrid clumping
+  !! 1: constant clumping (with clumping_factor)
+  !! 2: Globally Averaged Clumping Model GCM, (provide parameters file)
+  !! 3: Deterministic Clumping Model DCM (Mao et al. 2019), (provide parameters file)
+  !! 4: Stochastic Clumping Model SCM (Bianco et al. 2020), (provide parameters file)
+  !! 5: Pre-computed grid of clumping, (provide files)
   integer,parameter :: type_of_clumping=1
   !> Clumping factor if constant
   real,parameter :: clumping_factor=1.0

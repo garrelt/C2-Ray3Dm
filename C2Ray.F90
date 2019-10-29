@@ -45,7 +45,7 @@ Program C2Ray
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
-  use grid, only: grid_ini
+  use grid, only: grid_ini, dr
   use radiation_tables, only: rad_ini
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
@@ -54,7 +54,7 @@ Program C2Ray
   use ionfractions_module, only: xfrac_restart_init
   use density_module, only: density_init
   use temperature_module, only: temperature_restart_init
-  use clumping_module, only: set_clumping
+  use clumping_module, only: set_clumping, load_clumping_model
   use lls_module, only: set_LLS
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
@@ -246,8 +246,13 @@ Program C2Ray
      call xfrac_restart_init(zred_interm)
      if (.not.isothermal) call temperature_restart_init(zred_interm)
   end if
-
+  
   if (startup_error == 0) then
+     ! Load required clumping model parameters file (passing resolution)
+     ! Models are customized on the simulation resolution, 
+     ! you should provide parameters for the current simulation resolution
+     call load_clumping_model(dr(1))
+     
      ! Loop over redshifts
      do nz=nz0,NumZred-1
         
@@ -280,7 +285,7 @@ Program C2Ray
         ! Initialize density field
         call density_init(zred,nz)
         ! Set clumping and LLS in the case of position dependent values
-        ! (read in the grid values)
+        ! (read in the pre-computed grid values)
         if (type_of_clumping == 5) call set_clumping(zred)
         if (use_LLS .and. type_of_LLS == 2) call set_LLS(zred)
         
@@ -337,7 +342,7 @@ Program C2Ray
               call cosmo_evol()
            endif
            
-           ! Do not call in case of position dependent clumping,
+           ! Do not call in case of the pre-computed clumping data,
            ! the clumping grid should have been initialized above
            ! Same for LLS
            if (type_of_clumping /= 5) call set_clumping(zred)
