@@ -17,7 +17,7 @@ module c2ray_parameters
   use cgsconstants, only: ev2fr
   use cgsphotoconstants, only: ion_freq_HeII
   use astroconstants, only: YEAR
-  use sizes, only: mesh
+  !use sizes, only: mesh
 
   implicit none
 
@@ -57,7 +57,7 @@ module c2ray_parameters
   !> Parameters for nominal SED (BB)
   !> Effective temperature (K); if set to zero, the code will ask
   !! for SED parameters
-  real(kind=dp),parameter :: T_eff_nominal=5.0e4
+  real(kind=dp),parameter :: teff_nominal=5.0e4
   !> Number of ionizing photons / second
   real(kind=dp),parameter :: S_star_nominal=1e48_dp
 
