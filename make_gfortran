@@ -1,0 +1,65 @@
+# Makefile for C2Ray_3D.
+#
+# Author: Garrelt Mellema
+
+# This Makefile can make different versions of C2Ray_3D.
+# These versions differ in their parallelization and/or
+# in their connection to specific N-body results.
+# It uses the GNU compiler. Please use one of the other
+# makefiles to compile with another compiler.
+#
+# Note 1: Parallelization
+# The parallelization intended is specified in the name
+# of the executable: _omp means OpenMP (shared memory), 
+# _mpi means MPI (distributed memory). Both can also be
+# used at the same time (if your architecture supports
+# it.
+#
+# Note 2: N-body module
+# Different versions exist with different Nbody interfaces:
+# pmfast - interface to older pmfast simulations
+# cubep3m - interface to cubep3m simulations
+# LG - interface to Local Group simulations (GADGET)
+# Gadget - interface to LOFAR EoR GADGET simulations (not working)
+#
+# Note 3: Compiler & Flags
+# The compiler is specified by the FC variable (MPIFC for the MPI
+# compiler). We have only extensively used the Intel F90 compiler. 
+# Support for other compilers will have to be added.
+# Parts of the code need to know about the compiler, this is
+# done through preprocessor statements. So when compiling with
+# intel compiler, -DIFORT needs to be specified. Support for
+# new compilers thus needs to be added in the code too.
+#
+# Note 4: Recompiling
+# Some dependencies are through module parameters, and thus
+# not recognized by make. Best practise is to run "make clean"
+# before running "make".
+#-------------------------------------------------------
+
+# Compiler
+FC = gfortran # GNU compiler
+MPIFC = mpif90.openmpi # MPI compiler
+
+# F90 options (gfortran)
+GFORTFLAGS = -DGFORT -O3
+
+# Processor dependent optimization
+F90FLAGS1 = $(GFORTFLAGS) 
+
+# These flags should be added to the F90FLAGS1 depending on the executable
+# made. Specify this below on a per executable basis.
+MPI_FLAGS = -DMPI # 
+#MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
+OPENMP_FLAGS = -fopenmp -DMY_OPENMP # For Intel compiler
+
+#-------------------------------------------------------
+# Loader options
+
+#LDR     = $(F90)
+LDFLAGS = $(F90FLAGS)
+LIBS = #-lirc -limf
+
+#-------------------------------------------------------
+
+include makefile_core
