@@ -30,7 +30,7 @@ RADIATION = radiation_sizes.o radiation_sed_parameters.o radiation_tables.o radi
 
 EVOLVE = evolve_data.o column_density.o evolve_point.o evolve_source.o master_slave.o evolve.o
 
-MATERIAL = clumping_module.o LLS.o temperature_module.o density_module.o ionfractions_module.o material.o
+MATERIAL = density_module.o clumping_module.o LLS.o temperature_module.o ionfractions_module.o material.o
 
 #--------TEST----------------------------------------------------------------
 
