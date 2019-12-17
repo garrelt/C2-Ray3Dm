@@ -161,7 +161,7 @@ contains
 #endif
              ndens_p=ndens(i,j,k)
              ! Set clumping to local value if we have a clumping grid
-             if (type_of_clumping == 5) &
+             if (type_of_clumping == 3 .or. type_of_clumping == 4 .or. type_of_clumping == 5) &
                   call clumping_point (i,j,k)
              totrec=totrec+ndens_p*yh(1)*    &
                   electrondens(ndens_p,yh)*  &
