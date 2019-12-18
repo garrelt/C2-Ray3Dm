@@ -89,7 +89,7 @@ module material
 
   ! LLS parameters
   !> Do not use the LLSs if the mfp is smaller than this.
-  real,parameter :: limit_mfp_LLS_pMpc=0.2
+  real,parameter :: limit_mfp_LLS_pMpc=0.6
   
   ! Different models for LLS redshift evolution
   ! a) Model Prochaska et al. (2010)
@@ -806,11 +806,15 @@ contains
        ! Column density per cell due to LLSs
        ! Do not set LLS column densities if the mfp is too small.
        ! Typically we start using LLS when the mfp is several cells (e.g. 5)
-       if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
-          coldensh_LLS = N_1 * n_LLS
-       else
-          coldensh_LLS = 0.0
-       endif
+       mfp_LLS_pMpc=mfp_LLS_pMpc+limit_mfp_LLS_pMpc
+       n_LLS=dr(1)/mfp_LLS_pMpc/Mpc
+       coldensh_LLS = N_1 * n_LLS
+
+       !if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
+       !   coldensh_LLS = N_1 * n_LLS
+       !else
+       !   coldensh_LLS = 0.0
+       !endif
     case(2) 
        ! We need to read a grid of values, see below.
        call read_lls_grid (z)
