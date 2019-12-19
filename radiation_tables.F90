@@ -152,7 +152,7 @@ contains
     if (grey .and. rank == 0) write(logf,*) 'WARNING: Using grey opacities'
 
     if (rank == 0) then
-       write(logf,"(A,I3)") "Using BB up to frequency ", &
+       write(logf,"(A,ES10.3)") "Using BB up to frequency ", &
             freq_max(NumBndin1)
        write(logf,"(A,F10.2,A)") "  this is energy ", &
             freq_max(NumBndin1)/ev2fr," eV"
