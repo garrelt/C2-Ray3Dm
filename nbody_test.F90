@@ -49,7 +49,7 @@ module nbody
   character(len=180),parameter,private :: dir_dens_name= ""
 
   !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "../" 
+  character(len=*),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
   character(len=*),parameter,private :: dir_src_name= ""
 

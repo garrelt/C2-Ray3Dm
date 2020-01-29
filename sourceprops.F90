@@ -40,7 +40,8 @@ module sourceprops
        sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
   !> number of columns in source list
-  integer,parameter,private :: ncolumns_srcfile=5
+  !! GM 191219: This parameter should depend on the nbody_type
+  integer,parameter,private :: ncolumns_srcfile=4
   real,dimension(ncolumns_srcfile),private :: srclist
 
   !> maximum increase in uv to use up cumulated photons
@@ -320,6 +321,10 @@ contains
              end select
           endif
        enddo
+
+       ! Close source file (should this be here???)
+       close(50)
+
        
        select case(label)
        case("count")

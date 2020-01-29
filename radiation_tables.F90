@@ -206,8 +206,10 @@ contains
     if (rank == 0) then
        write(logf,*) "bb_photo_thick_table: ",sum(bb_photo_thick_table(0,:))
        write(logf,*) "bb_photo_thin_table: ",sum(bb_photo_thin_table(0,:))
-       write(logf,*) "bb_heat_thick_table: ",(bb_heat_thick_table(0,1))
-       write(logf,*) "bb_heat_thin_table: ",(bb_heat_thin_table(0,1))
+       if (.not.isothermal) then
+          write(logf,*) "bb_heat_thick_table: ",(bb_heat_thick_table(0,1))
+          write(logf,*) "bb_heat_thin_table: ",(bb_heat_thin_table(0,1))
+       endif
     endif
     
   end subroutine spec_integration
