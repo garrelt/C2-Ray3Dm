@@ -65,35 +65,86 @@ contains
                              ! compatibility reasons)
     
     integer :: i,j,k,n ! loop counters
-    character(len=512):: dens_file
     real(kind=dp) :: summed_density
     integer :: m1,m2,m3
 
     ! density in file is in 4B reals, read in via this array
     real(kind=si),dimension(:,:,:),allocatable :: ndens_real
 
-    if (rank == 0) then
+    call set_density(redshift,nz)
 
-       ! construct filename
-       dens_file=construct_densfilename(redshift,nz)
-
-       call read_density_file(dens_file)
-
-    endif
-
-#ifdef MPI       
-    ! Distribute the density to the other nodes
-    !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
-    call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
-         MPI_COMM_NEW,mympierror)
-    call MPI_BARRIER(MPI_COMM_NEW,mympierror)
-#endif
-       
-    call scale_density(redshift)
-    
     call density_diagnostics(redshift)
 
   end subroutine density_init
+
+  ! ============================================================================
+
+  subroutine set_density(redshift,nz)
+
+    real(kind=dp),intent(in) :: redshift
+    integer,intent(in) :: nz
+    
+    character(len=512):: dens_file
+
+    select case (nbody_type)
+       ! test problem: constant average density
+       ! if cosmological: corresponding to current redshift
+       ! if not: choose the first redshift (non-changing density)
+    case("test") 
+       if (cosmological) then
+          call set_constant_average_density(redshift)
+       else
+          call set_constant_average_density(Zred_array(1))
+       endif
+
+       ! cubep3m and LG: read density field from file
+    case("cubep3m","LG") 
+       if (rank == 0) then
+          
+          ! construct filename
+          dens_file=construct_densfilename(redshift,nz)
+          
+          ! read density from file
+          call read_density_file(dens_file)
+          
+       endif
+       
+#ifdef MPI       
+       ! Distribute the density to the other nodes
+       !call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_DOUBLE_PRECISION,0,&
+       call MPI_BCAST(ndens,mesh(1)*mesh(2)*mesh(3),MPI_REAL,0,&
+            MPI_COMM_NEW,mympierror)
+       call MPI_BARRIER(MPI_COMM_NEW,mympierror)
+#endif
+       
+       ! scale the density to correct units
+       call scale_density(redshift)
+
+    end select
+    
+  end subroutine set_density
+
+  ! ============================================================================
+
+  subroutine set_constant_average_density(redshift)
+
+    real(kind=dp),intent(in) :: redshift
+
+    integer :: i,j,k
+
+    ! Calculate average density of atoms (H+He)
+    avg_dens=rho_crit_0*Omega_B/(mu*m_p)*(1.0+redshift)**3
+
+    ! Assign density to the grid (average density at this redshift)
+    do k=1,mesh(3)
+       do j=1,mesh(2)
+          do i=1,mesh(1)
+             ndens(i,j,k)=avg_dens
+          enddo
+       enddo
+    enddo
+    
+  end subroutine set_constant_average_density
 
   ! ============================================================================
 
@@ -113,8 +164,15 @@ contains
        dens_file=trim(adjustl(dir_dens))// &
             trim(adjustl(redshift_str))// &
             "n_all.dat"
-       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " density input from ",trim(dens_file)
+    case("pmfast")
+       ! This case is more complicated in reality. If id_str="coarse"
+       ! the density data is spread out over several files which need
+       ! to be read sequentially. This is not implemented here as it
+       ! is unclear whether this will ever be needed.
+       write(redshift_str,"(f6.3)") redshift
+       dens_file=trim(adjustl(dir_dens))// &
+            trim(adjustl(redshift_str))// &
+            "rho_"//trim(adjustl(id_str))//".dat"
     case("LG")
        write(redshift_str,"(f6.3)") redshift
        write(number_of_redshift_str,'(i3.3)') number_of_redshift
@@ -125,9 +183,15 @@ contains
           dens_file=trim(adjustl(dir_dens))// &
                trim(adjustl(number_of_redshift_str))//trim(adjustl(id_str))//".dat"
        endif
-       write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " density input from ",trim(dens_file)
+    case("gadget")
+       write(redshift_str,"(f6.3)") redshift
+       dens_file=trim(adjustl(dir_dens))//trim(adjustl(redshift_str))// &
+               "rho_gadget.dat"
     end select
+
+    ! Report to log file
+    write(unit=logf,fmt="(4A)") "Reading ",id_str, &
+         " density input from ",trim(dens_file)
 
     ! Copy result to function variable
     construct_densfilename=dens_file
@@ -165,7 +229,7 @@ contains
     !read(20) ndens_real
     !ndens(:,:,:)=ndens_real(:,:,:)
     select case (nbody_type)
-    case("cubep3m")
+    case("cubep3m","pmfast","gadget")
        read(20) ndens
     case("LG")
        do k=1,mesh(3)
@@ -198,6 +262,8 @@ contains
        convert=density_convert_particle
     case ("M0Mpc3")
        convert=M_solar/Mpc**3*h**2*Omega_B/Omega0/(mu*m_p)
+    case("mass_density")
+       convert=1.0/(mu*m_p)
     end select
     
     ! Check separately for cosmological. We need to set comoving values here

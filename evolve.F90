@@ -33,10 +33,10 @@ module evolve
   use c2ray_parameters, only: convergence_fraction
   use sizes, only: Ndim, mesh
 
-  use material, only: ndens
-  use material, only: xh
-  use material, only: isothermal
-  use material, only: set_final_temperature_point
+  use density_module, only: ndens
+  use ionfractions_module, only: xh
+  use c2ray_parameters, only: isothermal
+  use temperature_module, only: set_final_temperature_point
   use sourceprops, only: NumSrc
   use photonstatistics, only: photon_loss, LLS_loss
   use photonstatistics, only: state_before
@@ -119,12 +119,18 @@ contains
     call system_clock(wallclock1)
 
      ! Initial state (for photon statistics)
-    call state_before (xh,xhe)
+    call state_before (xh)
+    !call state_before (xh,xhe)
 
     ! initialize average and intermediate results to initial values
     if (restart == 0) then
+#ifdef ALLFRAC       
        xh_av(:,:,:,:)=xh(:,:,:,:)
        xh_intermed(:,:,:,:)=xh(:,:,:,:)
+#else
+       xh_av(:,:,:)=xh(:,:,:)
+       xh_intermed(:,:,:)=xh(:,:,:)
+#endif
        niter=0 ! iteration starts at zero
        conv_flag=mesh(1)*mesh(2)*mesh(3) ! initialize non-convergence 
     else
@@ -154,7 +160,11 @@ contains
        ! testing for niter.
 
        if (conv_flag < conv_criterion .and. niter > 1) then
+#ifdef ALLFRAC          
           xh(:,:,:,:)=xh_intermed(:,:,:,:)
+#else
+          xh(:,:,:)=xh_intermed(:,:,:)
+#endif
           call set_final_temperature_point
 
           ! Report
@@ -176,6 +186,10 @@ contains
        ! Iteration loop counter
        niter=niter+1
 
+       ! Set all photo-ionization rates to zero
+       call set_rates_to_zero
+
+       ! Pass over all sources
        call pass_all_sources (niter,dt)
 
        ! Report subbox statistics
@@ -198,6 +212,7 @@ contains
           endif
        endif
 
+       ! Do a global pass applying all the rates
        call global_pass (conv_flag,dt)
 
        ! Report time
@@ -216,7 +231,7 @@ contains
 
   subroutine write_iteration_dump (niter)
 
-    use material, only:temperature_grid
+    use temperature_module, only:temperature_grid
 
     integer,intent(in) :: niter  ! iteration counter
 
@@ -259,7 +274,7 @@ contains
 
   subroutine start_from_dump(restart,niter)
 
-    use material, only: temperature_grid
+    use temperature_module, only: temperature_grid
 
     integer,intent(in) :: restart  ! restart flag
     integer,intent(out) :: niter  ! iteration counter
@@ -270,10 +285,13 @@ contains
     integer :: mympierror
 #endif
 
+    ! Check restart variable
     if (restart == 0) then
+       ! Warn about incorrect call
        if (rank == 0) &
             write(logf,*) "Warning: start_from_dump called incorrectly"
     else
+       ! Restart from dumpfile
        if (rank == 0) then
 
           ! Report time
@@ -304,10 +322,17 @@ contains
           endif
 
           close(iterdump)
+          
+          ! Report to log file
           write(logf,*) "Read iteration ",niter," from dump file"
           write(logf,*) 'photon loss counter: ',photon_loss_all
+#ifdef ALLFRAC
           write(logf,*) "Intermediate result for mean ionization fraction: ", &
-               sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3)), &
+               sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+#else
+          write(logf,*) "Intermediate result for mean ionization fraction: ", &
+               sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#endif
        endif
        
 #ifdef MPI       
@@ -318,11 +343,19 @@ contains
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(phih_grid,mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+#ifdef ALLFRAC
        call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3)*2, &
             MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
        call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3)*2, &
             MPI_DOUBLE_PRECISION,0,&
             MPI_COMM_NEW,mympierror)
+#else
+       call MPI_BCAST(xh_av,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
+       call MPI_BCAST(xh_intermed,mesh(1)*mesh(2)*mesh(3), &
+            MPI_DOUBLE_PRECISION,0,&
+            MPI_COMM_NEW,mympierror)
+#endif
        if (.not.isothermal) then
           call MPI_BCAST(phiheat,mesh(1)*mesh(2)*mesh(3), &
                MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
@@ -338,6 +371,20 @@ contains
     endif
 
   end subroutine start_from_dump
+
+  ! ===========================================================================
+  
+  subroutine set_rates_to_zero
+    
+    ! reset global rates to zero for this iteration
+    phih_grid(:,:,:)=0.0
+    !phihe_grid(:,:,:,:)=0.0    
+    phiheat(:,:,:)=0.0
+    ! reset photon loss counters
+    photon_loss(:)=0.0
+    LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
+
+  end subroutine set_rates_to_zero
 
   ! ===========================================================================
 
@@ -357,12 +404,6 @@ contains
 #endif
 
     if (rank == 0) write(logf,*) 'Doing all sources '
-    ! reset global rates to zero for this iteration
-    phih_grid(:,:,:)=0.0
-    phiheat(:,:,:)=0.0
-    ! reset photon loss counters
-    photon_loss(:)=0.0
-    LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
 
     ! Reset sum of subboxes counter
     sum_nbox=0
@@ -437,7 +478,11 @@ contains
 
     ! Report minimum value of xh_av(0) to check for zeros
     if (rank == 0) then
-       write(logf,*) "min xh_av: ",minval(xh_av(:,:,:,0))
+#ifdef ALLFRAC
+       write(logf,*) "min  value avg neutral fraction: ",minval(xh_av(:,:,:,0))
+#else
+       write(logf,*) "min value avg neutral fraction: ",1.0-maxval(xh_av(:,:,:))
+#endif
     endif   
 
     ! Apply total photo-ionization rates from all sources (phih_grid)
@@ -461,8 +506,13 @@ contains
     ! Report on convergence and intermediate result
     if (rank == 0) then
        write(logf,*) "Number of non-converged points: ",conv_flag
+#ifdef ALLFRAC
        write(logf,*) "Intermediate result for mean H ionization fraction: ", &
             sum(xh_intermed(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+#else
+       write(logf,*) "Intermediate result for mean H ionization fraction: ", &
+            sum(xh_intermed(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+#endif
     endif
     
     ! Report on photon conservation
@@ -518,20 +568,35 @@ contains
 
 #ifdef MPI
     ! accumulate (max) MPI distributed xh_av
+#ifdef ALLFRAC
     call MPI_ALLREDUCE(xh_av(:,:,:,1), buffer, mesh(1)*mesh(2)*mesh(3), &
          MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
     ! Overwrite the processor local values with the accumulated value
     xh_av(:,:,:,1) = buffer(:,:,:)
+#else
+    call MPI_ALLREDUCE(xh_av(:,:,:), buffer, mesh(1)*mesh(2)*mesh(3), &
+         MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_NEW, mympierror)
+    ! Overwrite the processor local values with the accumulated value
+    xh_av(:,:,:) = buffer(:,:,:)
+#endif
     
     ! Check the hydrogen and helium fractions for unphysical values
     call protect_ionization_fractions(xh_av,0,1,0,"xh_av(0)")
     
     ! accumulate (max) MPI distributed xh_intermed
+#ifdef ALLFRAC
     call MPI_ALLREDUCE(xh_intermed(:,:,:,1), buffer, &
          mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
          MPI_COMM_NEW, mympierror)
     ! Overwrite the processor local values with the accumulated value
     xh_intermed(:,:,:,1)=buffer(:,:,:)
+#else
+    call MPI_ALLREDUCE(xh_intermed(:,:,:), buffer, &
+         mesh(1)*mesh(2)*mesh(3), MPI_DOUBLE_PRECISION, MPI_MAX, &
+         MPI_COMM_NEW, mympierror)
+    ! Overwrite the processor local values with the accumulated value
+    xh_intermed(:,:,:)=buffer(:,:,:)
+#endif
     
     ! Check the hydrogen and helium fractions for unphysical values
     call protect_ionization_fractions(xh_intermed,0,1,0,"xh_intermed(0)")

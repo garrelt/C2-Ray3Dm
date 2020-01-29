@@ -52,6 +52,10 @@ contains
     use tped, only: electrondens ! should this really be used inside doric?
     use c2ray_parameters, only: epsilon
     
+    real(kind=dp),parameter :: sqrtt_isothermal=sqrt(1e4)
+    real(kind=dp),parameter :: acolh0_isothermal=colh0* &
+         sqrtt_isothermal*exp(-temph0/1e4)
+
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),intent(in) :: temp0 !< local temperature
     real(kind=dp),intent(inout) :: rhe !< electron density
@@ -157,7 +161,7 @@ contains
     
     ! Sets the boundary condition for the hydrogen column density
     
-    use cgsphotoconstants, only: sigh
+    use cgsphotoconstants, only: sigh => sigma_HI_at_ion_freq
     use radiation_sizes, only: boundary_tauHI
     
     real(kind=dp):: coldensh_bndry

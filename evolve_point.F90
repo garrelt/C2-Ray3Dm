@@ -37,18 +37,22 @@ module evolve_point
   use c2ray_parameters, only: add_photon_losses
   use sizes, only: Ndim, mesh
   use grid, only: vol,dr
-  use material, only: ndens, xh
-  use material, only: get_temperature_point, set_temperature_point
-  use material, only: set_final_temperature_point, isothermal
-  use material, only: ionstates
-  use material, only: clumping_point
-  use material, only: coldensh_LLS, LLS_point
+  use density_module, only: ndens
+  use ionfractions_module, only: xh
+  use temperature_module, only: temper, temperature_grid
+  use temperature_module, only: temperature_states_dbl
+  use temperature_module, only: get_temperature_point, set_temperature_point
+  use temperature_module, only: set_final_temperature_point
+  use c2ray_parameters, only: isothermal
+  use ionfractions_module, only: ionstates
+  use clumping_module, only: clumping_point
+  use LLS_module, only: coldensh_LLS, LLS_point
   use sourceprops, only: srcpos
   use radiation_photoionrates, only: photrates, photoion_rates
-  use thermalevolution, only: thermal
+  !use thermalevolution, only: thermal
   use photonstatistics, only: photon_loss, total_LLS_loss
   use tped, only: electrondens
-  use doric_module, only: doric, prepare_doric_factors, coldens
+  use doric_module, only: doric, coldens
 
   use evolve_data, only: phih_grid, phiheat
   use evolve_data, only: xh_av, xh_intermed
@@ -119,11 +123,20 @@ contains
     ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
     if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then
        ! Initialize local ionization states to the global ones
+#ifdef ALLFRAC       
        do nx=0,1
           ion%h_av(nx)=max(xh_av(pos(1),pos(2),pos(3),nx),epsilon)
           ion%h(nx)=max(xh_intermed(pos(1),pos(2),pos(3),nx),epsilon)
           ion%h_old(nx)=max(xh(pos(1),pos(2),pos(3),nx),epsilon)         
        enddo
+#else
+       ion%h_av(1)=max(xh_av(pos(1),pos(2),pos(3)),epsilon)
+       ion%h(1)=max(xh_intermed(pos(1),pos(2),pos(3)),epsilon)
+       ion%h_old(1)=max(xh(pos(1),pos(2),pos(3)),epsilon)
+       ion%h_av(0)=max(1.0-ion%h_av(1),epsilon)
+       ion%h(0)=max(1.0-ion%h(1),epsilon)
+       ion%h_old(0)=max(1.0-ion%h_old(1),epsilon)
+#endif
 
        ! Initialize local density and temperature
        ndens_p=ndens(pos(1),pos(2),pos(3))
@@ -193,6 +206,7 @@ contains
           ! This will speed up convergence if
           ! the sources are isolated and only ionizing up.
           ! In other cases it does not make a difference.
+#ifdef ALLFRAC
           xh_intermed(pos(1),pos(2),pos(3),1)=max(ion%h(1), &
                xh_intermed(pos(1),pos(2),pos(3),1))
           xh_intermed(pos(1),pos(2),pos(3),0)=max(epsilon,1.0- &
@@ -201,7 +215,12 @@ contains
                xh_av(pos(1),pos(2),pos(3),1))
           xh_av(pos(1),pos(2),pos(3),0)=max(epsilon,1.0_dp- &
                xh_av(pos(1),pos(2),pos(3),1))
-
+#else
+          xh_intermed(pos(1),pos(2),pos(3))=max(ion%h(1), &
+               xh_intermed(pos(1),pos(2),pos(3)))
+          xh_av(pos(1),pos(2),pos(3))=max(ion%h_av(1), &
+               xh_av(pos(1),pos(2),pos(3)))
+#endif
        endif  !if niter==!
 
        ! Add the (time averaged) column density of this cell
@@ -211,7 +230,7 @@ contains
        !  upon the difference between the in and out column density.
        !  Instead add the LLS to coldensh_in, see above
        coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + &
-            coldens(path,ion%h_av(0),ndens_p,(1.0_dp-abu_he))
+            coldens(path,ion%h_av(0),ndens_p)!,(1.0_dp-abu_he))
 
        ! Calculate (photon-conserving) photo-ionization rate from the
        ! column densities.
@@ -291,12 +310,8 @@ contains
     real(kind=dp) :: de ! electron density
 !    real(kind=dp),dimension(0:1) :: yh,yh_av,yh0 ! ionization fractions
     real(kind=dp) :: yh0_av_old, yh1_av_old 
-    real(kind=dp) :: avg_temper, temper ! temperature
     real(kind=dp) :: ndens_p ! local number density
-    real(kind=dp) :: temper_old   
-    real(kind=dp) :: temper1   
-    real(kind=dp) :: temp_av_old,temp_av_new,temper_inter
-    
+    type(temperature_states_dbl) :: temperature_start, temperature_end
 
     real(kind=dp) :: phih ! local H photo-ionization rate (only non-zero when local=.false.!)
     real(kind=dp) :: phih_total ! local total photo-ionization rate (including
@@ -307,16 +322,25 @@ contains
     type(photrates) :: phi 
 
     ! Initialize local ionization states to global ones
+#ifdef ALLFRAC
     do nx=0,1
        ion%h(nx)=max(epsilon,xh_intermed(pos(1),pos(2),pos(3),nx))
        ion%h_old(nx)=max(epsilon,xh(pos(1),pos(2),pos(3),nx))
        ion%h_av(nx)=max(epsilon,xh_av(pos(1),pos(2),pos(3),nx)) ! use calculated xh_av
     enddo
+#else
+       ion%h(1)=max(epsilon,xh_intermed(pos(1),pos(2),pos(3)))
+       ion%h_old(1)=max(epsilon,xh(pos(1),pos(2),pos(3)))
+       ion%h_av(1)=max(epsilon,xh_av(pos(1),pos(2),pos(3))) ! use calculated xh_av
+       ion%h(0)=1.0-ion%h(1)
+       ion%h_old(0)=1.0-ion%h_old(1)
+       ion%h_av(0)=1.0-ion%h_av(1)
+#endif
 
     ! Initialize local scalars for density and temperature
     ndens_p=ndens(pos(1),pos(2),pos(3))
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter, &
-         temp_av_old,temper_old)
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_start)
+    !temper_inter,temp_av_old,temper_old)
     !avg_temper=temper
 
     ! Use the collected photo-ionization rates
@@ -325,30 +349,41 @@ contains
 
     ! I think instead of calling here twice get_temp, it is perhaps better to pass t_new
     ! and t_old as arguments from/to do_chemistry. (?)
-    call do_chemistry (dt, ndens_p, ion, phi,0.0_dp, &
-         dummy,  1.0_dp, 0.0_dp, pos, 0 , local=.false.)
+    call do_chemistry (dt, ndens_p, ion, &
+         phi, 0.0_dp, 1.0_dp, 0.0_dp, pos, 0, local=.false.)
     
     ! Test for global convergence using the time-averaged neutral fraction.
     ! For low values of this number assume convergence
-    yh0_av_old=xh_av(pos(1),pos(2),pos(3),0) ! use previously calculated xh_av
+    ! use previously calculated xh_av
+#ifdef ALLFRAC
+    yh0_av_old=xh_av(pos(1),pos(2),pos(3),0)
     yh1_av_old=xh_av(pos(1),pos(2),pos(3),1)
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,temp_av_new,temper_old)
+#else
+    yh1_av_old=max(epsilon,xh_av(pos(1),pos(2),pos(3)))
+    yh0_av_old=1.0-yh1_av_old
+#endif
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_end)
+    !call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,temp_av_new,temper_old)
 
     if ( (abs((ion%h_av(0)-yh0_av_old)) > minimum_fractional_change                .and. &
           abs((ion%h_av(0)-yh0_av_old)/ion%h_av(0)) > minimum_fractional_change   .and. &
               (ion%h_av(0) > minimum_fraction_of_atoms)  ).or.                       &
-         (abs((temp_av_old-temp_av_new)/temp_av_new) > 1.0e-1_dp).and.              &
-         (abs(temp_av_new-temp_av_old) >     100.0_dp)                          &                  
+         (abs((temperature_start%average-temperature_end%average)/temperature_end%average) > 1.0e-1_dp).and.              &
+         (abs(temperature_start%average-temperature_end%average) >     100.0_dp)                          &                  
                                                                       ) then
        conv_flag=conv_flag+1
     endif
 
     ! Copy ion fractions to the global arrays.
+#ifdef ALLFRAC
     do nx=0,1
        xh_intermed(pos(1),pos(2),pos(3),nx)=ion%h(nx)
        xh_av(pos(1),pos(2),pos(3),nx)=ion%h_av(nx)
     enddo
-
+#else
+    xh_intermed(pos(1),pos(2),pos(3))=ion%h(1)
+    xh_av(pos(1),pos(2),pos(3))=ion%h_av(1)
+#endif
     ! This was already done in do_chemistry
     !if (.not.isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temper1,av)
     
@@ -357,12 +392,11 @@ contains
   ! ===========================================================================
 
   subroutine do_chemistry (dt, ndens_p, ion, &
-       phi, coldensh_in,coldenshe_in, path, vol_ph, pos, ns, local)
+       phi, coldensh_in, path, vol_ph, pos, ns, local)
 
     real(kind=dp),intent(in) :: dt !< time step
     real(kind=dp),intent(in) :: ndens_p
     real(kind=dp),intent(in) :: coldensh_in
-    real(kind=dp),dimension(0:1),intent(in) :: coldenshe_in
     real(kind=dp),intent(in) :: path
     real(kind=dp),intent(in) :: vol_ph
     integer,dimension(Ndim),intent(in) :: pos !< position on mesh
@@ -370,6 +404,7 @@ contains
     logical,intent(in) :: local !< true if doing a non-global calculation.
 
     real(kind=dp) :: avg_temper, temper0, temper1,temper2,temper_inter
+    type(temperature_states_dbl) :: temperature_start, temperature_end
     real(kind=dp) :: yh0_av_old,oldhe1av,oldhe0av,oldhav
     real(kind=dp) :: yh1_av_old
     real(kind=dp) :: de
@@ -383,13 +418,16 @@ contains
     type(ionstates) :: ion
 
     ! Initialize local temperature
-    call get_temperature_point (pos(1),pos(2),pos(3),temper_inter,avg_temper,temper1)
+    call get_temperature_point (pos(1),pos(2),pos(3),temperature_start)
     !avg_temper=temper1
-    temper0   =temper1
+    temper0 = temperature_start%current
+    !temper0   =temper1
   
     ! Initialize local clumping (if type of clumping is appropriate)
-    if (type_of_clumping == 5) call clumping_point (pos(1),pos(2),pos(3))
-    
+    if (type_of_clumping == 3 .or. type_of_clumping == 4 .or. type_of_clumping == 5) then
+          call clumping_point(pos(1),pos(2),pos(3))
+    end if
+
     nit=0
     do 
        nit=nit+1
@@ -411,7 +449,7 @@ contains
        if (local) then
           
           ! Calculate (time averaged) column density of cell
-          coldensh_cell=coldens(path,ion%h_av(0),ndens_p,1.0_dp-abu_he)
+          coldensh_cell=coldens(path,ion%h_av(0),ndens_p)!,1.0_dp-abu_he)
 
           ! Calculate (photon-conserving) photo-ionization rate
           phi=photoion_rates(coldensh_in,coldensh_in+coldensh_cell, &
@@ -430,7 +468,7 @@ contains
 
           ! initialize the collisional ionization and recombinations rates 
           ! (temperature dependent)
-          if (.not.isothermal) call ini_rec_colion_factors(avg_temper) 
+          if (.not.isothermal) call ini_rec_colion_factors(temperature_start%average) 
           
           ! Add photon losses to the photo-ionization rates
           if (add_photon_losses) then
@@ -443,14 +481,18 @@ contains
        !*** DO THIS ONLY IF PHI IS NOT ==0
        ! if (phi%h.ne.0.0_dp) then
        
-       coldensh_cell    =coldens(path,ion%h(0),ndens_p,(1.0_dp-abu_he))
+       coldensh_cell    =coldens(path,ion%h(0),ndens_p)!,(1.0_dp-abu_he))
        
-       call doric(dt,de,ndens_p,ion,phi)!,local)! 
+       call doric(dt, temperature_start%average, de, ndens_p, &
+            ion%h, ion%h_av, phi%photo_cell_HI)!,local)! 
        de=electrondens(ndens_p,ion%h_av)
        
        temper1=temper0 
        if (.not.isothermal) &
-            call thermal(dt,temper1,avg_temper,de,ndens_p, &
+            !GM/141021 Change thermal so that it takes old values and outputs new
+            !values, but not overwrites...
+            call thermal(dt,temperature_start%current, &
+            temperature_start%average,de,ndens_p, &
             ion,phi)    
        
        ! Test for convergence on time-averaged neutral fraction
@@ -477,7 +519,7 @@ contains
 
     ! Update temperature
     ! GM/130815: Why is this done here?
-    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temper1,avg_temper)
+    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temperature_start)
     
   end subroutine do_chemistry
   

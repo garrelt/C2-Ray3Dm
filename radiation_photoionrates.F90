@@ -11,7 +11,7 @@ module radiation_photoionrates
   use my_mpi
   use file_admin, only: logf
   use cgsconstants, only: hplanck                     ! Planck constant
-  use cgsphotoconstants, only: ion_freq_HI  => frth0           ! HI ionization energy in frequency
+  use cgsphotoconstants, only: ion_freq_HI            ! HI ionization energy in frequency
 
   !use material, only: isothermal
   use c2ray_parameters, only: isothermal

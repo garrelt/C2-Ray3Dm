@@ -11,13 +11,13 @@ module radiation_sed_parameters
   use my_mpi
   use file_admin, only: logf
   use mathconstants, only: pi
-  use cgsconstants, only: sigma_SB => sigmasb, &                    ! Stefan-Boltzmann constant
+  use cgsconstants, only: sigma_SB, &                    ! Stefan-Boltzmann constant
                           hplanck, &                     ! Planck constant
-                          k_B => kb, &                         ! Boltzmann constant
-                          two_pi_over_c_square => two_pi_c2, &        ! two times pi over c aquare
+                          k_B, &                         ! Boltzmann constant
+                          two_pi_over_c_square, &        ! two times pi over c aquare
                           ev2fr                          ! eV to Hz conversion
-  use cgsphotoconstants, only: ion_freq_HI  => frth0,&             ! HI ionization energy in frequency
-                               sigma_HI_at_ion_freq  => sigh    ! HI cross section at its ionzing frequency
+  use cgsphotoconstants, only: ion_freq_HI,&             ! HI ionization energy in frequency
+                               sigma_HI_at_ion_freq      ! HI cross section at its ionzing frequency
   use astroconstants, only: R_SOLAR, &                   ! Solar radius
                             L_SOLAR                      ! Solar luminosity
   use romberg, only: scalar_romberg, &                   ! 1D integration function

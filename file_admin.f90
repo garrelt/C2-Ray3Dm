@@ -27,6 +27,7 @@ module file_admin
   integer,public,parameter :: logf=30 !< unit number of log file(s)
   integer,public,parameter :: timefile=61 !< unit number of time file(s)
   integer,public,parameter :: ah3=40  !< unit number of ah3 files (if applicable)
+  integer,public,parameter :: sourcefile=41  !< unit number of ah3 files (if applicable)
   integer,public,parameter :: iterdump=50  !< unit number of iterdump files (if applicable)
   logical,public :: file_input=.false. !< input from file?
 

@@ -18,7 +18,7 @@ module photonstatistics
   use my_mpi, only: rank
   use file_admin, only: logf
   use cgsconstants, only: albpow,bh00,colh0,temph0
-  use cgsphotoconstants, only: sigh
+  use cgsphotoconstants, only: sigh => sigma_HI_at_ion_freq
   use sizes, only: mesh
   use grid, only: vol
   !use material, only: ndens, temper, clumping, clumping_point
@@ -161,7 +161,7 @@ contains
 #endif
              ndens_p=ndens(i,j,k)
              ! Set clumping to local value if we have a clumping grid
-             if (type_of_clumping == 5) &
+             if (type_of_clumping == 3 .or. type_of_clumping == 4 .or. type_of_clumping == 5) &
                   call clumping_point (i,j,k)
              totrec=totrec+ndens_p*yh(1)*    &
                   electrondens(ndens_p,yh)*  &

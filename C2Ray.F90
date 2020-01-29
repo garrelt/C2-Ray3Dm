@@ -45,22 +45,21 @@ Program C2Ray
   use astroconstants, only: YEAR
   use my_mpi !, only: mpi_setup, mpi_end, rank
   use output_module, only: setup_output,output,close_down
-  use grid, only: grid_ini
-  use radiation, only: rad_ini
+  use grid, only: grid_ini, dr
+  use radiation_tables, only: rad_ini
   use nbody, only: nbody_type, nbody_ini, NumZred, zred_array, snap
   use cosmology, only: cosmology_init, redshift_evol, cosmo_evol, &
        time2zred, zred2time, zred
-  use material, only: mat_ini
+  use material, only: material_ini
   use ionfractions_module, only: xfrac_restart_init
   use density_module, only: density_init
   use temperature_module, only: temperature_restart_init
-  use clumping_module, only: set_clumping
+  use clumping_module, only: set_clumping, load_clumping_model
   use lls_module, only: set_LLS
-  !use material, only: mat_ini, xfrac_ini, temper_ini, dens_ini, set_clumping, &
-  !     set_LLS
   use times, only: time_ini, set_timesteps
   use sourceprops, only: source_properties_ini, source_properties, NumSrc
-  use evolve, only: evolve_ini,evolve3D
+  use evolve_data, only: evolve_ini
+  use evolve, only: evolve3D
   use c2ray_parameters, only: isothermal ! NB: in some versions set in material
 
 #ifdef XLF
@@ -73,6 +72,9 @@ Program C2Ray
   include 'lib3f.h' ! for iargc, getargc
 #endif
 
+  integer :: startup_error=0 ! the use of this flag should be increased.
+  ! The idea is to check several things before starting the simulation proper.
+  ! If the startup_error is not zero, some problem was detected.
   integer :: restart=0 !< restart flag
   integer :: iter_restart=0 !< restart from iteration flag
   integer :: nz !< loop counter for loop over redshift list
@@ -143,38 +145,40 @@ Program C2Ray
        write(timefile,"(A,F8.1)") "Time after rad_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
-  write(logf,*) "Before mat_ini"
+  write(logf,*) "Before material_ini"
 #endif
   ! Initialize the material properties
-  call mat_ini (restart, nz0, ierror)
+  call material_ini (restart, nz0, ierror)
+  startup_error = startup_error + ierror
 
   if (rank == 0) &
-       write(timefile,"(A,F8.1)") "Time after mat_ini: ",timestamp_wallclock ()
+       write(timefile,"(A,F8.1)") "Time after material_ini: ",timestamp_wallclock ()
 
 #ifdef MPILOG
   write(logf,*) "Before nbody_ini"
 #endif
   ! Find the redshifts we are dealing with
-  call nbody_ini ()
+  if (startup_error == 0) call nbody_ini (ierror)
+  startup_error=startup_error+ierror
 
 #ifdef MPILOG
   write(logf,*) "Before source_properties_ini"
 #endif
   ! Initialize the source model
-  call source_properties_ini ()
+  if (startup_error == 0) call source_properties_ini ()
 
 #ifdef MPILOG
   write(logf,*) "Before time_ini"
 #endif
   ! Initialize time step parameters
-  call time_ini ()
+  if (startup_error == 0) call time_ini ()
   if (rank == 0) flush(logf)
 
 #ifdef MPILOG
   write(logf,*) "Before evolve_ini"
 #endif
   ! Initialize evolve arrays
-  call evolve_ini ()
+  if (startup_error == 0) call evolve_ini ()
 
   ! Set time to zero
   sim_time=0.0
@@ -182,14 +186,14 @@ Program C2Ray
   ! Initialize cosmology
   ! (always call bacause it initializes some of the things even if 
   ! not doing cosmo. 
-  call cosmology_init(zred_array(nz0),sim_time)
+  if (startup_error == 0) call cosmology_init(zred_array(nz0),sim_time)
 
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after cosmology_init: ", &
        timestamp_wallclock ()
 
   ! If a restart, inquire whether to restart from iteration
-  if (restart /= 0) then
+  if (startup_error == 0 .and. restart /= 0) then
      if (rank == 0) then
         if (.not.file_input) &
              write(*,"(A,$)") "Restart from iteration dump (y/n) or (0/1/2)? : "
@@ -236,162 +240,177 @@ Program C2Ray
      call MPI_BCAST(zred_interm,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW, &
           mympierror)
 #endif
+     ! Check the value for consistency
+     if (zred_interm > zred_array(nz0) .or. &
+          zred_interm < zred_array(nz0+1) ) startup_error=5
      call xfrac_restart_init(zred_interm)
      if (.not.isothermal) call temperature_restart_init(zred_interm)
   end if
-
-  ! Loop over redshifts
-  do nz=nz0,NumZred-1
-
-     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
-          "Time before starting redshift evolution step ",nz," :", &
-          timestamp_wallclock ()
-
-     zred=zred_array(nz)
-     if (rank == 0) write(logf,*) "Doing redshift: ",zred," to ", &
-          zred_array(nz+1),'of total', NumZred
-
-     ! Initialize time parameters
-     call set_timesteps(zred,zred_array(nz+1), &
-          end_time,dt,output_time)
-     if (rank == 0) write(logf,*) &
-          "This is time ",sim_time/YEAR," to ",end_time/YEAR
-     if (rank == 0 .and. nbody_type == "LG") &
-          write(logf,*) "This is snapshot ", snap(nz)
-
-     ! Initialize source position
+  
+  if (startup_error == 0) then
+     ! Load required clumping model parameters file (passing resolution)
+     ! Models are customized on the simulation resolution, 
+     ! you should provide parameters for the current simulation resolution
+     call load_clumping_model(dr(1))
+     
+     ! Loop over redshifts
+     do nz=nz0,NumZred-1
+        
+        if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+             "Time before starting redshift evolution step ",nz," :", &
+             timestamp_wallclock ()
+        
+        zred=zred_array(nz)
+        if (rank == 0) write(logf,*) "Doing redshift: ",zred," to ", &
+             zred_array(nz+1),'of total', NumZred
+        
+        ! Initialize time parameters
+        call set_timesteps(zred,zred_array(nz+1), &
+             end_time,dt,output_time)
+        if (rank == 0) write(logf,*) &
+             "This is time ",sim_time/YEAR," to ",end_time/YEAR
+        if (rank == 0 .and. nbody_type == "LG") &
+             write(logf,*) "This is snapshot ", snap(nz)
+        
+        ! Initialize source position
 #ifdef MPILOG     
-     write(logf,*) 'Calling source_properties'
+        write(logf,*) 'Calling source_properties'
 #endif 
-     call source_properties(zred,nz,end_time-sim_time,restart)
-
-     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
-          "Time after setting sources for step ",nz," :", &
-          timestamp_wallclock ()
-
-     ! Initialize density field
-     call density_init(zred,nz)
-     ! Set clumping and LLS in the case of position dependent values
-     ! (read in the grid values)
-     if (type_of_clumping == 5) call set_clumping(zred)
-     if (use_LLS .and. type_of_LLS == 2) call set_LLS(zred)
-
-     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
-          "Time after setting material properties for step ",nz," :", &
-          timestamp_wallclock ()
-
-     ! Set time if restart at intermediate time
-     ! Set next output time
-     ! Note: this assumes that there are ALWAYS two time steps
-     ! between redshifts. Should be made more general.
-     if (restart >= 2) then
-        interm_zred=time2zred(zred2time(zred)+dt)
-        if (abs(interm_zred-zred_interm) < 0.001) then
-           sim_time=zred2time(zred)+dt
+        call source_properties(zred,nz,end_time-sim_time,restart)
+        
+        if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+             "Time after setting sources for step ",nz," :", &
+             timestamp_wallclock ()
+        
+        ! Initialize density field
+        call density_init(zred,nz)
+        ! Set clumping and LLS in the case of position dependent values
+        ! (read in the pre-computed grid values)
+        if (type_of_clumping == 5) call set_clumping(zred)
+        if (use_LLS .and. type_of_LLS == 2) call set_LLS(zred)
+        
+        if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+             "Time after setting material properties for step ",nz," :", &
+             timestamp_wallclock ()
+        
+        ! Set time if restart at intermediate time
+        ! Set next output time
+        ! Note: this assumes that there are ALWAYS two time steps
+        ! between redshifts. Should be made more general.
+        if (restart >= 2) then
+           interm_zred=time2zred(zred2time(zred)+dt)
+           if (abs(interm_zred-zred_interm) < 0.001) then
+              sim_time=zred2time(zred)+dt
+           else
+              sim_time=zred2time(zred_interm)
+           endif
+           next_output_time=end_time
         else
-           sim_time=zred2time(zred_interm)
+           next_output_time=sim_time+output_time
         endif
-        next_output_time=end_time
-     else
-        next_output_time=sim_time+output_time
-     endif
-     ! Reset restart flag now that everything has been dealt with
-     restart=0
+        
+#ifdef MPILOG     
+        write(logf,*) 'First output'
+#endif 
+        ! If start of simulation output (and not a restart).
+        if (NumSrc > 0 .and. sim_time == 0.0 .and. restart == 0) &
+             call output(time2zred(sim_time),sim_time,dt, &
+             photcons_flag)
+        
+        ! Reset restart flag now that everything has been dealt with
+        restart=0
 
 #ifdef MPILOG     
-     write(logf,*) 'First output'
+        write(logf,*) 'Start of loop'
 #endif 
-     ! If start of simulation output
-     if (NumSrc > 0 .and. sim_time == 0.0) call output(time2zred(sim_time),sim_time,dt, &
-          photcons_flag)
-
-#ifdef MPILOG     
-     write(logf,*) 'Start of loop'
-#endif 
-     if (rank == 0) flush(logf)
-     ! Loop until end time is reached
-     do
-        ! Report memory usage
-        if (rank == 0) call report_memory(logf)
-
-        ! Make sure you produce output at the correct time
-        actual_dt=min(next_output_time-sim_time,dt)
-
-        ! Report time and time step
-        if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
-             sim_time/YEAR,actual_dt/YEAR," (years)"
-
-        ! For cosmological simulations evolve proper quantities
-        ! We choose to scale the proper quantities to the halfway
-        ! point between the start and the end of the integration
-        ! time step (acutal_dt)
+        if (rank == 0) flush(logf)
+        ! Loop until end time is reached
+        do
+           ! Report memory usage
+           if (rank == 0) call report_memory(logf)
+        
+           ! Make sure you produce output at the correct time
+           actual_dt=min(next_output_time-sim_time,dt)
+           
+           ! Report time and time step
+           if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
+                sim_time/YEAR,actual_dt/YEAR," (years)"
+           
+           ! For cosmological simulations evolve proper quantities
+           ! We choose to scale the proper quantities to the halfway
+           ! point between the start and the end of the integration
+           ! time step (acutal_dt)
+           if (cosmological) then
+              call redshift_evol(sim_time+0.5*actual_dt)
+              call cosmo_evol()
+           endif
+           
+           ! Do not call in case of the pre-computed clumping data,
+           ! the clumping grid should have been initialized above
+           ! Same for LLS
+           if (type_of_clumping /= 5) call set_clumping(zred)
+           if (use_LLS .and. type_of_LLS /= 2) call set_LLS(zred)
+           
+           ! Take one time step
+           if (NumSrc > 0) call evolve3D(sim_time,actual_dt,iter_restart)
+           
+           ! Reset flag for restart from iteration 
+           ! (evolve3D is the last routine affected by this)
+           iter_restart=0
+           
+           ! Update time
+           sim_time=sim_time+actual_dt
+           
+           ! Write output
+           if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
+              !if (NumSrc > 0) call output(time2zred(sim_time),sim_time,actual_dt, &
+              !photcons_flag)
+              call output(time2zred(sim_time),sim_time,actual_dt, &
+                   photcons_flag)
+              next_output_time=next_output_time+output_time
+              if (photcons_flag /= 0 .and. stop_on_photon_violation) then
+                 if (rank == 0) write(logf,*) &
+                      "Exiting because of photon conservation violation"
+                 ! GM (110131): Forgot to check here whether we care about photon
+                 ! conservations violations; if the code jumps out of the evolution
+                 ! here funny things happen to the time step!
+                 exit ! photon conservation violated
+              endif
+           endif
+           ! end time for this redshift interval reached
+           if (abs(sim_time-end_time) <= 1e-6*end_time) exit
+           if (rank == 0) flush(logf)
+        enddo
+        
+        if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
+             "Time after finishing step ",nz," :", &
+             timestamp_wallclock ()
+        
+        ! Get out: photon conservation violated
+        if (stop_on_photon_violation .and. photcons_flag /= 0 .and. rank == 0) &
+             write(logf,*) "Exiting because of photon conservation violation"
+        if (stop_on_photon_violation .and. photcons_flag /= 0) exit ! photon conservation violated
+        
+        ! Scale to the current redshift
         if (cosmological) then
-           call redshift_evol(sim_time+0.5*actual_dt)
+           call redshift_evol(sim_time)
            call cosmo_evol()
         endif
-
-        ! Do not call in case of position dependent clumping,
-        ! the clumping grid should have been initialized above
-        ! Same for LLS
-        if (type_of_clumping /= 5) call set_clumping(zred)
-        if (use_LLS .and. type_of_LLS /= 2) call set_LLS(zred)
-
-        ! Take one time step
-        if (NumSrc > 0) call evolve3D(sim_time,actual_dt,iter_restart)
-
-        ! Reset flag for restart from iteration 
-        ! (evolve3D is the last routine affected by this)
-        iter_restart=0
-
-        ! Update time
-        sim_time=sim_time+actual_dt
-            
-        ! Write output
-        if (abs(sim_time-next_output_time) <= 1e-6*sim_time) then
-           if (NumSrc > 0) call output(time2zred(sim_time),sim_time,actual_dt, &
-                photcons_flag)
-           next_output_time=next_output_time+output_time
-           if (photcons_flag /= 0 .and. stop_on_photon_violation) then
-              if (rank == 0) write(logf,*) &
-                "Exiting because of photon conservation violation"
-           ! GM (110131): Forgot to check here whether we care about photon
-           ! conservations violations; if the code jumps out of the evolution
-           ! here funny things happen to the time step!
-              exit ! photon conservation violated
-           endif
-        endif
-        ! end time for this redshift interval reached
-        if (abs(sim_time-end_time) <= 1e-6*end_time) exit
-        if (rank == 0) flush(logf)
+        
+        ! Update clock counters (cpu + wall, to avoid overflowing the counter)
+        call update_clocks ()
+        
      enddo
 
-     if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
-          "Time after finishing step ",nz," :", &
-          timestamp_wallclock ()
+     ! Write final output
+     ! GM/110414: Bug, this statement previously overwrote the previous
+     ! output (from the redshift list, so with multiple outputs per
+     ! slice it could be the previous previous one). Fixed by writing
+     ! the output for the last redshift: zred_array(NumZRed)
+     if (photcons_flag == 0) call output(zred_array(NumZRed), &
+          sim_time,actual_dt,photcons_flag)
 
-     ! Get out: photon conservation violated
-     if (stop_on_photon_violation .and. photcons_flag /= 0 .and. rank == 0) &
-          write(logf,*) "Exiting because of photon conservation violation"
-     if (stop_on_photon_violation .and. photcons_flag /= 0) exit ! photon conservation violated
-
-     ! Scale to the current redshift
-     if (cosmological) then
-        call redshift_evol(sim_time)
-        call cosmo_evol()
-     endif
-
-     ! Update clock counters (cpu + wall, to avoid overflowing the counter)
-     call update_clocks ()
-
-  enddo
-
-  ! Write final output
-  ! GM/110414: Bug, this statement previously overwrote the previous
-  ! output (from the redshift list, so with multiple outputs per
-  ! slice it could be the previous previous one). Fixed by writing
-  ! the output for the last redshift: zred_array(NumZRed)
-  if (photcons_flag == 0) call output(zred_array(NumZRed), &
-       sim_time,actual_dt,photcons_flag)
+  endif ! end of startup_error test
 
   ! End output streams
   call close_down ()

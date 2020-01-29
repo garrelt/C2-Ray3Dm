@@ -155,7 +155,7 @@ contains
   !>	the x-direction for every y and stores the results in itg.	
   !>	In principle it works the same as the function Romberg.		
   !>	Extra argument : itg	the results of the integrations		
-  SUBROUTINE Vector_Romberg (f, w, nc, nx, ny, itg)		
+  SUBROUTINE Vector_Romberg (f, w, nc, nx, ny, itg)
     
     
     !	This subroutin performs an one-dimensional integration in	

@@ -14,9 +14,10 @@ module c2ray_parameters
   ! This module collects parameters needed by C2-Ray
 
   use precision, only: dp
-  use astroconstants, only: YEAR
   use cgsconstants, only: ev2fr
-  use cgsphotoconstants, only: ion_freq_HeII => frthe1 
+  use cgsphotoconstants, only: ion_freq_HeII
+  use astroconstants, only: YEAR
+  !use sizes, only: mesh
 
   implicit none
 
@@ -31,13 +32,13 @@ module c2ray_parameters
   real(kind=dp),parameter :: epsilon=1e-14_dp
 
   !> Convergence criterion for per source calculation (evolve0d)
-  real(kind=dp),parameter :: convergence1=1.0e-3
+  real(kind=dp),parameter :: minimum_fractional_change=1.0e-3
 
   !> Convergence criterion for global calculation (evolve0d)
   real(kind=dp),parameter :: convergence2=1.0e-3
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
-  real(kind=dp),parameter :: convergence_frac=1.0e-8
+  real(kind=dp),parameter :: minimum_fraction_of_atoms=1.0e-8
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
@@ -53,11 +54,13 @@ module c2ray_parameters
   !> Add photon losses back into volume or not
   logical,parameter :: add_photon_losses=.false.
 
-  !> Parameters for nominal SED
-  real(kind=dp),parameter :: teff_nominal=50000.0
-  real(kind=dp),parameter :: s_star_nominal=1e48_dp
-  !real(kind=dp),parameter :: s_star_nominal=1e50_dp
-  
+  !> Parameters for nominal SED (BB)
+  !> Effective temperature (K); if set to zero, the code will ask
+  !! for SED parameters
+  real(kind=dp),parameter :: teff_nominal=5.0e4
+  !> Number of ionizing photons / second
+  real(kind=dp),parameter :: S_star_nominal=1e48_dp
+
   !> nominal Eddington efficiency
   real(kind=dp),parameter :: EddLeff_nominal=1.0_dp
   !> nominal power law index (for photon number)
@@ -72,12 +75,12 @@ module c2ray_parameters
   real(kind=dp),parameter :: pl_MinFreq_nominal=0.3*1e3*ev2fr
   real(kind=dp),parameter :: pl_MaxFreq_nominal=ion_freq_HeII * 100.00_dp
 
-  !> Subgrid clumping\n
-  !! 1: constant clumping (with clumping_factor)\n
-  !! 2: 3.5Mpc PM, WMAP1 clumping\n
-  !! 3: 3.5Mpc PM, WMAP3 clumping\n
-  !! 4: 1 Mpc P3M\n
-  !! 5: position dependent clumping
+  !> Subgrid clumping
+  !! 1: constant clumping (with clumping_factor)
+  !! 2: Globally Averaged Clumping Model GCM, (provide parameters file)
+  !! 3: Deterministic Clumping Model DCM (Mao et al. 2019), (provide parameters file)
+  !! 4: Stochastic Clumping Model SCM (Bianco et al. 2020), (provide parameters file)
+  !! 5: Pre-computed grid of clumping, (provide files)
   integer,parameter :: type_of_clumping=1
   !> Clumping factor if constant
   real,parameter :: clumping_factor=1.0
@@ -94,8 +97,8 @@ module c2ray_parameters
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.
 
-  !> Cosmological cooling
-  logical,parameter :: cosmological=.true.
+  !> Cosmology (in C2Ray.F90 and mat_ini) and Cosmological cooling (in cosmology)
+  logical,parameter :: cosmological=.true. 
 
   !> Thermal: minimum temperature
   real(kind=dp),parameter :: minitemp=1.0 ! minimum temperature
@@ -106,6 +109,11 @@ module c2ray_parameters
   integer,parameter :: Number_Sourcetypes=2
   !> Source properties: Photon per atom for different source types (high to low mass)
   real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 /)
+  !real,dimension(Number_Sourcetypes),parameter :: phot_per_atom= (/ 10.0, 150.0 , 0.0 /)
+  !> Source properties: X-ray photons per baryon. Mesinger et al. (2012) use
+  !! 0.02 as their nominal value. Note that this depends on your integration
+  !! limits. Mesinger et al. use 300 eV as lowest energy.
+  real,parameter :: xray_phot_per_atom = 0.02
   !> Source properties: Life time of sources (if set at compile time)
   real,parameter :: lifetime=10e6*YEAR
   !> Source properties: Smallest number of particles that makes a reliable halo
@@ -119,5 +127,3 @@ module c2ray_parameters
   !real,parameter :: StillNeutral=-0.1 ! ALWAYS suppress
 
 end module c2ray_parameters
-
-

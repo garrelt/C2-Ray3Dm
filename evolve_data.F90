@@ -41,10 +41,17 @@ module evolve_data
   !> Heating  rate on the entire grid
   real(kind=dp),dimension(:,:,:),allocatable :: phiheat
   
+#ifdef ALLFRAC
   !> Time-averaged H ionization fraction
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh_av
   !> Intermediate result for H ionization fraction
   real(kind=dp),dimension(:,:,:,:),allocatable :: xh_intermed
+#else
+  !> Time-averaged H ionization fraction
+  real(kind=dp),dimension(:,:,:),allocatable :: xh_av
+  !> Intermediate result for H ionization fraction
+  real(kind=dp),dimension(:,:,:),allocatable :: xh_intermed
+#endif
   !> H0 Column density (outgoing)
   real(kind=dp),dimension(:,:,:),allocatable :: coldensh_out
   !> Buffer for MPI communication
@@ -70,12 +77,15 @@ contains
     allocate(phiheat(mesh(1),mesh(2),mesh(3)))
     phiheat=0.0 ! Needs value for initial output
     
+#ifdef ALLFRAC       
     allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
-
     allocate(xh_intermed(mesh(1),mesh(2),mesh(3),0:1))
+#else
+    allocate(xh_av(mesh(1),mesh(2),mesh(3)))
+    allocate(xh_intermed(mesh(1),mesh(2),mesh(3)))
+#endif
 
     allocate(coldensh_out(mesh(1),mesh(2),mesh(3)))
-
     allocate(buffer(mesh(1),mesh(2),mesh(3)))
     allocate(photon_loss_src_thread(nthreads))
   !   allocate(photon_loss_src_thread(1:NumFreqBnd,1))   

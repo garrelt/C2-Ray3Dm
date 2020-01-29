@@ -10,13 +10,13 @@ module radiation_tables
   use my_mpi
   use file_admin, only: logf
   use mathconstants, only: pi
-  use cgsconstants, only: sigma_SB => sigmasb, &                    ! Stefan-Boltzmann constant
+  use cgsconstants, only: sigma_SB, &                    ! Stefan-Boltzmann constant
                           hplanck, &                     ! Planck constant
-                          k_B => kb, &                         ! Boltzmann constant
-                          two_pi_over_c_square => two_pi_c2, &        ! two times pi over c aquare
+                          k_B, &                         ! Boltzmann constant
+                          two_pi_over_c_square, &        ! two times pi over c aquare
                           ev2fr                          ! eV to Hz conversion
-  use cgsphotoconstants, only: ion_freq_HI  => frth0,&             ! HI ionization energy in frequency
-                               sigma_HI_at_ion_freq  => sigh    ! HI cross section at i
+  use cgsphotoconstants, only: ion_freq_HI,&             ! HI ionization energy in frequency
+                               sigma_HI_at_ion_freq      ! HI cross section at i
   use astroconstants, only: R_SOLAR, &                   ! Solar radius
                             L_SOLAR                      ! Solar luminosity
   use romberg, only: scalar_romberg, &                   ! 1D integration function
@@ -152,7 +152,7 @@ contains
     if (grey .and. rank == 0) write(logf,*) 'WARNING: Using grey opacities'
 
     if (rank == 0) then
-       write(logf,"(A,I3)") "Using BB up to frequency ", &
+       write(logf,"(A,ES10.3)") "Using BB up to frequency ", &
             freq_max(NumBndin1)
        write(logf,"(A,F10.2,A)") "  this is energy ", &
             freq_max(NumBndin1)/ev2fr," eV"
@@ -206,8 +206,10 @@ contains
     if (rank == 0) then
        write(logf,*) "bb_photo_thick_table: ",sum(bb_photo_thick_table(0,:))
        write(logf,*) "bb_photo_thin_table: ",sum(bb_photo_thin_table(0,:))
-       write(logf,*) "bb_heat_thick_table: ",(bb_heat_thick_table(0,1))
-       write(logf,*) "bb_heat_thin_table: ",(bb_heat_thin_table(0,1))
+       if (.not.isothermal) then
+          write(logf,*) "bb_heat_thick_table: ",(bb_heat_thick_table(0,1))
+          write(logf,*) "bb_heat_thin_table: ",(bb_heat_thin_table(0,1))
+       endif
     endif
     
   end subroutine spec_integration

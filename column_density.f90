@@ -275,7 +275,7 @@ contains
   !> Weight function for interpolation in cinterp
   real(kind=dp) function weightf (cd,id)
 
-    use cgsphotoconstants, only: sigma_HI_at_ion_freq => sigh
+    use cgsphotoconstants, only: sigma_HI_at_ion_freq
     real(kind=dp):: sig
     real(kind=dp),intent(in) :: cd
     integer,intent(in) :: id

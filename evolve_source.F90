@@ -111,8 +111,8 @@ contains
     ! photons are leaving this subbox and we need to do another
     ! one. We also stop once we have done the whole grid.
     nbox=0 ! subbox counter
-    total_source_flux=NormFlux(ns)*S_star+ &
-         NormFluxPL(ns)*pl_S_star
+    total_source_flux=NormFlux(ns)*S_star ! &
+         !! + NormFluxPL(ns)*pl_S_star
     photon_loss_src=total_source_flux !-1.0 ! to pass the first while test
     last_r(:)=srcpos(:,ns) ! to pass the first while test
     last_l(:)=srcpos(:,ns) ! to pass the first while test
