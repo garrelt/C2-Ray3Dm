@@ -1,0 +1,98 @@
+!  real(kind=dp),parameter :: QH_M_real00 = 10d0**46.8d0
+  real(kind=dp),parameter :: QH_M_real00 = 6.309573445d46 ! = 10^46.8
+
+  real(kind=dp) :: CC01   !< conversion from difference between C2Ray lifetime and true lifetime of low-mass source
+  real(kind=dp) :: QH_M_C2ray01
+  real(kind=dp),parameter :: QH_M_real01 = 1.2d48
+
+  ! LW emissivity for each type of source
+  real(kind=dp),parameter :: emis00  = 1.67d21  !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of high-mass source
+  real(kind=dp),parameter :: emis01  = 3d21   !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of low-mass source
+  real(kind=dp),parameter :: emissub = 3d21   !< LW emissivity (erg s^-1 Hz^-1 Msun^-1) of subgrid source
+
+
+QH_M_C2ray00  = Ni(1) * (M_solar/m_p)  /C2ray_lifetime
+   
+
+CC00          = QH_M_C2ray00 / QH_M_real00
+
+coeff00       = emis00 * CC00 * fstar(1) * Omega_B/Omega0
+
+L_LW = sM00_msun(n00) * coeff00
+
+sM00_msun (ns00) = SrcMass00*(M_grid/M_SOLAR)
+
+L_LW_HMACH = emis00 * Ni(1) / QH_M_real00 * fstar(1) * M_halo * Omega_B/(Omega0*m_p) / C2ray_lifetime 
+
+
+QH_M_C2ray01 = Ni(2) * (M_solar/m_p)  /C2ray_lifetime
+
+CC01 = QH_M_C2ray01 / QH_M_real01
+
+coeff01 = emis01 * CC01 * fstar(2) * Omega_B/Omega0
+
+L_LW_LMACH = sM01_msun(n01) * coeff01
+
+L_LW_LMACH = emis01 * Ni(2) / QH_M_real01 * fstar(2) * M_halo * Omega_B/(Omega0*m_p) / C2ray_lifetime 
+
+L_LW_HMACH = M_halo * emiss(1) * Ni(1) / QH_M_real(1) * fstar(1) /m_p * Omega_B/Omega0 / lifetime 
+
+
+LW luminosity for MH sources
+----------------------------
+
+    ! Different subgrid source population schemes reflected by MHflag
+    ! MHflag = 1: uniform star formation out of given baryon content
+    !          2: one Pop III star/ one minihalo
+    ! Below ssM_msun differs for different MHflags. Also note difference
+    ! in fstar(3). ssM_msun is total subgrid stellar mass for MHflag=2.
+
+    MHflag == 1
+
+       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)  /lifetime
+       CCsub          = QH_M_C2raysub / QH_M_realsub
+       coeffsub       = emissub * CCsub * fstar(3) * Omega_B/Omega0
+
+       ssM_msun(nsub) * coeffsub
+       ssM_msun(nsub) * emissub * Ni(3) * (M_solar/m_p)  /lifetime / QH_M_realsub * fstar(3) * Omega_B/Omega0
+       ssM_msun(nsub) * M_solar * emiss(3) * Ni(3) / QH_M_real(3) * fstar(3) /m_p * Omega_B/Omega0 / lifetime
+
+       
+    MHflag == 2
+    
+       QH_M_C2raysub  = Ni(3) * (M_solar/m_p)  /lifetime
+       CCsub          = QH_M_C2raysub / QH_M_realsub
+       ! Check out the difference from MHflag=1 case!!!
+       coeffsub       = emissub * CCsub 
+
+       ssM_msun * coeffsub
+       LW: ssM_msun * M_solar * emiss(3) * Ni(3) / QH_M_real(3) /m_p /lifetime 
+       EUV: ssM_msun * M_solar * phot_per_atom(3) / fstar(3) / m_p /lifetime
+
+       phot_per_atom(3) = Ni(3) * fstar(3) * fesc(3)
+EUV Luminosity for MH sources
+
+       ! Convert subgrid source masses into grid mass unit, and then
+       ! multiply phot_per_atom(3). Result is similar to srcMass under
+       ! source_properties(but see below for difference when MHflag=2, 
+       ! need to divide by fstar(3), since stellar mass is used then.). 
+       ! Use it just internally.
+       ! Also see below for the subNormFlux for the difference.
+ MHflag == 1
+
+       subsrcMass = ssM_msun * (M_SOLAR/M_grid) * phot_per_atom(3)
+       subNormFlux = subsrcMass * M_grid * Omega_B/(Omega0*m_p) &
+               /S_star_nominal /AGlifetime
+
+       subNormFlux = ssM_msun * M_SOLAR * phot_per_atom(3) /m_p * Omega_B/Omega0 / lifetime
+       subNormFlux = subNormFlux / S_star_nominal
+
+MHflag == 2
+
+       subsrcMass = ssM_msun * (M_SOLAR/M_grid) * phot_per_atom(3) / fstar(3)
+       subNormFlux = subsrcMass * M_grid          /        m_p  &
+               /S_star_nominal /AGlifetime
+
+       subNormFlux = ssM_msun * M_SOLAR * phot_per_atom(3) / fstar(3) / m_p /lifetime
+       subNormFlux = subNormFlux / S_star_nominal
+
