@@ -322,6 +322,9 @@ Program C2Ray
              sim_time/YEAR,actual_dt/YEAR," (years)"
 
         ! For cosmological simulations evolve proper quantities
+        ! We choose to scale the proper quantities to the halfway
+        ! point between the start and the end of the integration
+        ! time step (acutal_dt)
         if (cosmological) then
            call redshift_evol(sim_time+0.5*actual_dt)
            call cosmo_evol()
