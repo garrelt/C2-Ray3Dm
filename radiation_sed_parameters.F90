@@ -54,7 +54,7 @@ module radiation_sed_parameters
   real(kind=dp) :: R_star2 = 0.0     ! Square of R_star
   real(kind=dp) :: h_over_kT    ! Planck constant over k_B * T_eff
   real(kind=dp) :: bb_MaxFreq           ! Maximum frequency for integration of total power of BB
-  real(kind=dp) :: freq_max_src ! Maximum frequency for integration of total power
+  !real(kind=dp) :: freq_max_src ! Maximum frequency for integration of total power
 
   ! The lowest and highest frequency subbands used for the bb and pl source
   integer :: bb_FreqBnd_UpperLimit=NumFreqBnd
@@ -76,11 +76,11 @@ module radiation_sed_parameters
 contains
 
   ! Ask for the parameters of the spectrum
-  subroutine spectrum_parms (max_freq_src)
+  subroutine spectrum_parms (freq_max_src)
     
     use file_admin, only: stdinput, file_input
     
-    real(kind=dp),intent(out) :: max_freq_src
+    real(kind=dp),intent(out) :: freq_max_src
 
     integer :: i_choice = 0                 ! option number
     real(kind=dp) :: bb_luminosity_unscaled ! black body total flux
@@ -334,7 +334,6 @@ contains
        
        ! Black-body flux (photon sense)
        S_star_unscaled = integrate_sed(freq_min(1),freq_max(NumFreqBnd),"B","S")
-       
        ! If S_star is zero, it is set here.
        if (S_star == 0.0) then
           S_star=S_star_unscaled

@@ -389,8 +389,8 @@ contains
 
       ! redshift weighted parameters
       paramsscm(:,:) = params_scm(idx_z,:,:)*w1 + params_scm(idx_z+1,:,:)*w2
-      print "(5f9.5)", paramsscm
-      print *,
+      !write(logf,"(5f9.5)") paramsscm
+      !print *,
 
       ! loop over density grid
       do i = 1, mesh(1)

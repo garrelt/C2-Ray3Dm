@@ -42,7 +42,7 @@ module sourceprops
   !> number of columns in source list
   !! GM 191219: This parameter should depend on the nbody_type
   integer,parameter,private :: ncolumns_srcfile=4
-  real,dimension(ncolumns_srcfile),private :: srclist
+  real(kind=dp),dimension(ncolumns_srcfile),private :: srclist
 
   !> maximum increase in uv to use up cumulated photons
   real(kind=dp),parameter,private :: cumfrac_max=0.15 
@@ -114,6 +114,9 @@ contains
        sourcelistfilesuppress=construct_sourcefilename(zred_now, nz, &
             sourcelistfilesuppress_base)
 
+       write(*,*) sourcelistfile
+       write(*,*) sourcelistfilesuppress
+       
        ! Count the active sources (using the source model). This
        ! will set NumSrc to the number of active sources, to be
        ! used in defining the source arrays.
@@ -140,7 +143,7 @@ contains
        ! Rank 0 reads in the sources
        if (rank == 0) then
           ! Read in the sources and apply source model
-          call count_or_read_in_sources (zred_now, nz, restart, "read")
+          call count_or_read_in_sources (zred_now, nz, restart, "read ")
     
           ! Convert NormFlux from mass units to uv photon production rates
           call assign_uv_luminosities (lifetime2,nz)
@@ -149,6 +152,9 @@ contains
           write(logf,*) 'Source lifetime =', lifetime2/(1e6*YEAR),' Myr'
           write(logf,*) 'Total rate of ionizing photons = ', &
                sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1'
+          write(*,*) 'Total rate of ionizing photons = ', &
+               sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1', &
+               sum(NormFlux(1:NumSrc)),' s^-1'
 
           ! Make a randomized list of source labels.
           !call make_random_srclist ()
@@ -264,7 +270,7 @@ contains
           NumMassiveSrc = 0
           NumSupprbleSrc = 0
           NumSupprsdSrc = 0
-       case("read")
+       case("read ")
           ns=0
           SrcMass00=0.0
           SrcMass01=0.0
@@ -311,7 +317,7 @@ contains
              select case(label)
              case("count") 
                 NumSrc=NumSrc+1
-             case("read")
+             case("read ")
                 ns=ns+1
                 ! Source positions in file start at 1!
                 srcpos(1,ns)=srcpos0(1)
@@ -334,20 +340,25 @@ contains
           write(logf,*) "Number of massive sources: ",NumMassiveSrc
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
                real(NumSupprsdSrc)/real(NumSupprbleSrc)
-       case("read")
+       case("read ")
           ! Record source list in sourcelistfilesuppress: first
           ! construct file name
           sourcelistfilesuppress= &
                construct_sourcefilename(redshift,number_of_redshift, &
                sourcelistfilesuppress_base)
           ! Save new source list, without the suppressed ones
-          open(unit=49,file=sourcelistfilesuppress,status='unknown')
-          write(49,*) NumSrc
-          do ns0=1,NumSrc
-             write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-                  NormFlux(ns0)
-          enddo
-          close(49)
+          ! Only do this if this suppressed source list is different
+          ! in name, otherwise you will overwrite the original source list
+          ! (relevant for the test case)
+          if (sourcelistfilesuppress /= sourcelistfile) then
+             open(unit=49,file=sourcelistfilesuppress,status='unknown')
+             write(49,*) NumSrc
+             do ns0=1,NumSrc
+                write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
+                     NormFlux(ns0)
+             enddo
+             close(49)
+          endif
        end select
 
     else ! of restart test
@@ -420,6 +431,7 @@ contains
 
     integer :: ns
 
+    write(*,*) UV_Model
     ! Turn masses into luminosities
     select case (UV_Model)
     case ("Iliev et al", "Iliev et al partial supp.")
@@ -467,10 +479,12 @@ contains
           if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
-       case("Test")
-          ! Do nothing, the photon production rate is already set from
-          ! the source file
-          !NormFlux(ns)=NormFlux(ns)
+    case("Test")
+       ! Do nothing, the photon production rate is already set from
+       ! the source file
+       write(*,*) "Yes",NormFlux(1),S_star_nominal
+       NormFlux(:)=NormFlux(:)/S_star_nominal
+       write(*,*) "Yes",NormFlux(1),S_star_nominal
     end select
     
   end subroutine assign_uv_luminosities

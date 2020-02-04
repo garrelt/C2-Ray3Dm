@@ -1,7 +1,9 @@
-0 1 1 1 1    !output streams
-1e4          !temp
-n            !restart (y/n)
+0 1 1 1 1    ! output streams
+1e4          ! temp
+n            ! restart (y/n)
 n            ! restart from intermediate time (y/n)
-1            !from which slice to start/restart
-10           !number of timesteps per density/source slice
-2            !number of outputs per density/source slice
+1            ! from which slice to start/restart
+dummy	     ! Clumping fit table
+4	     ! UV Luminosity recipe
+10           ! number of timesteps per density/source slice
+2            ! number of outputs per density/source slice
