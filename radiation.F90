@@ -53,7 +53,7 @@ module radiation
   use my_mpi
   use file_admin, only: logf
   use mathconstants, only: pi
-  use cgsconstants, only: sigmasb, hplanck, kb, tpic2
+  use cgsconstants, only: sigmasb, hplanck, kb, tpic2, ev2fr
   use cgsphotoconstants, only: frth0, frtop1, frtop2, sh0, betah0, sigh
   use astroconstants, only: R_SOLAR, L_SOLAR
   use romberg, only: scalar_romberg,vector_romberg,romberg_initialisation
@@ -410,7 +410,14 @@ contains
        ! Upper limit of frequency integration
        frmax=min(frtop1,10.0*frtop2)
        
-       ! Step size in frequency 
+       if (rank == 0) then
+          write(logf,"(A,ES10.3)") "Using BB up to frequency ", &
+               frmax
+       write(logf,"(A,F10.2,A)") "  this is energy ", &
+            frmax/ev2fr," eV"
+    endif
+
+    ! Step size in frequency 
        steph0(1)=(frmax-frth0)/real(NumFreq)
 
        do i=0,NumFreq
@@ -549,6 +556,16 @@ contains
        deallocate(hh0int1)
     endif
 
+    ! report a table value
+    if (rank == 0) then
+       write(logf,*) "bb_photo_thick_table: ",sum(hphot(0,:))
+       write(logf,*) "bb_photo_thin_table: ",sum(hphot1(0,:))
+       if (.not.isothermal) then
+          write(logf,*) "bb_heat_thick_table: ",(hheat(0,1))
+          write(logf,*) "bb_heat_thin_table: ",(hheat1(0,1))
+       endif
+    endif
+    
   end subroutine spec_integr
 
   ! =======================================================================
