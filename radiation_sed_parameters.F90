@@ -293,8 +293,10 @@ contains
     ! Set maximum frequency for integration. For the BB source this is calculated
     ! from the exponent in the BB equation, for the PL source this has been specified.
     ! We take the maximum of the two
+    ! GM/200220: Is this ok? A very high max freq for BB can be detrimental??
     bb_MaxFreq = 25.0/h_over_kT
     freq_max_src=max(pl_MaxFreq,bb_MaxFreq)
+    freq_max_src=bb_MaxFreq
 
   end subroutine spectrum_parms
   
