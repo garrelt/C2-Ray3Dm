@@ -114,9 +114,6 @@ contains
        sourcelistfilesuppress=construct_sourcefilename(zred_now, nz, &
             sourcelistfilesuppress_base)
 
-       write(*,*) sourcelistfile
-       write(*,*) sourcelistfilesuppress
-       
        ! Count the active sources (using the source model). This
        ! will set NumSrc to the number of active sources, to be
        ! used in defining the source arrays.
@@ -152,9 +149,6 @@ contains
           write(logf,*) 'Source lifetime =', lifetime2/(1e6*YEAR),' Myr'
           write(logf,*) 'Total rate of ionizing photons = ', &
                sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1'
-          write(*,*) 'Total rate of ionizing photons = ', &
-               sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1', &
-               sum(NormFlux(1:NumSrc)),' s^-1'
 
           ! Make a randomized list of source labels.
           !call make_random_srclist ()
@@ -431,7 +425,6 @@ contains
 
     integer :: ns
 
-    write(*,*) UV_Model
     ! Turn masses into luminosities
     select case (UV_Model)
     case ("Iliev et al", "Iliev et al partial supp.")
@@ -482,9 +475,7 @@ contains
     case("Test")
        ! Do nothing, the photon production rate is already set from
        ! the source file
-       write(*,*) "Yes",NormFlux(1),S_star_nominal
        NormFlux(:)=NormFlux(:)/S_star_nominal
-       write(*,*) "Yes",NormFlux(1),S_star_nominal
     end select
     
   end subroutine assign_uv_luminosities
