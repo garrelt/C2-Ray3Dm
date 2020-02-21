@@ -195,7 +195,7 @@ contains
        ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
        ! This option is temporarily disabled by testing niter == -1 which
        ! is always false.
-       if (niter == 1 .and. coldensh_in < max_coldensh) then
+       if (niter == -1 .and. coldensh_in < max_coldensh) then
           local_chemistry=.true.
           dummiphi%photo_cell_HI=0.0_dp
 
@@ -260,6 +260,12 @@ contains
           phi%heat = 0.0_dp
           phi%photo_in = 0.0_dp
           phi%photo_out = 0.0_dp
+       endif
+
+       if ( all( rtpos(:) == srcpos(:,ns) ) ) then
+          write(logf,*) phi%photo_cell_HI,phi%photo_out_HI,coldensh_in, &
+               coldensh_out(pos(1),pos(2),pos(3)),vol_ph
+          write(logf,*) ion%h_av(0),ndens_p
        endif
        
        ! Add photo-ionization rate to the global array 
