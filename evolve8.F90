@@ -980,6 +980,10 @@ contains
     !ns=SrcSeries(ns1)
     ns=ns1
     
+    ! Report on source
+    write(logf,*) "Source number: ",ns
+    write(logf,*) NormFlux(ns)
+    write(logf,*) srcpos(:,ns)
     ! reset column densities for new source point
     ! coldensh_out is unique for each source point
     coldensh_out(:,:,:)=0.0
@@ -1671,7 +1675,12 @@ contains
           phi%h=0.0
           phi%h_out=0.0
        endif
-       
+
+       if ( all( rtpos(:) == srcpos(:,ns) ) ) then
+          write(logf,*) phi%h,phi%h_out,coldensh_in, &
+               coldensh_out(pos(1),pos(2),pos(3)),vol_ph
+          write(logf,*) yh_av(0),ndens_p
+       endif
        ! Add photo-ionization rate to the global array 
        ! (applied in evolve0D_global)
        phih_grid(pos(1),pos(2),pos(3))= &
@@ -1689,6 +1698,10 @@ contains
 
     endif ! end of coldens test
 
+    if ( all( rtpos(:) == srcpos(:,ns) ) ) then
+       write(logf,*) "PhiH at source: ",phih_grid(pos(1),pos(2),pos(3))
+    endif
+    
   end subroutine evolve0D
 
   ! =======================================================================
