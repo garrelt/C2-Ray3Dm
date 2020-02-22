@@ -211,9 +211,9 @@ contains
        ! In case of a restart this will be overwritten in xfrac_ini
 #ifdef ALLFRAC
        xh(:,:,:,0)=1.0
-       xh(:,:,:,1)=0.0
+       xh(:,:,:,1)=2e-4
 #else
-       xh(:,:,:)=1e-5
+       xh(:,:,:)=2e-4
 #endif
 
     endif
