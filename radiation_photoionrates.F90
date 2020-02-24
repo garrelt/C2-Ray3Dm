@@ -280,8 +280,11 @@ contains
        photo_lookuptable%photo_in = &
             photo_lookuptable%photo_in + phi_photo_in_all
 
+       write(logf,*) "in",phi_photo_in_all
+
        ! Total cell photo-ionization rate, calculated differently
        ! for optically thick and thin cells
+       write(logf,*) tau_out_all(i_subband),tau_in_all(i_subband)
        if (abs(tau_out_all(i_subband)-tau_in_all(i_subband)) > &
             tau_photo_limit) then
           
@@ -290,7 +293,7 @@ contains
                read_table(photo_thick_table,NumFreqBnd, &
                tau_pos_out,i_subband,i_subband)
           phi_photo_all = phi_photo_in_all-phi_photo_out_all
-          
+          write(logf,*) "thick",phi_photo_out_all, phi_photo_all 
        else
           
           ! When current cell is optically thin
@@ -299,12 +302,13 @@ contains
                read_table(photo_thin_table,NumFreqBnd, &
                tau_pos_in,i_subband,i_subband)
           phi_photo_out_all = phi_photo_in_all-phi_photo_all
+          write(logf,*) "thin",phi_photo_out_all, phi_photo_all 
 
        endif
 
        ! Collect all outgoing photons
-       photo_lookuptable%photo_out = &
-            photo_lookuptable%photo_out + phi_photo_out_all
+       photo_lookuptable%photo_out_HI = &
+            photo_lookuptable%photo_out_HI + phi_photo_out_all
 
        ! Assign to the HI photo-ionization rate
        photo_lookuptable%photo_cell_HI = photo_lookuptable%photo_cell_HI + &
