@@ -1550,8 +1550,6 @@ contains
        pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
     enddo
 
-    write(logf,*) "source,pos:",ns,pos
-
     ! If coldensh_out is zero, we have not yet done this point
     ! yet, so do it. Otherwise do nothing.
     if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then
@@ -1888,6 +1886,10 @@ contains
        ! Calculate the new and mean ionization states
        call doric(dt,temperature_average,de,ndens_p,yh,yh_av,phih_cell)
 
+       if (pos(1) == 50 .and. pos(2) == 50 .and. pos(3)  == 50) then
+          write(logf,*) "After doric: ",phih_cell,temperature_average, &
+               de,ndens_p,yh,yh_av,yh_av0,yh0
+       endif
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence
        if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
