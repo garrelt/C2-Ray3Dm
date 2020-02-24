@@ -92,7 +92,7 @@ contains
 
     ! column density for stopping chemistry !***how should this criterion be for including he and more than one freq bands?
     ! for the moment, leave it as it is, it's probably ok. 
-    real(kind=dp),parameter :: max_coldensh=2e29!2.0e22_dp!2e19_dp 
+    real(kind=dp),parameter :: max_coldensh=2e19 !2e29!2.0e22_dp!2e19_dp 
     
     logical :: falsedummy ! always false, for tests
     parameter(falsedummy=.false.)
