@@ -79,7 +79,8 @@ contains
 
     case (1)
 
-       pl_index_cross_section_HI(1) = 2.761_dp
+       !pl_index_cross_section_HI(1) = 2.761_dp
+       pl_index_cross_section_HI(1) = 2.8_dp
 
     end select
 
