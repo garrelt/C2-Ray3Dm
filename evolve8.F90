@@ -1542,7 +1542,6 @@ contains
     
     type(photrates) :: phi
 
-    !write(*,*) rtpos
     ! set convergence tolerance
     convergence=convergence1
 
@@ -1550,6 +1549,8 @@ contains
     do idim=1,Ndim
        pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
     enddo
+
+    write(logf,*) "source,pos:",ns,pos
 
     ! If coldensh_out is zero, we have not yet done this point
     ! yet, so do it. Otherwise do nothing.
