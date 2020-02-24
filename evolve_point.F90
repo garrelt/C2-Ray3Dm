@@ -449,8 +449,11 @@ contains
        ! Copy ionic abundances back to initial values (doric assumes
        ! that it contains this) !*** this is not longer needed because I have the
        ! *** old values in ion%
+       ! GM/200224: This is true but doric does not use this structure!!!
+       ! This should be fixed! For now copy back the old values.
        !yh(:)=yh0(:)
-              
+       ion%h(:)=ion%h_old(:)
+       
        ! Calculate (mean) electron density
        de=electrondens(ndens_p,ion%h_av)
 
@@ -494,6 +497,11 @@ contains
        
        call doric(dt, temperature_start%average, de, ndens_p, &
             ion%h, ion%h_av, phi%photo_cell_HI)!,local)! 
+       if (pos(1) == 50 .and. pos(2) == 50 .and. pos(3)  == 50) then
+          write(logf,*) "After doric: ",phi%photo_cell_HI,temperature_start%average, &
+               de,ndens_p,ion%h,ion%h_av,yh0_av_old,ion%h_old
+       endif
+
        de=electrondens(ndens_p,ion%h_av)
        
        temper1=temper0 

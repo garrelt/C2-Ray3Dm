@@ -175,6 +175,7 @@ contains
 
     totrec=totrec*vol*dt
     totcollisions=totcollisions*vol*dt
+    write(logf,*) "Rates: ",totrec,totcollisions
 
   end subroutine total_rates
   
@@ -218,6 +219,7 @@ contains
     ! Photon statistics: Total number of new ionizations
     dh0=(h0_before-h0_after)
     total_ion=totrec+dh0
+    write(logf,*) "Before, after: ",h0_before,h0_after
     
   end subroutine total_ionizations
 
