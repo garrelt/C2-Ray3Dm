@@ -488,6 +488,9 @@ contains
           photcons=(total_ion-totcollisions)/totalsrc
           !photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
 
+          write(logf,*) "Change in output: ",total_ion
+          write(logf,*) "Rates in output: ",totrec,totcollisions
+          
           ! Write PhotonCounts.dat
           if (time > 0.0) then
              write(90,"(f6.3,9(es10.3))") &
