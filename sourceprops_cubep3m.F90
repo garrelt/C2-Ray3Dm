@@ -45,7 +45,7 @@ module sourceprops
   integer,parameter :: LMACH_SUPPR=6
 
   !> maximum increase in uv to use up cumulated photons
-  real(kind=dp),parameter,private :: cumfrac_max=0.15 
+  real(kind=dp),parameter,private :: cumulative_fraction_max=0.15 
 
   integer :: NumSrc=0 !< Number of sources
   integer :: Prev_NumSrc !< Previous number of sources
@@ -68,14 +68,17 @@ module sourceprops
   integer,private :: NumMassiveSrc !< counter: number of massive sources
   integer,private :: NumSupprbleSrc !< counter: number of suppressible sources
   integer,private :: NumSupprsdSrc !< counter: number of suppressed sources
-  real(kind=dp),private :: MassHMACH !< total mass of high mass sources
-  real(kind=dp),private :: MassLMACH !< total mass of suppressible sources
-  real(kind=dp),private :: MassLMACHsupprsd !< total mass of suppressed sources
+  real(kind=dp),private :: MassACH !< total mass atomically cooling halos (ACH)
+  real(kind=dp),private :: MassHMACH !< total mass of high mass halos
+  real(kind=dp),private :: MassLMACH !< total mass of suppressible halos
+  real(kind=dp),private :: MassLMACHsupprsd !< total mass of suppressed halos
+  real(kind=dp),private :: dMassACH !< change in ACH mass
   real(kind=dp),private :: dMassHMACH !< change in HMACH mass
   real(kind=dp),private :: dMassLMACHactive !< change in active LMACH mass
+  real(kind=dp),private :: MassACH_previous !< previous mass in ACH
   real(kind=dp),private :: MassHMACH_previous !< previous mass in HMACH
   real(kind=dp),private :: MassLMACHactive_previous !< previous mass in active LMACH
-  real(kind=dp),private :: cumfrac
+  real(kind=dp),private :: cumulative_fraction
   real(kind=dp),private :: xh_ion !< keeps local ionization fraction
   character(len=512),private :: sourcelistfile,sourcelistfilesuppress, &
        sourcelistfile_previous
@@ -141,10 +144,11 @@ contains
        if (UV_model == "Collapsed fraction growth") then
           if (nz>1) then
              call establish_number_of_active_sources (-1,sourcelistfile_previous)
-             MassHMACH_previous=MassHMACH
-             MassLMACHactive_previous=MassLMACH-MassLMACHsupprsd
+             ! Find total mass in DM halos from previous slice
+             MassACH_previous=MassHMACH+MassLMACH
+             !MassLMACHactive_previous=MassLMACH-MassLMACHsupprsd
           else
-             MassHMACH_previous=0.0
+             MassACH_previous=0.0
              MassLMACHactive_previous=0.0
           endif
        endif
@@ -153,19 +157,22 @@ contains
 
        ! Calculate change in mass, this will be used to calculate the luminosity
        if (UV_model == "Collapsed fraction growth") then
-          
-          dMassHMACH=MassHMACH-MassHMACH_previous
-          write(logf,*) "Change in HMACH mass: ",dMassHMACH
-          if (dMassHMACH < 0.0) then
-             dMassHMACH=0.0
-             write(logf,*) "Change in HMACH mass set to zero"
+
+          ! Find total growth in DM mass halos
+          MassACH=MassHMACH+MassLMACH
+          dMassACH=MassACH-MassACH_previous
+          !dMassHMACH=MassHMACH-MassHMACH_previous
+          write(logf,*) "Change in atomically cooling halo mass: ",dMassACH
+          if (dMassACH < 0.0) then
+             dMassACH=0.0
+             write(logf,*) "Change in atomically cooling halo mass set to zero"
           endif
-          dMassLMACHactive=MassLMACH-MassLMACHsupprsd-MassLMACHactive_previous
-          write(logf,*) "Change in active LMACH mass: ",dMassLMACHactive
-          if (dMassLMACHactive < 0.0) then
-             dMassLMACHactive=0.0
-             write(logf,*) "Change in activeLMACH mass set to zero"
-          endif
+          !!dMassLMACHactive=MassLMACH-MassLMACHsupprsd-MassLMACHactive_previous
+          !!write(logf,*) "Change in active LMACH mass: ",dMassLMACHactive
+          !!if (dMassLMACHactive < 0.0) then
+          !!   dMassLMACHactive=0.0
+          !!   write(logf,*) "Change in activeLMACH mass set to zero"
+          !!endif
        endif
        
     endif ! end of rank 0 test
@@ -236,7 +243,7 @@ contains
   subroutine establish_number_of_active_sources (restart,file_to_use)
 
     integer,intent(in) :: restart
-  character(len=512),intent(in) :: file_to_use
+    character(len=512),intent(in) :: file_to_use
     real :: odens	
 
     integer :: ns0
@@ -373,7 +380,8 @@ contains
              if (UV_Model == "Iliev et al" .or. &
                   UV_Model == "Iliev et al partial supp." .or. &
                   UV_model == "Gradual supp." .or. &
-		  srclist(HMACH) > 0.0d0) then
+		  UV_Model == "Collapsed fraction growth" .or. &
+                  srclist(HMACH) > 0.0d0) then
                 ! the cell is still neutral, no suppression
                 ns=ns+1
                 ! Source positions in file start at 1!
@@ -388,11 +396,9 @@ contains
                    NormFlux(ns)=srclist(HMACH)*phot_per_atom(1) & !massive sources
                         + srclist(LMACH)*phot_per_atom(2)      !small sources  
                 elseif (UV_Model == "Collapsed fraction growth") then
-                   NormFlux(ns)=srclist(HMACH)*zeta(1)* &
-                        dMassHMACH/MassHMACH  & ! high mass sources
-                        ! low mass sources  
-                        + srclist(LMACH)*zeta(2)* &
-                        dMassLMACHactive/(MassLMACH-MassLMACHsupprsd) 
+                   NormFlux(ns)=(srclist(HMACH)*zeta(1) + & ! high mass sources
+                        srclist(LMACH)*zeta(2))* &! low mass sources  
+                        dMassACH/MassACH
                 else
                    NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
                 endif
@@ -402,9 +408,9 @@ contains
                .and. srclist(LMACH) > 0.0d0) &
                .or. (UV_model == "Gradual supp." &
                .and. srclist(LMACH_SUPPR) > 0.0d0)) then
-             !the cell is ionized but source is massive enough to survive
-             !and is assumed Pop. II, or source is low-mass, but we assume
-             !partial suppression, tuning down its efficiency  
+             ! The cell is ionized but source is massive enough to survive
+             ! and is assumed Pop. II, or source is low-mass, but we assume
+             ! partial suppression, tuning down its efficiency  
              ns=ns+1
              ! Source positions in file start at 1!
              srcpos(1,ns)=srcpos0(1)
@@ -429,7 +435,7 @@ contains
                      + srclist(LMACH_SUPPR)*phot_per_atom(2)      
                 
              elseif (UV_Model == "Collapsed fraction growth") then
-                NormFlux(ns)=srclist(HMACH)*zeta(1)*dMassHMACH/MassHMACH 
+                NormFlux(ns)=srclist(HMACH)*zeta(1)*dMassACH/MassACH 
              else
                 NormFlux(ns)=srclist(HMACH)
              endif
@@ -487,20 +493,20 @@ contains
        enddo
     case ("Fixed N_gamma")
        if (nz <= NumZred_uv) then
-          cumfrac=min(cumfrac_max,cumulative_uv/uv_array(nz))
+          cumulative_fraction=min(cumulative_fraction_max,cumulative_uv/uv_array(nz))
           if (rank == 0) then 
              write(logf,*) 'Cumulative versus current photons: ', &
                   cumulative_uv,uv_array(nz),cumulative_uv/uv_array(nz)
-             write(logf,*) 'Cumulative fraction used: ', cumfrac
+             write(logf,*) 'Cumulative fraction used: ', cumulative_fraction
           endif
           total_SrcMass=sum(NormFlux(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux(ns)=(1.0+cumfrac)*uv_array(nz)/lifetime2*NormFlux(ns)/total_SrcMass/S_star_nominal
+             NormFlux(ns)=(1.0+cumulative_fraction)*uv_array(nz)/lifetime2*NormFlux(ns)/total_SrcMass/S_star_nominal
              !NormFlux(ns)=(cumulative_uv+uv_array(nz))/lifetime2*SrcMass(ns,0)/total_SrcMass/S_star_nominal
           enddo
           ! Subtract extra photons from cumulated photons
-          cumulative_uv=max(0.0_dp,cumulative_uv-cumfrac*uv_array(nz))
+          cumulative_uv=max(0.0_dp,cumulative_uv-cumulative_fraction*uv_array(nz))
           !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
        else
           NormFlux(:)=0.0
