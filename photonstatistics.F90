@@ -219,7 +219,7 @@ contains
     ! Photon statistics: Total number of new ionizations
     dh0=(h0_before-h0_after)
     total_ion=totrec+dh0
-    write(logf,*) "Before, after: ",h0_before,h0_after
+    write(logf,*) "Before, after, change: ",h0_before,h0_after, total_ion
     
   end subroutine total_ionizations
 
