@@ -180,7 +180,7 @@ contains
 
     totrec=totrec*vol*dt
     totcollisions=totcollisions*vol*dt
-    write(logf, *) "Rates: ",totrec, totcollisions
+    !!write(logf, *) "Rates: ",totrec, totcollisions
     
   end subroutine total_rates
   
@@ -225,7 +225,7 @@ contains
     dh0=(h0_before-h0_after)
     total_ion=totrec+dh0
 
-    write(logf,*) "Before, after, change: ",h0_before, h0_after, total_ion
+    !!!write(logf,*) "Before, after, change: ",h0_before, h0_after, total_ion
     
   end subroutine total_ionizations
 

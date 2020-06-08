@@ -615,8 +615,10 @@ contains
     if (.not.isothermal) phi%hv_h_in=NormFlux(nsrc)* &
          (hheat(iodpo1,1)+(hheat(iodp11,1)-hheat(iodpo1,1))*dodpo1)
     
-    write(logf,*) "in",phi%h_in
-    write(logf,*) tauh_out,tauh_in
+    !!write(logf,*) "in",phi%h_in
+    !!write(logf,*) tauh_out,tauh_in
+
+
     ! Test for optically thick/thin case
     if (abs(tauh_out-tauh_in) > 1e-2) then 
        
@@ -638,7 +640,7 @@ contains
        ! the one coming in, and the one going out.
        phi%h=(phi%h_in-phi%h_out)/vol
        if (.not.isothermal) phi%hv_h=(phi%hv_h_in-phi%hv_h_out)/vol
-       write(logf,*) "thick",phi%h_out, phi%h*vol
+       !!!write(logf,*) "thick",phi%h_out, phi%h*vol
 
     else
        
@@ -654,7 +656,7 @@ contains
           phi%hv_h=NormFlux(nsrc)*(tauh_out-tauh_in)*( &
                hheat1(iodpo1,1)+(hheat1(iodp11,1)-hheat1(iodpo1,1))*dodpo1)/vol
           phi%hv_h_out=phi%hv_h_in-phi%hv_h*vol
-          write(logf,*) "thin",phi%h_out, phi%h*vol
+          !!!write(logf,*) "thin",phi%h_out, phi%h*vol
        endif
 
     endif

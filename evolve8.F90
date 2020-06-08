@@ -981,9 +981,9 @@ contains
     ns=ns1
     
     ! Report on source
-    write(logf,*) "Source number: ",ns
-    write(logf,*) NormFlux(ns)
-    write(logf,*) srcpos(:,ns)
+    !!write(logf,*) "Source number: ",ns
+    !!write(logf,*) NormFlux(ns)
+    !!write(logf,*) srcpos(:,ns)
     ! reset column densities for new source point
     ! coldensh_out is unique for each source point
     coldensh_out(:,:,:)=0.0
@@ -1675,11 +1675,12 @@ contains
           phi%h_out=0.0
        endif
 
-       if ( all( rtpos(:) == srcpos(:,ns) ) ) then
-          write(logf,*) phi%h,phi%h_out,coldensh_in, &
-               coldensh_out(pos(1),pos(2),pos(3)),vol_ph
-          write(logf,*) yh_av(0),ndens_p
-       endif
+       !!if ( all( rtpos(:) == srcpos(:,ns) ) ) then
+       !!   write(logf,*) phi%h,phi%h_out,coldensh_in, &
+       !!        coldensh_out(pos(1),pos(2),pos(3)),vol_ph
+       !!   write(logf,*) yh_av(0),ndens_p
+       !!endif
+       
        ! Add photo-ionization rate to the global array 
        ! (applied in evolve0D_global)
        phih_grid(pos(1),pos(2),pos(3))= &
@@ -1697,9 +1698,9 @@ contains
 
     endif ! end of coldens test
 
-    if ( all( rtpos(:) == srcpos(:,ns) ) ) then
-       write(logf,*) "PhiH at source: ",phih_grid(pos(1),pos(2),pos(3))
-    endif
+    !!if ( all( rtpos(:) == srcpos(:,ns) ) ) then
+    !!   write(logf,*) "PhiH at source: ",phih_grid(pos(1),pos(2),pos(3))
+    !!endif
     
   end subroutine evolve0D
 
@@ -1886,10 +1887,11 @@ contains
        ! Calculate the new and mean ionization states
        call doric(dt,temperature_average,de,ndens_p,yh,yh_av,phih_cell)
 
-       if (pos(1) == 50 .and. pos(2) == 50 .and. pos(3)  == 50) then
-          write(logf,*) "After doric: ",phih_cell,temperature_average, &
-               de,ndens_p,yh,yh_av,yh_av0,yh0
-       endif
+       !!if (pos(1) == 50 .and. pos(2) == 50 .and. pos(3)  == 50) then
+       !!   write(logf,*) "After doric: ",phih_cell,temperature_average, &
+       !!        de,ndens_p,yh,yh_av,yh_av0,yh0
+       !!endif
+       
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence
        if ((abs((yh_av(0)-yh_av0)/yh_av(0)) < convergence2 &
