@@ -1698,10 +1698,6 @@ contains
 
     endif ! end of coldens test
 
-    !!if ( all( rtpos(:) == srcpos(:,ns) ) ) then
-    !!   write(logf,*) "PhiH at source: ",phih_grid(pos(1),pos(2),pos(3))
-    !!endif
-    
   end subroutine evolve0D
 
   ! =======================================================================
