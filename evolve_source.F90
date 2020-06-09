@@ -208,15 +208,6 @@ contains
 
        endif
 
-       ! Report photon losses from subbox
-       logf1=logf+rank
-       write(logf1,"(2(A,I4))") "Photon loss from subbox ", nbox, &
-            " for source ",ns
-       write(logf1,"(ES10.3,A)") photon_loss_src," photons/s"
-       write(logf1,"(A,ES10.3,A)") "This is ", &
-            photon_loss_src/total_source_flux, &
-            " of total source rate."
-
     enddo
 
     ! Record the final photon loss, this is the photon loss that leaves

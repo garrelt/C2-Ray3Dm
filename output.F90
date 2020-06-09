@@ -566,16 +566,16 @@ contains
           ! massfrac: Global average ionized fraction (by mass)
 #ifdef ALLFRAC
           totions=sum(ndens(:,:,:)*xh(:,:,:,1))*vol
-          volfrac=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
-          massfrac=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
+          volfrac(0)=sum(xh(:,:,:,1))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac(0)=sum(ndens(:,:,:)*xh(:,:,:,1))/sum(real(ndens,dp))
 #else
           totions=sum(ndens(:,:,:)*xh(:,:,:))*vol
-          volfrac=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
-          massfrac=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
+          volfrac(0)=sum(xh(:,:,:))/real(mesh(1)*mesh(2)*mesh(3))
+          massfrac(0)=sum(ndens(:,:,:)*xh(:,:,:))/sum(real(ndens,dp))
 #endif
           ! Write PhotonCounts2.dat
           write(95,"(f6.3,4(es10.3))") zred_now,totions,grtotal_src, &
-               volfrac,massfrac
+               volfrac(0),massfrac(0)
           flush(95) ! force writing of output
           
           ! Report and flag for non-conservations of photons.

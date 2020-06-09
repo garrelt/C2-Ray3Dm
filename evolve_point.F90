@@ -262,12 +262,6 @@ contains
           phi%photo_out = 0.0_dp
        endif
 
-       if ( all( rtpos(:) == srcpos(:,ns) ) ) then
-          write(logf,*) phi%photo_cell_HI,phi%photo_out_HI,coldensh_in, &
-               coldensh_out(pos(1),pos(2),pos(3)),vol_ph
-          write(logf,*) ion%h_av(0),ndens_p
-       endif
-       
        ! Add photo-ionization rate to the global array 
        ! (this array is applied in evolve0D_global)
        phih_grid(pos(1),pos(2),pos(3))= &
@@ -286,9 +280,6 @@ contains
 
     endif ! end of coldens test
     
-    if ( all( rtpos(:) == srcpos(:,ns) ) ) then
-       write(logf,*) "PhiH at source: ",phih_grid(pos(1),pos(2),pos(3))
-    endif
   end subroutine evolve0D
 
   ! =======================================================================
@@ -497,10 +488,6 @@ contains
        
        call doric(dt, temperature_start%average, de, ndens_p, &
             ion%h, ion%h_av, phi%photo_cell_HI)!,local)! 
-       if (pos(1) == 50 .and. pos(2) == 50 .and. pos(3)  == 50) then
-          write(logf,*) "After doric: ",phi%photo_cell_HI,temperature_start%average, &
-               de,ndens_p,ion%h,ion%h_av,yh0_av_old,ion%h_old
-       endif
 
        de=electrondens(ndens_p,ion%h_av)
        

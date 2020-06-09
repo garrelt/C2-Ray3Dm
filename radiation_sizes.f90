@@ -10,7 +10,7 @@ module radiation_sizes
   
   implicit none
 
-  integer,parameter :: NumFreq = 512      ! Number of integration points in each of the frequency bins
+  integer,parameter :: NumFreq = 128      ! Number of integration points in each of the frequency bins
   integer,parameter :: NumTau = 2000      ! Number of table points for the optical depth
   integer,parameter :: NumBndin1 = 1      ! Number of frequency sub-bins in interval 1 
   integer,parameter :: NumFreqBnd=NumBndin1       ! Total number of frequency bins
