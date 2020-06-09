@@ -47,7 +47,7 @@ module radiation_tables
   real(kind=dp),parameter :: dlogtau = (maxlogtau-minlogtau)/real(NumTau)  ! dlogtau is the step size in log10(tau)
 
   ! Logical that determines the use of grey opacities
-  logical,parameter :: grey = .true. 
+  logical,parameter :: grey = .false. 
 
   ! The lowest and highest frequency subbands used for the bb and pl source
   integer :: bb_FreqBnd_LowerLimit=1
