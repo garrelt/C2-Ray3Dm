@@ -82,9 +82,10 @@ contains
     ns=ns1
 
     ! Report on source
-    write(logf,*) "Source number: ",ns
-    write(logf,*) NormFlux(ns)
-    write(logf,*) srcpos(:,ns)
+    !write(logf,*) "Source number: ",ns
+    !write(logf,*) NormFlux(ns)
+    !write(logf,*) srcpos(:,ns)
+
     ! reset column densities for new source point
     ! coldensh_out is unique for each source point
     coldensh_out(:,:,:)=0.0

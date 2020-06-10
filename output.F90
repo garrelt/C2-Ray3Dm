@@ -542,8 +542,8 @@ contains
           photcons=(total_ion-totcollisions)/totalsrc
           !photcons=(total_ion+LLS_loss-totcollisions)/totalsrc
 
-          write(logf,*) "Change in output: ",total_ion
-          write(logf,*) "Rates in output: ",totrec,totcollisions
+          !write(logf,*) "Change in output: ",total_ion
+          !write(logf,*) "Rates in output: ",totrec,totcollisions
          
           ! Write PhotonCounts.dat
           if (time > 0.0) then
@@ -581,7 +581,7 @@ contains
           ! Report and flag for non-conservations of photons.
           ! This flag will only have an effect if stop_on_photon_violation
           ! in c2ray_parameters is .true.
-          if (abs(1.0-photcons) > 0.15) then
+          if (time > 0.0 .and. abs(1.0-photcons) > 0.15) then
              if ((1.0-photcons) > 0.15 .and. &
                   total_photon_loss/totalsrc < (1.0-photcons) ) then
                 photcons_flag=1
