@@ -42,6 +42,7 @@ module nbody
   character(len=10),parameter :: nbody_type="test" !< ID of Nbody type
 
   real(kind=dp),parameter :: boxsize=100.0  !< Box size in Mpc/h comoving
+  integer,parameter :: n_box=-1  !< needed for consistency, do not use!  
 
   !> Path to directory containing directory with density files:
   character(len=*),parameter,private :: dir_dens_path = "" 
