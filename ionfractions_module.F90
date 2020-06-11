@@ -119,4 +119,40 @@ contains
     
   end subroutine xfrac_restart_init
 
+  ! ===========================================================================
+  
+  subroutine protect_ionization_fractions(xfrac,lowfrac,highfrac,ifraction, &
+       name)
+
+    integer,intent(in) :: lowfrac
+    integer,intent(in) :: highfrac
+    integer,intent(in) :: ifraction
+    real(kind=dp),dimension(mesh(1),mesh(2),mesh(3),lowfrac:highfrac), &
+         intent(inout) :: xfrac
+    character(len=*) :: name
+
+    integer :: i,j,k
+
+    ! Check the fractions for negative values
+    do k=1,mesh(3)
+       do j=1,mesh(2)
+          do i=1,mesh(1)
+             if (xfrac(i,j,k,ifraction) < 0.0d0) then
+#ifdef MPILOG
+                write(logf,*) name,' < 0 at ',i,j,k,xfrac(i,j,k,ifraction)
+#endif
+                xfrac(i,j,k,ifraction)=0.0_dp
+             endif
+             if (xfrac(i,j,k,ifraction) > 1.0d0) then
+#ifdef MPILOG
+                write(logf,*) name,' > 1 at ',i,j,k,xfrac(i,j,k,ifraction)
+#endif
+                xfrac(i,j,k,ifraction)=1.0_dp
+             endif
+          enddo
+       enddo
+    enddo
+    
+  end subroutine protect_ionization_fractions
+
 end module ionfractions_module
