@@ -1,6 +1,7 @@
 module sm3d
 
 use precision, only: dp,si
+use file_admin, only: logf
 
 contains
   subroutine read_sm3d_dp_file_routine(filename,data_array)
