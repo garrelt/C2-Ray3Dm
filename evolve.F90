@@ -35,7 +35,7 @@ module evolve
 
   use density_module, only: ndens
   use ionfractions_module, only: xh
-  use c2ray_parameters, only: isothermal
+  use c2ray_parameters, only: isothermal, use_LLS
   use temperature_module, only: set_final_temperature_point
   use sourceprops, only: NumSrc
   use photonstatistics, only: photon_loss, LLS_loss
@@ -46,13 +46,14 @@ module evolve
 
   use evolve_data, only: phih_grid, phiheat
   use evolve_data, only: xh_av, xh_intermed
-  use evolve_data, only: photon_loss_all
+  use evolve_data, only: photon_loss_all, buffer
   use evolve_point, only: local_chemistry
   use evolve_source, only: sum_nbox,sum_nbox_all
 
   use evolve_point, only: evolve0d_global
   use master_slave_processing, only: do_grid
 
+  use radiation_sizes, only: NumFreqBnd
   implicit none
 
   save
@@ -443,8 +444,6 @@ contains
     integer,intent(in) :: niter  ! iteration counter
     real(kind=dp),intent(in) :: dt  !< time step, passed on to evolve0D
 
-    real(kind=dp) :: LLS_loss_all
-    
 #ifdef MPI
     integer :: mympierror
 #endif
@@ -571,6 +570,8 @@ contains
 
   subroutine mpi_accumulate_grid_quantities
 
+    real(kind=dp) :: LLS_loss_all
+    
 #ifdef MPI
     integer :: mympierror
 #endif
@@ -612,6 +613,10 @@ contains
 
   subroutine mpi_accumulate_ionization_fractions
 
+#ifdef MPI
+    integer :: mympierror
+#endif
+    
 #ifdef MPI
     ! accumulate (max) MPI distributed xh_av
 #ifdef ALLFRAC
