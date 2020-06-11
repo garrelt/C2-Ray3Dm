@@ -34,7 +34,7 @@ module evolve
   use sizes, only: Ndim, mesh
 
   use density_module, only: ndens
-  use ionfractions_module, only: xh
+  use ionfractions_module, only: xh, protect_ionization_fractions
   use c2ray_parameters, only: isothermal, use_LLS
   use temperature_module, only: set_final_temperature_point
   use sourceprops, only: NumSrc
