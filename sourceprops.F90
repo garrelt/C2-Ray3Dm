@@ -41,7 +41,7 @@ module sourceprops
 
   !> number of columns in source list
   !! GM 191219: This parameter should depend on the nbody_type
-  integer,parameter,private :: ncolumns_srcfile=4
+  integer,parameter,private :: ncolumns_srcfile=5
   !> maximum number of columns in the source list file, used to
   !! declare the srclist array
   integer,parameter,private :: max_ncolumns_srcfile=10
@@ -157,16 +157,6 @@ contains
        ! used in defining the source arrays.
        call count_or_read_in_sources(zred_now, nz, restart, "count")
 
-       if (UV_model == "Collapsed fraction growth") then
-          dMassACH=MassACH-MassACH_previous
-          write(logf,*) "Change in atomically cooling halo mass: ",dMassACH, &
-               "( ",dMassACH/MassACH*100.," %)"
-          if (dMassACH < 0.0) then
-             dMassACH=0.0
-             write(logf,*) "Change in atomically cooling halo mass set to zero"
-          endif
-       endif
-
     endif
 
 #ifdef MPI
@@ -247,7 +237,7 @@ contains
        source_file=trim(adjustl(dir_src))//&
             trim(adjustl(redshift_str))//"-"// &
             trim(adjustl(id_str))// &
-            trim(adjustl(sourcelistfile_base))
+            trim(adjustl(basename))
 
     case("LG")
        ! Sources are read from files with redshift counter nz in the file name:
@@ -258,16 +248,12 @@ contains
        source_file=trim(adjustl(dir_src))//&
             trim(adjustl(number_of_redshift_str))//"-"// &
             trim(adjustl(id_str))// &
-            trim(adjustl(sourcelistfile_base))
+            trim(adjustl(basename))
 
     case("test")
        source_file=trim(adjustl(dir_src))//"test_sources.dat"
 
     end select
-
-    ! Report
-    write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-         " source list from ",trim(source_file)
 
     ! Copy result to function variable
     construct_sourcefilename=source_file
@@ -277,12 +263,12 @@ contains
   ! =======================================================================
 
   subroutine count_or_read_in_sources (redshift, number_of_redshift, &
-       restart, label)
+       restart, use_label)
 
     real(kind=dp),intent(in) :: redshift
     integer,intent(in) :: number_of_redshift
     integer,intent(in) :: restart
-    character(len=5),intent(in) :: label ! "count" or "read"
+    character(len=5),intent(in) :: use_label ! "count" or "read"
 
     integer :: ns
     integer :: ns0
@@ -299,6 +285,11 @@ contains
        ! Initialise srclist array to zero
        srclist(:)=0.0
        
+       ! Report
+       write(unit=logf,fmt="(6A)") "Reading ",trim(adjustl(id_str), &
+            " source list from ",trim(adjustl(sourcelistfile)," for ", &
+            trim(adjustl(use_label)
+
        ! Open original source list file
        open(unit=50,file=sourcelistfile,status='old')
 
@@ -306,7 +297,7 @@ contains
        read(50,*) NumSrc0
 
        ! Initialize counters and masses to zero
-       select case(label)
+       select case(use_label)
        case("count")
           ! Report
           write(logf,*) & 
@@ -316,12 +307,14 @@ contains
           NumMassiveSrc = 0
           NumSupprbleSrc = 0
           NumSupprsdSrc = 0
+          MassACH=0.0
           MassHMACH=0.0
           MassLMACH=0.0
           MassLMACHsupprsd=0.0
        case("read ")
           ns=0
           dMassACH=MassACH-MassACH_previous
+          write(logf,*) "Change in HMACH mass: ",dMassACH
        end select
 
        ! For every line in the source file
@@ -329,11 +322,12 @@ contains
           ! Read source file. The number of columns differs for
           ! different cases
           read(50,*) srclist(1:ncolumns_srcfile)
+
           ! Extract integer position from scrlist structure
           srcpos0(1:3)=int(srclist(1:3))
           
           ! Count different types of sources
-          if (label == "count") then
+          if (use_label == "count") then
              if (srclist(HMACH) > 0.0) then
                 NumMassiveSrc=NumMassiveSrc+1
                 MassHMACH=MassHMACH+srclist(HMACH)
@@ -343,19 +337,19 @@ contains
                 MassLMACH=MassLMACH+srclist(LMACH)
              endif
           endif
-
+             
           ! Now count or store sources, using the source recipe.
 #ifdef ALLFRAC
           ! Extract the ionization fraction in cell (used in some recipes)
-          xhii=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
+          xHii=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
           xHII=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
           ! Establish if this source location suffers from suppression
           suppress=suppression_criterion(xHII)
-          
+
           ! Count the number of suppressed sources
-          if (label == "count" .and.  srclist(LMACH) > 0.0 .and. suppress) then
+          if (use_label == "count" .and.  srclist(LMACH) > 0.0 .and. suppress) then
              NumSupprsdSrc=NumSupprsdSrc+1
              MassLMACHsupprsd=MassLMACHsupprsd+srclist(LMACH)
           endif
@@ -367,7 +361,7 @@ contains
 
           ! Count or store the active sources
           if (summed_weighted_mass > 0.0) then
-             select case(label)
+             select case(use_label)
              case("count") 
                 NumSrc=NumSrc+1
              case("read ")
@@ -377,23 +371,28 @@ contains
                 srcpos(2,ns)=srcpos0(2)
                 srcpos(3,ns)=srcpos0(3)
                 NormFlux(ns)=summed_weighted_mass
+                ! Scale with mass growth in case of fcol growth model
+                if (UV_Model == "Collapsed fraction growth") &
+                     NormFlux(ns)=NormFlux(ns)*dMassACH/MassACH
              end select
           endif
        enddo
 
        ! Close source file (should this be here???)
        close(50)
-
        
-       select case(label)
+       select case(use_label)
        case("count")
+          ! Calculate total mass in halos; this will be used to calculate
+          ! the mass growth factor.
+          MassACH=MassHMACH!+MassLMACH
           ! Report source counts & statistics on suppression
           write(logf,*) "Number of suppressable sources: ",NumSupprbleSrc
           write(logf,*) "Number of suppressed sources: ",NumSupprsdSrc
           write(logf,*) "Number of massive sources: ",NumMassiveSrc
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
                real(NumSupprsdSrc)/real(NumSupprbleSrc)
-          ! Collapsed fraction calculation
+          write(logf,*) "Total number of sources, with suppression: ",NumSrc          ! Collapsed fraction calculation
           ! f_coll = M_halo / M_vol
           ! However, M_halo is given in units of M_grid which is M_vol/n_box^3
           ! so f_coll = M_halo / n_box^3
@@ -405,9 +404,6 @@ contains
                MassLMACHsupprsd/(real(n_box)**3)
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
                MassLMACHsupprsd/MassLMACH
-          ! Calculate total mass in halos; this will be used to calculate
-          ! the mass growth factor.
-          MassACH=MassHMACH+MassLMACH
           
        
        case("read ")
@@ -517,8 +513,7 @@ contains
           else
              f_lmach=zeta(2)
           endif
-          mass_from_source_models=(mass_hmach*f_hmach + mass_lmach*f_lmach)* &
-               dMassACH/MassACH
+          mass_from_source_models=(mass_hmach*f_hmach + mass_lmach*f_lmach)
           
        case default
           mass_from_source_models=mass_hmach
@@ -538,6 +533,7 @@ contains
 
     ! Turn masses into luminosities
     select case (UV_Model)
+
     case ("Iliev et al", "Iliev et al partial supp.","Gradual supp.", &
          "Collapsed fraction growth")
        do ns=1,NumSrc
@@ -548,7 +544,8 @@ contains
           !NormFlux(ns)=NormFlux(ns)/lifetime
           !NormFlux(ns)=NormFlux(ns)/lifetime2
        enddo
-   case ("Fixed N_gamma")
+
+    case ("Fixed N_gamma")
        if (nz <= NumZred_uv) then
           cumulative_fraction=min(cumulative_fraction_max,cumulative_uv/uv_array(nz))
           if (rank == 0) then 
@@ -572,6 +569,7 @@ contains
           if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
+
     case ("Fixed Ndot_gamma")
        if (nz <= NumZred_uv) then
           total_SrcMass=sum(NormFlux(1:NumSrc))
@@ -584,6 +582,7 @@ contains
           if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
+
     case("Test")
        ! Do nothing, the photon production rate is already set from
        ! the source file

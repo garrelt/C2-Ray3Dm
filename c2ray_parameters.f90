@@ -113,7 +113,7 @@ module c2ray_parameters
 
   !> Source properties: zeta parameter for collapsed fraction growth source
   !! model (high to low mass)
-  real,dimension(Number_Sourcetypes),parameter :: zeta= (/ 50.0, 150.0 /)
+  real,dimension(Number_Sourcetypes),parameter :: zeta= (/ 50.0, 0.0 /)
 
   !> Source properties: X-ray photons per baryon. Mesinger et al. (2012) use
   !! 0.02 as their nominal value. Note that this depends on your integration

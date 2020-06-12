@@ -58,11 +58,11 @@ module nbody
   !> Path to directory containing directory with density files:
   character(len=*),parameter,private :: dir_dens_path = "../" 
   !> Name of directory with density files
-  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/"
+  character(len=180),parameter,private :: dir_dens_name= "coarser_densities/nc300/"
   !character(len=*),parameter,private :: dir_dens_name= "coarser_densities/halos_removed/"
 
   !> Path to directory containing directory with source files:
-  character(len=*),parameter,private :: dir_src_path = "../" 
+  character(len=*),parameter,private :: dir_src_path = "./" 
   !> Name of directory with source files
   character(len=*),parameter,private :: dir_src_name= "sources/"
 
