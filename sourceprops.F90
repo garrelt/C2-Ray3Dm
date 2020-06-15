@@ -405,7 +405,7 @@ contains
                MassLMACHsupprsd/(real(n_box)**3)
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
                MassLMACHsupprsd/MassLMACH
-       else
+       elseif (restart == 2 ) then 
           ! Obtain number of sources from file saved previously
           sourcelistfile=construct_sourcefilename(redshift, &
                number_of_redshift, sourcelistfilesuppress_base)
