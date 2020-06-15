@@ -131,22 +131,14 @@ contains
     ! Rank 0 counts the sources in the files
     if (rank == 0) then
 
-       ! Construct file names
-       sourcelistfile=construct_sourcefilename(zred_now, nz, &
-            sourcelistfile_base)
-       sourcelistfilesuppress=construct_sourcefilename(zred_now, nz, &
-            sourcelistfilesuppress_base)
-
        ! Find the total masses of sources for the previous time step.
        ! These will be used to calculate the change of mass and from
        ! this the luminosity.
        if (UV_model == "Collapsed fraction growth" .and. MassACH_previous == 0.0) then
           if (nz>1) then
              write(z_previous_str,'(f6.3)') zred_array(nz-1)
-             sourcelistfile_previous=trim(adjustl(dir_src))//&
-                  trim(adjustl(z_previous_str))//"-"//trim(adjustl(id_str))// &
-                  trim(adjustl(sourcelistfile_base))
-             call count_or_read_in_sources (zred_now, nz, -1, "count")
+             write(logf, *) "Reading previous redshift sources ",z_previous_str
+             call count_or_read_in_sources (zred_array(nz-1), nz-1, -1, "count")
              ! Find total mass in DM halos from previous slice
              MassACH_previous=MassACH
           endif
@@ -277,67 +269,73 @@ contains
     real(kind=8) :: summed_weighted_mass
     real(kind=8) :: xHII
 
+    character(len=512) :: sourcelistfile
+    
     ! Initialize the source masses to be read
 
-    if (restart == 0 .or. restart == 1 .or. restart == -1) then
-       ! Read in original source list and apply source model
+    ! Read in original source list and apply source model
        
-       ! Initialise srclist array to zero
-       srclist(:)=0.0
+    ! Initialise srclist array to zero
+    srclist(:)=0.0
        
+    ! Construct source list file name
+    sourcelistfile=construct_sourcefilename(redshift, number_of_redshift, &
+         sourcelistfile_base)
+
+    ! Report
+    write(unit=logf,fmt="(6A)") "Reading ",trim(adjustl(id_str)), &
+         " source list from ",trim(adjustl(sourcelistfile))," for ", &
+         trim(adjustl(use_label))
+
+    ! Open original source list file
+    open(unit=50,file=sourcelistfile,status='old')
+
+    ! Read total number of sources in file
+    read(50,*) NumSrc0
+
+    ! Initialize counters and masses to zero
+    select case(use_label)
+    case("count")
        ! Report
-       write(unit=logf,fmt="(6A)") "Reading ",trim(adjustl(id_str), &
-            " source list from ",trim(adjustl(sourcelistfile)," for ", &
-            trim(adjustl(use_label)
+       write(logf,*) & 
+            "Total number of source locations, no suppression: ", &
+            NumSrc0
+       NumSrc = 0
+       NumMassiveSrc = 0
+       NumSupprbleSrc = 0
+       NumSupprsdSrc = 0
+       MassACH=0.0
+       MassHMACH=0.0
+       MassLMACH=0.0
+       MassLMACHsupprsd=0.0
+    case("read ")
+       ns=0
+       dMassACH=MassACH-MassACH_previous
+       write(logf,*) "Change in HMACH mass: ",dMassACH
+    end select
 
-       ! Open original source list file
-       open(unit=50,file=sourcelistfile,status='old')
-
-       ! Read total number of sources in file
-       read(50,*) NumSrc0
-
-       ! Initialize counters and masses to zero
-       select case(use_label)
-       case("count")
-          ! Report
-          write(logf,*) & 
-               "Total number of source locations, no suppression: ", &
-               NumSrc0
-          NumSrc = 0
-          NumMassiveSrc = 0
-          NumSupprbleSrc = 0
-          NumSupprsdSrc = 0
-          MassACH=0.0
-          MassHMACH=0.0
-          MassLMACH=0.0
-          MassLMACHsupprsd=0.0
-       case("read ")
-          ns=0
-          dMassACH=MassACH-MassACH_previous
-          write(logf,*) "Change in HMACH mass: ",dMassACH
-       end select
-
-       ! For every line in the source file
-       do ns0=1,NumSrc0
-          ! Read source file. The number of columns differs for
-          ! different cases
-          read(50,*) srclist(1:ncolumns_srcfile)
-
-          ! Extract integer position from scrlist structure
-          srcpos0(1:3)=int(srclist(1:3))
-          
-          ! Count different types of sources
-          if (use_label == "count") then
-             if (srclist(HMACH) > 0.0) then
-                NumMassiveSrc=NumMassiveSrc+1
-                MassHMACH=MassHMACH+srclist(HMACH)
-             endif
-             if (srclist(LMACH) > 0.0) then
-                NumSupprbleSrc=NumSupprbleSrc+1
-                MassLMACH=MassLMACH+srclist(LMACH)
-             endif
+    ! For every line in the source file
+    do ns0=1,NumSrc0
+       ! Read source file. The number of columns differs for
+       ! different cases
+       read(50,*) srclist(1:ncolumns_srcfile)
+       
+       ! Extract integer position from scrlist structure
+       srcpos0(1:3)=int(srclist(1:3))
+       
+       ! Count different types of sources
+       if (use_label == "count") then
+          if (srclist(HMACH) > 0.0) then
+             NumMassiveSrc=NumMassiveSrc+1
+             MassHMACH=MassHMACH+srclist(HMACH)
           endif
-             
+          if (srclist(LMACH) > 0.0) then
+             NumSupprbleSrc=NumSupprbleSrc+1
+             MassLMACH=MassLMACH+srclist(LMACH)
+          endif
+       endif
+
+       if (restart == 0 .or. restart == 1 .or. restart == -1) then
           ! Now count or store sources, using the source recipe.
 #ifdef ALLFRAC
           ! Extract the ionization fraction in cell (used in some recipes)
@@ -376,23 +374,26 @@ contains
                      NormFlux(ns)=NormFlux(ns)*dMassACH/MassACH
              end select
           endif
-       enddo
+       endif
+    enddo
 
-       ! Close source file (should this be here???)
-       close(50)
+    ! Close source file (should this be here???)
+    close(50)
        
-       select case(use_label)
-       case("count")
-          ! Calculate total mass in halos; this will be used to calculate
-          ! the mass growth factor.
-          MassACH=MassHMACH!+MassLMACH
+    select case(use_label)
+    case("count")
+       ! Calculate total mass in halos; this will be used to calculate
+       ! the mass growth factor.
+       MassACH=MassHMACH+MassLMACH
+       if (restart == 0 .or. restart == 1) then       
           ! Report source counts & statistics on suppression
           write(logf,*) "Number of suppressable sources: ",NumSupprbleSrc
           write(logf,*) "Number of suppressed sources: ",NumSupprsdSrc
           write(logf,*) "Number of massive sources: ",NumMassiveSrc
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
                real(NumSupprsdSrc)/real(NumSupprbleSrc)
-          write(logf,*) "Total number of sources, with suppression: ",NumSrc          ! Collapsed fraction calculation
+          write(logf,*) "Total number of sources, with suppression: ",NumSrc
+          ! Collapsed fraction calculation
           ! f_coll = M_halo / M_vol
           ! However, M_halo is given in units of M_grid which is M_vol/n_box^3
           ! so f_coll = M_halo / n_box^3
@@ -404,44 +405,53 @@ contains
                MassLMACHsupprsd/(real(n_box)**3)
           if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
                MassLMACHsupprsd/MassLMACH
-          
+       else
+          ! Obtain number of sources from file saved previously
+          sourcelistfile=construct_sourcefilename(redshift, &
+               number_of_redshift, sourcelistfilesuppress_base)
+          open(unit=49,file=sourcelistfile,status="old")
+          read(49,*) NumSrc
+          close(49)
+       endif
        
        case("read ")
-          ! Record source list in sourcelistfilesuppress: first
-          ! construct file name
-          sourcelistfilesuppress= &
-               construct_sourcefilename(redshift,number_of_redshift, &
-               sourcelistfilesuppress_base)
-          ! Save new source list, without the suppressed ones
-          ! Only do this if this suppressed source list is different
-          ! in name, otherwise you will overwrite the original source list
-          ! (relevant for the test case)
-          if (sourcelistfilesuppress /= sourcelistfile) then
-             open(unit=49,file=sourcelistfilesuppress,status='unknown')
-             write(49,*) NumSrc
+          if (restart == 0 .or. restart == 1 .or. restart == -1) then       
+             ! Record source list in sourcelistfilesuppress: first
+             ! construct file name
+             sourcelistfilesuppress= &
+                  construct_sourcefilename(redshift,number_of_redshift, &
+                  sourcelistfilesuppress_base)
+             ! Save new source list, without the suppressed ones
+             ! Only do this if this suppressed source list is different
+             ! in name, otherwise you will overwrite the original source list
+             ! (relevant for the test case)
+             if (sourcelistfilesuppress /= sourcelistfile) then
+                open(unit=49,file=sourcelistfilesuppress,status='unknown')
+                write(49,*) NumSrc
+                do ns0=1,NumSrc
+                   write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),&
+                        srcpos(3,ns0), NormFlux(ns0)
+                enddo
+                close(49)
+             endif
+          else
+             ! Read source list from file saved previously
+             sourcelistfile=construct_sourcefilename(redshift, &
+                  number_of_redshift, &
+                  sourcelistfilesuppress_base)
+             open(unit=49,file=sourcelistfile,status="old")
+             read(49,*) NumSrc
+             write(logf,*) "Reading ",NumSrc," sources from ", &
+                  trim(adjustl(sourcelistfile))
              do ns0=1,NumSrc
-                write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
+                read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
                      NormFlux(ns0)
              enddo
              close(49)
           endif
+          
        end select
 
-    else ! of restart test
-
-       ! Read source list from file saved previously
-       open(unit=49,file=sourcelistfilesuppress,status="old")
-       write(logf,*) "Reading ",NumSrc," sources from ", &
-            trim(adjustl(sourcelistfilesuppress))
-       read(49,*) NumSrc
-       do ns0=1,NumSrc
-          read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-               NormFlux(ns0)
-       enddo
-       close(49)
-
-    endif ! of restart test
-    
   end subroutine count_or_read_in_sources
 
   ! =======================================================================
