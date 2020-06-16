@@ -63,6 +63,10 @@ contains
     ! Counter of number of thermal timesteps taken
     integer :: i_heating
 
+    ! Find initial internal energy
+    internal_energy = temper2pressr(initial_temperature, ndens_atom, &
+         electrondens(ndens_atom,ion%h_old))/(gamma1)
+
     ! Set the photo-ionization heating rate
     heating = phi%heat
 
@@ -73,10 +77,6 @@ contains
     else
        cosmo_cool_rate=0.0
     endif
-
-    ! Find initial internal energy
-    internal_energy = temper2pressr(initial_temperature, ndens_atom, &
-         electrondens(ndens_atom,ion%h_old))/(gamma1)
 
     ! Thermal process is only done if the temperature of the cell 
     ! is larger than the minimum temperature requirement
