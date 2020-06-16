@@ -391,7 +391,6 @@ contains
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
     character(len=512) :: file1,file2,file3
-    character(len=6) :: zred_str
     integer :: i,j,k
 
     if (rank == 0) then
@@ -456,7 +455,6 @@ contains
     !character(len=*),parameter :: basename="Ifront1_"
     character(len=*),parameter :: base_extension=".bin"
     character(len=512) :: file1,file2,file3
-    character(len=6) :: zred_str
     integer :: i,j,k
 
     if (rank == 0) then

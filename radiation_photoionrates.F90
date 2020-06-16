@@ -350,6 +350,7 @@ contains
 
     ! New source. Set all the rates to zero to initialize them.
     call set_photrates_to_zero (heat_lookuptable)
+    f_heat=0.0
 
     ! pointers point to the correct tables to use, BB or PL source
     ! Set the maximum frequency band to consider (and limit the

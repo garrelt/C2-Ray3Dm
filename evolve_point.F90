@@ -403,7 +403,7 @@ contains
     integer,intent(in)      :: ns !< source number 
     logical,intent(in) :: local !< true if doing a non-global calculation.
 
-    real(kind=dp) :: avg_temper, temper0, temper1,temper2,temper_inter
+    real(kind=dp) :: temperature_previous_iteration
     type(temperature_states_dbl) :: temperature_start, temperature_end
     real(kind=dp) :: yh0_av_old,oldhe1av,oldhe0av,oldhav
     real(kind=dp) :: yh1_av_old
@@ -419,9 +419,9 @@ contains
 
     ! Initialize local temperature
     call get_temperature_point (pos(1),pos(2),pos(3),temperature_start)
-    !avg_temper=temper1
-    temper0 = temperature_start%current
-    !temper0   =temper1
+
+    ! Initialize the final temperature to the initial one
+    temperature_end=temperature_start
   
     ! Initialize local clumping (if type of clumping is appropriate)
     if (type_of_clumping == 3 .or. type_of_clumping == 4 .or. type_of_clumping == 5) then
@@ -431,7 +431,8 @@ contains
     nit=0
     do 
        nit=nit+1
-       temper2   =temper1  ! This is the temperature from last iteration
+       ! Save temperature solution from last iteration
+       temperature_previous_iteration = temperature_end%current  
 
        ! Save the values of yh_av found in the previous iteration
        yh0_av_old=ion%h_av(0)
@@ -471,7 +472,7 @@ contains
 
           ! initialize the collisional ionization and recombinations rates 
           ! (temperature dependent)
-          if (.not.isothermal) call ini_rec_colion_factors(temperature_start%average) 
+          if (.not.isothermal) call ini_rec_colion_factors(temperature_end%average) 
           
           ! Add photon losses to the photo-ionization rates
           if (add_photon_losses) then
@@ -486,25 +487,26 @@ contains
        
        coldensh_cell    =coldens(path,ion%h(0),ndens_p)!,(1.0_dp-abu_he))
        
-       call doric(dt, temperature_start%average, de, ndens_p, &
+       call doric(dt, temperature_end%average, de, ndens_p, &
             ion%h, ion%h_av, phi%photo_cell_HI)!,local)! 
 
        de=electrondens(ndens_p,ion%h_av)
        
-       temper1=temper0 
        if (.not.isothermal) &
-            !GM/141021 Change thermal so that it takes old values and outputs new
-            !values, but not overwrites...
-            call thermal(dt,temperature_start%current, &
-            temperature_start%average,de,ndens_p, &
-            ion,phi)    
+            ! Thermal now takes old values and outputs new values without
+            ! overwriting the old values .
+            call thermal(dt, temperature_start%current, &
+            temperature_end%current, &
+            temperature_end%average, &
+            de, ndens_p, ion,phi)    
        
        ! Test for convergence on time-averaged neutral fraction
        ! For low values of this number assume convergence
        if ((abs((ion%h_av(0)-yh0_av_old)/ion%h_av(0)) < &
             minimum_fractional_change .or. &
             (ion%h_av(0) < minimum_fraction_of_atoms)).and. &
-            (abs((temper1-temper2)/temper1) < minimum_fractional_change) & 
+            (abs((temperature_end%current-temperature_previous_iteration)/ &
+            temperature_end%current) < minimum_fractional_change) & 
             ) then  
           exit
        endif
@@ -522,8 +524,7 @@ contains
     enddo
 
     ! Update temperature
-    ! GM/130815: Why is this done here?
-    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temperature_start)
+    if (.not. isothermal) call set_temperature_point (pos(1),pos(2),pos(3),temperature_end)
     
   end subroutine do_chemistry
   

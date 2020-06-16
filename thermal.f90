@@ -19,14 +19,16 @@ module thermalevolution
 contains
 
   ! calculates the thermal evolution of one grid point
-  subroutine thermal (dt,end_temper,avg_temper,ndens_electron,ndens_atom,ion,phi)!,pos)
+  subroutine thermal (dt, initial_temperature, final_temperature, &
+       average_temperature, ndens_electron, ndens_atom, ion, phi)!,pos)
 
     ! The time step
     real(kind=dp), intent(in) :: dt
+    real(kind=dp), intent(in) :: initial_temperature
     ! end time temperature of the cell
-    real(kind=dp), intent(inout) :: end_temper
+    real(kind=dp), intent(out) :: final_temperature
     ! average temperature of the cell
-    real(kind=dp), intent(out) :: avg_temper
+    real(kind=dp), intent(out) :: average_temperature
     ! Electron density of the cell
     real(kind=dp), intent(in) :: ndens_electron
     ! Number density of atoms of the cell
@@ -39,7 +41,7 @@ contains
     !integer, intent(in) :: pos
  
     ! initial temperature
-    real(kind=dp) :: initial_temp
+    real(kind=dp) :: intermediate_temperature
     ! timestep taken to solve the ODE
     real(kind=dp) :: dt_ODE
     ! timestep related to thermal timescale
@@ -61,14 +63,8 @@ contains
     ! Counter of number of thermal timesteps taken
     integer :: i_heating
 
-    ! heating rate
+    ! Set the photo-ionization heating rate
     heating = phi%heat
-
-    ! Find initial internal energy
-    internal_energy = temper2pressr(end_temper,ndens_atom, &
-         electrondens(ndens_atom,ion%h_old))/(gamma1)
-    !internal_energy = temper2pressr(end_temper,ndens_atom,electrondens(ndens_atom,ion%begin_HII, &
-    !                                ion%begin_HeII,ion%begin_HeIII))/(gamma1)
 
     ! Set the cosmological cooling rate
     if (cosmological) then
@@ -78,9 +74,13 @@ contains
        cosmo_cool_rate=0.0
     endif
 
+    ! Find initial internal energy
+    internal_energy = temper2pressr(initial_temperature, ndens_atom, &
+         electrondens(ndens_atom,ion%h_old))/(gamma1)
+
     ! Thermal process is only done if the temperature of the cell 
     ! is larger than the minimum temperature requirement
-    if (end_temper.gt.minitemp) then
+    if (initial_temperature > minitemp) then
 
        ! stores the time elapsed is done
        cumulative_time = 0.0 
@@ -89,11 +89,11 @@ contains
        i_heating = 0
 
        ! initialize time averaged temperature
-       avg_temper = 0.0 
+       average_temperature = 0.0 
 
-       ! initial temperature
-       initial_temp = end_temper  
-
+       ! initialize intermediate temperature variable
+       intermediate_temperature = initial_temperature
+       
        ! thermal process begins
        do
 
@@ -102,7 +102,7 @@ contains
          
           ! update cooling rate from cooling tables
           cooling = coolin(ndens_atom,ndens_electron,ion%h_av, &
-               end_temper)+cosmo_cool_rate
+               intermediate_temperature)+cosmo_cool_rate
           !cooling = coolin(ndens_atom,ndens_electron,ion%avg_HI,ion%avg_HII,ion%avg_HeI,ion%avg_HeII,&
           !                 ion%avg_HeIII, end_temper)+cosmo_cool_rate
 
@@ -125,46 +125,48 @@ contains
           internal_energy = internal_energy+dt_ODE*(heating-cooling)
 
           ! Update avg_temper sum (first part of dt_thermal sub time step)
-          avg_temper = avg_temper+0.5*end_temper*dt_ODE
+          average_temperature = average_temperature + &
+               0.5*intermediate_temperature*dt_ODE
 
           ! Find new temperature from the internal energy density
-          end_temper = pressr2temper(internal_energy*gamma1,ndens_atom, &
-               electrondens(ndens_atom,ion%h_av))
+          intermediate_temperature = pressr2temper(internal_energy*gamma1, &
+               ndens_atom, electrondens(ndens_atom,ion%h_av))
           !end_temper = pressr2temper(internal_energy*gamma1,ndens_atom,electrondens(ndens_atom,&
           !                           ion%avg_HII,ion%avg_HeII,ion%avg_HeIII))
 
           ! Update avg_temper sum (second part of dt_thermal sub time step)
-          avg_temper = avg_temper+0.5*end_temper*dt_ODE
+          average_temperature = average_temperature + &
+               0.5*intermediate_temperature*dt_ODE
                     
           ! Take measures if temperature drops below minitemp
-          if (end_temper.lt.minitemp) then
+          if (intermediate_temperature < minitemp) then
              internal_energy = temper2pressr(minitemp,ndens_atom, &
                   electrondens(ndens_atom,ion%h_av))
              !internal_energy = temper2pressr(minitemp,ndens_atom,electrondens(ndens_atom,ion%avg_HII,&
              !                                ion%avg_HeII,ion%avg_HeIII))
-             end_temper = minitemp
+             intermediate_temperature = minitemp
           endif
                     
           ! Update fractional cumulative_time
           cumulative_time = cumulative_time+dt_ODE
   
           ! Exit if we reach dt
-          if (cumulative_time.ge.dt.or.abs(cumulative_time-dt).lt.1e-6*dt) exit
+          if (cumulative_time >= dt .or. abs(cumulative_time-dt) < 1e-6*dt) exit
 
           ! In case we spend too much time here, we exit
-          if (i_heating.gt.10000) exit
+          if (i_heating > 10000) exit
         	     	
        enddo
               
        ! Calculate the averaged temperature
-       if (dt.gt.0.0) then
-          avg_temper = avg_temper/dt
+       if (dt > 0.0) then
+          average_temperature = average_temperature/dt
        else
-          avg_temper = initial_temp
+          average_temperature = initial_temperature
        endif
        
        ! Calculate the final temperature 
-       end_temper = pressr2temper(internal_energy*gamma1,ndens_atom, &
+       final_temperature = pressr2temper(internal_energy*gamma1,ndens_atom, &
             electrondens(ndens_atom,ion%h))
        !end_temper = pressr2temper(internal_energy*gamma1,ndens_atom,electrondens(ndens_atom,&
        !                           ion%end_HII,ion%end_HeII,ion%end_HeIII))
