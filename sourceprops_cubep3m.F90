@@ -162,7 +162,8 @@ contains
           MassACH=MassHMACH+MassLMACH
           dMassACH=MassACH-MassACH_previous
           !dMassHMACH=MassHMACH-MassHMACH_previous
-          write(logf,*) "Change in atomically cooling halo mass: ",dMassACH
+          write(logf,*) "Change in atomically cooling halo mass: ",dMassACH, &
+               MassACH, MassACH_previous
           if (dMassACH < 0.0) then
              dMassACH=0.0
              write(logf,*) "Change in atomically cooling halo mass set to zero"
@@ -275,14 +276,14 @@ contains
           ! read_in_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-
+          
           ! Retrieve ionized fraction in source cell
 #ifdef ALLFRAC
           xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
           xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
-
+          
           ! Massive sources are never suppressed.
           if (srclist(HMACH) /= 0.0 .or. &
                UV_Model == "Iliev et al partial supp." .or. &
@@ -291,9 +292,11 @@ contains
              NumSrc=NumSrc+1
              ! if the cell is still neutral, no suppression (if we use the Iliev
              ! et al source model)   
-          elseif (xh_ion < StillNeutral .and. &
-               UV_Model == "Iliev et al") then
-             NumSrc=NumSrc+1
+          elseif (xh_ion < StillNeutral) then
+             if ((UV_Model == "Iliev et al" .and. phot_per_atom(2) > 0.0) .or. &
+                  (UV_Model == "Collapsed fraction growth" .and. zeta(2) > 0.0)) then
+                NumSrc=NumSrc+1
+             endif
           endif
 
           ! Count different types of sources
@@ -357,7 +360,10 @@ contains
 
     integer :: ns
     integer :: ns0
+    logical :: suppression
+    real(kind=dp) :: NormFlux_src
 
+    write(*,*) "Start of read in"
     if (restart == 0 .or. restart == 1) then
        open(unit=50,file=sourcelistfile,status='old')
        ! Number of sources
@@ -369,80 +375,82 @@ contains
           ! establish_number_of_active_sources
           read(50,*) srclist(1:ncolumns_srcfile)
           srcpos0(1:3)=int(srclist(1:3))
-          ! Retrieve ionized fraction in source cell
+
+          ! Set the suppression logical according to the suppression criterion
+          ! First retrieve ionized fraction in source cell
 #ifdef ALLFRAC
           xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
           xh_ion=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
-
+          ! Now test it's value, if too large, this source location will be flagged for suppression of low
+          ! mass sources
           if (xh_ion < StillNeutral) then
-             if (UV_Model == "Iliev et al" .or. &
-                  UV_Model == "Iliev et al partial supp." .or. &
-                  UV_model == "Gradual supp." .or. &
-		  UV_Model == "Collapsed fraction growth" .or. &
-                  srclist(HMACH) > 0.0d0) then
-                ! the cell is still neutral, no suppression
-                ns=ns+1
-                ! Source positions in file start at 1!
-                srcpos(1,ns)=srcpos0(1)
-                srcpos(2,ns)=srcpos0(2)
-                srcpos(3,ns)=srcpos0(3)
-                ! Collect total source mass (weigthed with efficiency factor
-                ! in case of the Iliev et al source model).
-                if (UV_Model == "Iliev et al" .or. &
-                     UV_Model == "Iliev et al partial supp." .or. &
-		     UV_model == "Gradual supp.") then
-                   NormFlux(ns)=srclist(HMACH)*phot_per_atom(1) & !massive sources
-                        + srclist(LMACH)*phot_per_atom(2)      !small sources  
-                elseif (UV_Model == "Collapsed fraction growth") then
-                   NormFlux(ns)=(srclist(HMACH)*zeta(1) + & ! high mass sources
-                        srclist(LMACH)*zeta(2))* &! low mass sources  
-                        dMassACH/MassACH
-                else
-                   NormFlux(ns)=srclist(HMACH)!+srclist(LMACH)
-                endif
+             suppression=.false.
+          else
+             suppression=.true.
+          endif
+
+          ! Reset NormFlux_src to zero; if it is still zero after the calculation below, this source
+          ! location is not active
+          NormFlux_src=0.0
+          
+          ! Calculate the effective source mass according to the right source model.
+          select case (UV_Model)
+          case("Iliev et al")
+             if (.not.suppression) then
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1) & !massive sources
+                     + srclist(LMACH)*phot_per_atom(2)      !small sources  
+             else
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1)  !massive sources
              endif
-          elseif (srclist(HMACH) > 0.0d0 .or. &
-               (UV_Model == "Iliev et al partial supp." &
-               .and. srclist(LMACH) > 0.0d0) &
-               .or. (UV_model == "Gradual supp." &
-               .and. srclist(LMACH_SUPPR) > 0.0d0)) then
-             ! The cell is ionized but source is massive enough to survive
-             ! and is assumed Pop. II, or source is low-mass, but we assume
-             ! partial suppression, tuning down its efficiency  
+
+          case("Iliev et al partial supp.")
+             if (.not.suppression) then
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1) & ! massive sources
+                     + srclist(LMACH)*phot_per_atom(2)         ! low mass sources  
+             else
+                !make low-mass sources as efficient as HMACHs
+                ! (so typically less efficient)
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1) & ! massive sources
+                     + srclist(LMACH)*phot_per_atom(1)         ! low mass sources  
+             endif
+          case("Gradual supp.")
+             if (.not.suppression) then
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1) & ! massive sources
+                     + srclist(LMACH)*phot_per_atom(2)         ! low mass sources  
+             else
+                NormFlux_src=srclist(HMACH)*phot_per_atom(1) & ! massive sources
+                     + srclist(LMACH_SUPPR)*phot_per_atom(2)   ! low mass sources with effective mass KLD 
+             endif
+          case("Collapsed fraction growth")
+             if (.not.suppression) then
+                NormFlux_src=(srclist(HMACH)*zeta(1) + &       ! high mass sources
+                     srclist(LMACH)*zeta(2))* &             ! low mass sources  
+                     dMassACH/MassACH
+             else
+                NormFlux_src=srclist(HMACH)*zeta(1)*dMassACH/MassACH ! massive sources
+             endif
+          case default
+             NormFlux_src=srclist(HMACH)
+          end select
+
+          if (NormFlux_src > 0.0) then
+             ! This source cell is active, put it in the list
+             ! The value of NormFLux is here an effective mass. The scaling to a UV production rate is done in
+             ! assign_uv_luminosities
              ns=ns+1
              ! Source positions in file start at 1!
              srcpos(1,ns)=srcpos0(1)
              srcpos(2,ns)=srcpos0(2)
              srcpos(3,ns)=srcpos0(3)
-             ! Collect total source mass (weigthed with efficiency factor
-             ! in case of the Iliev et al source model), used in 
-             ! assign_uv_luminosities to calculate ionizing photon rates
-             if (UV_Model == "Iliev et al") then
-                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  !massive sources
-                
-             elseif (UV_Model == "Iliev et al partial supp.") then
-                !make low-mass sources as efficient as HMACHs
-                ! (so typically less efficient)
-                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & !massive sources
-                     + srclist(LMACH)*phot_per_atom(1)      !low-mass sources
-                
-	     elseif (UV_Model == "Gradual supp.") then
-                !make low-mass sources less efficient
-                NormFlux(ns)=srclist(HMACH)*phot_per_atom(1)  & 
-                     !low-mass sources with effective mass KLD
-                     + srclist(LMACH_SUPPR)*phot_per_atom(2)      
-                
-             elseif (UV_Model == "Collapsed fraction growth") then
-                NormFlux(ns)=srclist(HMACH)*zeta(1)*dMassACH/MassACH 
-             else
-                NormFlux(ns)=srclist(HMACH)
-             endif
+             NormFlux(ns)=NormFlux_src
           endif
+          
        enddo
        close(50)
-       
+
+       write(*,*) "End of reading source file"
        ! Save new source list, without the suppressed ones
        open(unit=49,file=sourcelistfilesuppress,status='unknown')
        write(49,*) NumSrc
