@@ -104,6 +104,8 @@ module c2ray_parameters
   real(kind=dp),parameter :: minitemp=1.0 ! minimum temperature
   !> Thermal: fraction of the cooling time step below which no iteration is done
   real(kind=dp),parameter :: relative_denergy=0.1
+  !> Thermal: initial temperature (if used)
+  real(kind=dp),parameter :: initial_temperature=1e4
 
   !> Source properties: Number of different sources
   integer,parameter :: Number_Sourcetypes=2

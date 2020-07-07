@@ -44,7 +44,8 @@ module output_module
   ! To controle what kind of output is produced we use an array of flags.
   ! There can be at most max_output_streams types of output.
   integer,parameter :: max_output_streams=5 !< maximum number of output streams
-  integer,dimension(max_output_streams) :: streams !< flag array for output streams
+  integer,dimension(max_output_streams) :: streams=(/0, 1, 1, 0, 0 /) !< flag array for output streams, see description below
+  logical :: ask_for_streams=.false. !< make true to let the code ask which streams to use
   character(len=6) :: zred_str
   real(kind=dp),dimension(:,:,:),target,allocatable :: output_array_dp
   real(kind=dp),dimension(:,:,:),pointer :: ptr_output_array_dp
@@ -61,7 +62,8 @@ contains
     
     ! Sets up output stream
     
-    ! Version: Five streams
+    ! Version: Five streams, defined in the preamble of this module, please
+    !  edit line 47 to modify output.
 
     ! Stream1:
     ! Ifront1.out contains a line of constant y and z going through the
@@ -69,23 +71,23 @@ contains
     
     ! Stream2: 
     ! Ionization fractions for the full data cube (unformatted)
-    ! xfrac3d_",f5.3,".bin"
-    ! and if non-isothermal also the temperature for the full data cube (unformatted)
-    ! "Temper3d_",f5.3,".bin"
+    ! xfrac3D_",f5.3,".bin"
+    ! and if non-isothermal also the temperature for the full data cube
+    !  (unformatted)
+    ! "Temper3D_",f5.3,".bin"
 
     ! Stream3: 
     ! Ionization rate for the full data cube (unformatted)
-    ! "Ionrates3_",f5.3,".bin"
+    ! "Ionrates3D_",f5.3,".bin"
+    ! and if non-isothermal also the heating rate for the full data cube
+    !  (unformatted)
+    ! "HeatRates3D_",f5.3,".bin"
    
     ! Stream 4:
-    ! Ionization fractions in a plane for one time step
+    ! Ionization fractions in a central plane for one time step
     ! Ifront2_xy_",f5.3,".bin"
     ! Ifront2_xz_",f5.3,".bin"
     ! Ifront2_yz_",f5.3,".bin"
-    ! Densities in a plane for one time step
-    ! ndens_xy_",f5.3,".bin"
-    ! ndens_xz_",f5.3,".bin"
-    ! ndens_yz_",f5.3,".bin"
     
     ! Stream 5:
     ! Densities in a plane for one time step
@@ -93,7 +95,7 @@ contains
     ! ndens_xz_",f5.3,".bin"
     ! ndens_yz_",f5.3,".bin"
     
-    if (rank == 0) then
+    if (rank == 0 .and. ask_for_streams) then
        if (.not.file_input) then
           write(*,*) "Which output streams do you want?"
           write(*,*) "Enter a mask for streams 1 through 5"
@@ -101,10 +103,8 @@ contains
        endif
        read(stdinput,*) streams(1),streams(2),streams(3),streams(4),streams(5)
        
-#ifdef MPILOG
-       write(logf,*) "Making output streams according to: ", &
+       write(logf,*) "Producing output streams according to: ", &
             streams(1),streams(2),streams(3),streams(4),streams(5)
-#endif
     endif
 
     ! Initialize photon statistics (open files and initialize some quantities)
@@ -298,7 +298,7 @@ contains
 
           ! Construct file name
           file1=trim(adjustl(results_dir))// &
-               "xfrac3d_"//trim(adjustl(zred_str))//base_extension
+               "xfrac3D_"//trim(adjustl(zred_str))//base_extension
 
 #ifdef ALLFRAC
           output_array_dp=xh(1:mesh(1),1:mesh(2),1:mesh(3),1)
@@ -361,19 +361,21 @@ contains
           
           call write_sm3d_si_file_routine(file1,ptr_output_array)
 
-          file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
-               trim(adjustl(zred_str))//base_extension
+          if (.not.isothermal) then
+             file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
+                  trim(adjustl(zred_str))//base_extension
 
-          output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
-          ptr_output_array => output_array
+             output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
+             ptr_output_array => output_array
           
-          call write_sm3d_si_file_routine(file1,ptr_output_array)
+             call write_sm3d_si_file_routine(file1,ptr_output_array)
 
-          deallocate(output_array)
+             deallocate(output_array)
 #ifdef MPILOG     
-          write(logf,*) 'output 3: IonRates3D'
-          flush(logf)
-#endif 
+             write(logf,*) 'output 3: IonRates3D'
+             flush(logf)
+#endif
+          endif
        else
           ! Report error
           write(logf,*) "Calling stream 3 output where we should not."

@@ -22,6 +22,7 @@ module material
   use precision, only: dp,si
   use file_admin, only: stdinput, logf, file_input
   use my_mpi
+  use c2ray_parameters, only: initial_temperature
   use nbody, only: nbody_type
   use density_module, only: density_array_init
   use ionfractions_module, only: xfrac_array_init
@@ -31,6 +32,7 @@ module material
 
   implicit none
 
+  logical, parameter :: ask_for_temperature=.false.
 #ifdef MPI
   integer,private :: mympierror
 #endif
@@ -72,10 +74,16 @@ contains
     restart=0 ! no restart by default
     
     if (rank == 0) then
+
        ! Ask for temperature, restart. Read in values
-       if (.not.file_input) &
-            write(*,"(A,$)") "Enter initial temperature (K): "
-       read(stdinput,*) temper_val
+       if (ask_for_temperature) then
+          if (.not.file_input) &
+               write(*,"(A,$)") "Enter initial temperature (K): "
+          read(stdinput,*) temper_val
+       else
+          temper_val=initial_temperature
+       endif
+       
        if (.not.file_input) write(*,"(A,$)") "Restart (y/n)? : "
        read(stdinput,*) answer
        if (answer == "y" .or. answer == "Y") then
@@ -93,9 +101,12 @@ contains
        if (answer == "y" .or. answer == "Y") restart=2
        if (.not.file_input) write(*,"(A,$)") "Number of starting slice: "
        read(stdinput,*) nz0
-       if (.not.file_input) &
-            write(*,"(A,$)") "Clumping fit table file: "
-       read(stdinput,*) clumping_fit_file
+       ! The following lines are disabled as the clumping is now handled
+       ! differently and the value of this variable is not actually used
+       ! anymore (see clumping_module.F90)
+       !if (.not.file_input) &
+       !     write(*,"(A,$)") "Clumping fit table file: "
+       !read(stdinput,*) clumping_fit_file
        !print*,"Number of starting slice: ",nz0
 
     endif
