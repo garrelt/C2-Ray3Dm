@@ -1,3 +1,6 @@
 This is the C2-Ray code for time-dependent photo-ionization calculations.
 This version is for 3D, multiple sources, and for hydrogen only.
 It runs under both MPI and OpenMP
+
+Please https://docs.google.com/document/d/1fPoOdxj3CxIzRi8RowFQFKf2KHKYi_rnoLD7X2T-J18/edit?usp=sharing 
+for documentation about compiling and running this code.
