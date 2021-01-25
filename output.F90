@@ -361,6 +361,8 @@ contains
           
           call write_sm3d_si_file_routine(file1,ptr_output_array)
 
+          deallocate(output_array)
+
           if (.not.isothermal) then
              file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
                   trim(adjustl(zred_str))//base_extension

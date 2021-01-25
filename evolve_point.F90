@@ -49,7 +49,7 @@ module evolve_point
   use LLS_module, only: coldensh_LLS, LLS_point
   use sourceprops, only: srcpos
   use radiation_photoionrates, only: photrates, photoion_rates
-  !use thermalevolution, only: thermal
+  use thermalevolution, only: thermal
   use photonstatistics, only: photon_loss, total_LLS_loss
   use tped, only: electrondens
   use doric_module, only: doric, coldens
@@ -475,9 +475,19 @@ contains
           if (.not.isothermal) call ini_rec_colion_factors(temperature_end%average) 
           
           ! Add photon losses to the photo-ionization rates
-          if (add_photon_losses) then
-             call distribute_photon_losses(ion,phi,ndens_p,vol)
-          endif
+          !!! The following lines need to be updated and made
+          !!! consistent with the newer variable names. Do not
+          !!! uncomment and use without proper testing!
+          !if (add_photon_losses) then
+          !   NormFlux(0)=sum(photon_loss(:))/S_star_nominal
+          !   ! Calculate (time averaged) column density of cell
+          !   coldensh_cell=coldens(dr(1),yh_av(0),ndens_p)
+          !   call photoion(phi,0.0d0,coldensh_cell,vol,0)
+          !   phih_cell=phih_cell + phi%h/(yh_av(0)*ndens_p)
+          ! For consistency with the helium version the above lines
+          ! should be in a separate routine called distribute_photon_losses
+          !   !!!call distribute_photon_losses(ion,phi,ndens_p,vol)
+          !endif
 
        endif     ! local if/else
 
