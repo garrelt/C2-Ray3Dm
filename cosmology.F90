@@ -170,7 +170,6 @@ contains
     !use sizes
     use grid, only: x,y,z,dr,vol
     use density_module, only: ndens
-    use lls_module, only: n_LLS, y_LLS
     
     real(kind=dp) :: zfactor3
 
@@ -192,9 +191,6 @@ contains
     ! volx(i,j,k)=volx(i,j,k)*zfactor3
     ! voly(i,j,k)=voly(i,j,k)*zfactor3
     ! volz(i,j,k)=volz(i,j,k)*zfactor3
-
-    ! Evolution of LLS
-    n_LLS=n_LLS * zfactor**(-y_LLS-1.5)
 
   end subroutine cosmo_evol
 

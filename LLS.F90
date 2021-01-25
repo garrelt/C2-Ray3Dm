@@ -3,9 +3,27 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 01-April-2014 (27-Jun-2013 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!! \b Date: 25-Jan-2021 (01-April-2014 (27-Jun-2013 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
 !!
-!! \b Version: 
+!! \b Version:
+!! LLS are included by adding extra HI column density to the grid. This is
+!! added at the interface between cells and so it does not contribute to the
+!! calculation for a given cell. If a cell has an outgoing column density of
+!! N_i then without the LLS model, this will be the ingoing column density of
+!! the next cell. With the LLS model, the ingoing column density for the next
+!! cell will instead be N_i+N_LLS.
+!! There are two options for this LLS model. Which one is used is set by a
+!! parameter from the c2ray_parameters module.
+!! If type_of_LLS = 1 then N_LLS is calculated from a mean free path model
+!! given by Worseck et al. (2014). This model, based on observations,
+!! specifies the mean free path of Lyman continuum photons at a given redshift.
+!! We convert this quantity to N_LLS by making sure that after a distance
+!! correspond to this mfp, a column density corresponding to opdepth_LL
+!! (usually 1) is reached.
+!! If type_of_LLS = 2 then the programme reads in a grid of N_LLS values
+!! which have been calculated using an external programme. The idea is
+!! to give higher column densities to higher density cells or cells with
+!! collapsed halos in them.
 
 module lls_module
 
@@ -23,15 +41,30 @@ module lls_module
   use cgsconstants, only: c
   use cgsphotoconstants, only: sigma_HI_at_ion_freq
   use astroconstants, only: Mpc
-  use cosmology_parameters, only: Omega0, H0
+  use cosmology_parameters, only: Omega0, H0, h
   use nbody, only: id_str,dir_LLS
   use nbody, only: LLSformat, LLSaccess, LLSheader
-  use c2ray_parameters, only: type_of_LLS
+  use c2ray_parameters, only: type_of_LLS, LLS_model
 
   implicit none
 
+  type LLS_model_old
+     character(len=10) :: reference
+     real(kind=dp) :: C_LLS
+     real(kind=dp) :: z_x
+     real(kind=dp) :: y_LLS
+     real(kind=dp) :: beta
+  end type LLS_model_old
+
+  type LLS_model_new
+     character(len=10) :: reference
+     real(kind=dp) :: A_LLS 
+     real(kind=dp) :: z_ref
+     real(kind=dp) :: yz_LLS
+  end type LLS_model_new
+
   ! LLS data
-  real(kind=dp),parameter :: opdepth_LL = 2.0 !< typical optical depth of LLS
+  real(kind=dp),parameter :: opdepth_LL = 1.0 !< typical optical depth associated with 1 mean free path
   real(kind=dp),parameter :: N_1 = opdepth_LL / sigma_HI_at_ion_freq !< typical column density of LLS
   real(kind=dp),public :: n_LLS
   real(kind=dp),public :: coldensh_LLS = 0.0_dp ! Column density of LLSs per cell
@@ -41,23 +74,20 @@ module lls_module
   ! LLS parameters
   !> Do not use the LLSs if the mfp is smaller than this.
   real,parameter :: limit_mfp_LLS_pMpc=0.2
-  
-  ! Different models for LLS redshift evolution
-  ! a) Model Prochaska et al. (2010)
-  !real(kind=dp),parameter :: C_LLS = 1.9
-  !real(kind=dp),parameter :: z_x = 3.7
-  !real(kind=dp),parameter,public :: y_LLS = 5.1
-  !real(kind=dp),parameter :: beta=1.28 ! not clear what to use here.
-  ! b) Model Songaila & Cowie (2010)
-  real(kind=dp),parameter :: C_LLS = 2.84
-  real(kind=dp),parameter :: z_x = 3.5
-  real(kind=dp),parameter,public :: y_LLS = 2.04
-  real(kind=dp),parameter :: beta=1.28
-  ! c) Model McQuinn et al. (2011)
-  !real(kind=dp),parameter :: C_LLS = 2.34
-  !real(kind=dp),parameter :: z_x = 3.5
-  !real(kind=dp),parameter,public :: y_LLS = 2.85
-  !real(kind=dp),parameter :: beta=1.3
+  real,parameter :: limit_mfp_LLS_cMpc=12.0
+
+  ! LLS models
+  type(LLS_model_new),parameter :: lowmfpLLS=LLS_model_new( &
+       reference="W14 mfp low", &
+       A_LLS=(37.0-2.0)/(h/0.7), z_ref=4.0, yz_LLS=-5.4-0.4)
+  type(LLS_model_new),parameter :: stdmfpLLS=LLS_model_new( &
+       reference="W14 mfp std", &
+       A_LLS=37.0/(h/0.7), z_ref=4.0, yz_LLS=-5.4)
+  type(LLS_model_new),parameter :: highmfpLLS=LLS_model_new(&
+       reference="W14 mfp high", &
+       A_LLS=(37.0+2.0)/(h/0.7), z_ref=4.0, yz_LLS=-5.4+0.4)
+
+  type(LLS_model_new) :: mfpLLS
   
   public :: set_LLS, LLS_point
 
@@ -72,39 +102,20 @@ contains
 
   subroutine LLS_init ()
     
-#ifdef IFORT
-    !For gamma function
-    use ISO_C_BINDING
-#endif
-    
-#ifdef IFORT
-    !For gamma function
-    interface
-       real(c_double) function tgamma (y) bind(c)
-         use iso_c_binding
-         real(c_double), value :: y
-       end function tgamma
-    end interface
-#endif
-
     if (type_of_LLS == 1) then
-       ! 1/distance between LLSs expressed in grid cells (z=0)
-       n_LLS = C_LLS * (1.0/(1.0 + z_x)) ** y_LLS * dr(1) * H0*sqrt(Omega0) / c
 
-       !n_LLS=n_LLS * ((1.0 + zred)/(1.0+zred_prev))** (y_LLS+1.5)
-       !mfp=c/((1.0+z) * Hz * C_LLS * ((1.0 + z)/(1.0 + z_x)) ** y_LLS )
-       ! Add the beta correction as explained in Songaila & Cowie (2010).
-       ! This corrects for the fact that not all LLS have the same
-       ! column density. beta is the slope of the distribution function
-       ! of LLS over column densities.
-       ! This expression needs the gamma function. For the intel compiler
-       ! this is tgamma(). For other compilers (Fortran 2008 standard) this
-       ! is gamma().
-#ifdef IFORT    
-       n_LLS=n_LLS*tgamma(2.0-beta)/(opdepth_LL**(1.0-beta))
-#else
-       n_LLS=n_LLS*gamma(2.0-beta)/(opdepth_LL**(1.0-beta))
-#endif
+       ! Choose the appropriate LLS model
+       select case (LLS_model)
+       case(1)
+          mfpLLS=stdmfpLLS
+       case(2)
+          mfpLLS=lowmfpLLS
+       case(3)
+          mfpLLS=highmfpLLS
+       end select
+
+       ! Report
+       write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
     else
        ! Set distance between LLS (and mean free path) to infinity
        ! If type_of_LLS = 2 this will be overwritten by cell specific
@@ -127,13 +138,11 @@ contains
     select case (type_of_LLS)
     case(1)
        ! Calculate the mean free path in pMpc
-       mfp_LLS_pMpc=dr(1)/n_LLS/Mpc
+       mfp_LLS_pMpc=mfpLLS%A_LLS*((1.0+z)/(1.0+mfpLLS%z_ref))**mfpLLS%yz_LLS
+       mfp_LLS_pMpc=max(mfp_LLS_pMpc,limit_mfp_LLS_cMpc/(1.0+z))
        ! Column density per cell due to LLSs
-       if (mfp_LLS_pMpc > limit_mfp_LLS_pMpc) then
-          coldensh_LLS = N_1 * n_LLS
-       else
-          coldensh_LLS = 0.0
-       endif
+       n_LLS=dr(1)/(mfp_LLS_pMpc*Mpc)
+       coldensh_LLS = N_1 * n_LLS
     case(2) 
        call read_lls_grid (z)
     end select

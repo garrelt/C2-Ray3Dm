@@ -94,6 +94,12 @@ module c2ray_parameters
   !!     files)
   integer,parameter :: type_of_LLS=1
 
+  !> Model selection in case of type_of_LLS=1
+  !! 1: standard Worseck et al. (2014) mean free path fit
+  !! 2: lower mean free path
+  !! 3: higher mean free path
+  integer,parameter :: LLS_model=1
+  
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.
 
