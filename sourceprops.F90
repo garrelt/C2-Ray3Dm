@@ -429,7 +429,7 @@ contains
                 open(unit=49,file=sourcelistfilesuppress,status='unknown')
                 write(49,*) NumSrc
                 do ns0=1,NumSrc
-                   write(49,"(3i4,f10.3)") srcpos(1,ns0),srcpos(2,ns0),&
+                   write(49,"(3i4,f15.5)") srcpos(1,ns0),srcpos(2,ns0),&
                         srcpos(3,ns0), NormFlux(ns0)
                 enddo
                 close(49)
