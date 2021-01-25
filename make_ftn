@@ -51,7 +51,7 @@ F90FLAGS1 = $(CRAYFLAGS)
 # made. Specify this below on a per executable basis.
 MPI_FLAGS = -DMPI # For the code
 #MPI_FLAGS = -DMPI -DMPILOG # Add more (MPI node) diagnostic output
-OPENMP_FLAGS = -DMY_OPENMP # For the code
+OPENMP_FLAGS = -h omp -openmp -DMY_OPENMP # For the code
 NO_OPENMP_FLAGS = -Othread0
 
 #-------------------------------------------------------
