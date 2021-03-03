@@ -74,7 +74,7 @@ module lls_module
   ! LLS parameters
   !> Do not use the LLSs if the mfp is smaller than this.
   real,parameter :: limit_mfp_LLS_pMpc=0.2
-  real,parameter :: limit_mfp_LLS_cMpc=12.0
+  real,parameter :: limit_mfp_LLS_cMpc=1.0
 
   ! LLS models
   type(LLS_model_new),parameter :: lowmfpLLS=LLS_model_new( &
@@ -86,6 +86,9 @@ module lls_module
   type(LLS_model_new),parameter :: highmfpLLS=LLS_model_new(&
        reference="W14 mfp high", &
        A_LLS=(37.0+2.0)/(h/0.7), z_ref=4.0, yz_LLS=-5.4+0.4)
+  type(LLS_model_new),parameter :: constmfpLLS=LLS_model_new(&
+       reference="constant mfp (1 pMpc)", &
+       A_LLS=1.0, z_ref=4.0, yz_LLS=0.0)
 
   type(LLS_model_new) :: mfpLLS
   
@@ -112,6 +115,8 @@ contains
           mfpLLS=lowmfpLLS
        case(3)
           mfpLLS=highmfpLLS
+       case(4)
+          mfpLLS=constmfpLLS
        end select
 
        ! Report
