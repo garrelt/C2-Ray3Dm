@@ -44,12 +44,12 @@ module lls_module
   use cosmology_parameters, only: Omega0, H0, h
   use nbody, only: id_str,dir_LLS
   use nbody, only: LLSformat, LLSaccess, LLSheader
-  use c2ray_parameters, only: type_of_LLS, LLS_model
+  use c2ray_parameters, only: use_LLS, type_of_LLS, LLS_model
 
   implicit none
 
   type LLS_model_old
-     character(len=10) :: reference
+     character(len=25) :: reference
      real(kind=dp) :: C_LLS
      real(kind=dp) :: z_x
      real(kind=dp) :: y_LLS
@@ -57,7 +57,7 @@ module lls_module
   end type LLS_model_old
 
   type LLS_model_new
-     character(len=10) :: reference
+     character(len=25) :: reference
      real(kind=dp) :: A_LLS 
      real(kind=dp) :: z_ref
      real(kind=dp) :: yz_LLS
@@ -77,18 +77,21 @@ module lls_module
   real,parameter :: limit_mfp_LLS_cMpc=1.0
 
   ! LLS models
-  type(LLS_model_new),parameter :: lowmfpLLS=LLS_model_new( &
+  type(LLS_model_new),parameter :: low_mfp_LLS=LLS_model_new( &
        reference="W14 mfp low", &
        A_LLS=(37.0-2.0)/(h/0.7), z_ref=4.0, yz_LLS=-5.4-0.4)
-  type(LLS_model_new),parameter :: stdmfpLLS=LLS_model_new( &
+  type(LLS_model_new),parameter :: std_mfp_LLS=LLS_model_new( &
        reference="W14 mfp std", &
        A_LLS=37.0/(h/0.7), z_ref=4.0, yz_LLS=-5.4)
-  type(LLS_model_new),parameter :: highmfpLLS=LLS_model_new(&
+  type(LLS_model_new),parameter :: high_mfp_LLS=LLS_model_new(&
        reference="W14 mfp high", &
        A_LLS=(37.0+2.0)/(h/0.7), z_ref=4.0, yz_LLS=-5.4+0.4)
-  type(LLS_model_new),parameter :: constmfpLLS=LLS_model_new(&
-       reference="constant mfp (1 pMpc)", &
+  type(LLS_model_new),parameter :: const_pmfp_LLS=LLS_model_new(&
+       reference="constant proper mfp", &
        A_LLS=1.0, z_ref=4.0, yz_LLS=0.0)
+  type(LLS_model_new),parameter :: const_cmfp_LLS=LLS_model_new(&
+       reference="constant comoving mfp", &
+       A_LLS=1.0, z_ref=0.0, yz_LLS=-1.0)
 
   type(LLS_model_new) :: mfpLLS
   
@@ -104,30 +107,34 @@ contains
   ! ============================================================================
 
   subroutine LLS_init ()
-    
-    if (type_of_LLS == 1) then
 
-       ! Choose the appropriate LLS model
-       select case (LLS_model)
-       case(1)
-          mfpLLS=stdmfpLLS
-       case(2)
-          mfpLLS=lowmfpLLS
-       case(3)
-          mfpLLS=highmfpLLS
-       case(4)
-          mfpLLS=constmfpLLS
-       end select
-
-       ! Report
-       write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
-    else
-       ! Set distance between LLS (and mean free path) to infinity
-       ! If type_of_LLS = 2 this will be overwritten by cell specific
-       ! values.
-       n_LLS=0.0d0
+    if (use_LLS) then
+       if (type_of_LLS == 1) then
+          
+          ! Choose the appropriate LLS model
+          select case (LLS_model)
+          case(1)
+             mfpLLS=std_mfp_LLS
+          case(2)
+             mfpLLS=low_mfp_LLS
+          case(3)
+             mfpLLS=high_mfp_LLS
+          case(4)
+             mfpLLS=const_pmfp_LLS
+          case(5)
+             mfpLLS=const_cmfp_LLS
+          end select
+          
+          ! Report
+          write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
+       else
+          ! Set distance between LLS (and mean free path) to infinity
+          ! If type_of_LLS = 2 this will be overwritten by cell specific
+          ! values.
+          n_LLS=0.0d0
+       endif
     endif
-
+       
   end subroutine LLS_init
 
   ! ===========================================================================
