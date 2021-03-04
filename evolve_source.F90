@@ -125,7 +125,7 @@ contains
     ! Loop through boxes of increasing size
     ! NOTE: make this limit on the photon_loss a fraction of
     ! a source flux loss_fraction*NormFlux(ns)*S_star)
-    do while (photon_loss_src > 1e-10*total_source_flux &
+    do while (photon_loss_src > 1e-6*total_source_flux &
     !do while (all(photon_loss_src(:) /= 0.0) &
          .and. last_r(3) < lastpos_r(3) &
          .and. last_l(3) > lastpos_l(3))
