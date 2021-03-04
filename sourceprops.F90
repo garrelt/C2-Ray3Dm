@@ -39,9 +39,6 @@ module sourceprops
   character(len=100),parameter,private :: &
        sourcelistfilesuppress_base="_sources_used_wfgamma.dat"
 
-  !> number of columns in source list
-  !! GM 191219: This parameter should depend on the nbody_type
-  integer,parameter,private :: ncolumns_srcfile=5
   !> maximum number of columns in the source list file, used to
   !! declare the srclist array
   integer,parameter,private :: max_ncolumns_srcfile=10
@@ -57,6 +54,8 @@ module sourceprops
 
   integer :: NumSrc=0 !< Number of sources
   integer :: Prev_NumSrc !< Previous number of sources
+  !> number of columns in source list, set in source_properties_ini
+  integer :: ncolumns_srcfile
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
   !real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
   real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
@@ -641,7 +640,11 @@ contains
   !! 2: Fixed total Ndot_gamma.
   !! 3: Iliev et al source as above, but partial suppression of LMACHs
   !!    by tuning them down to lower efficiency 
-  !! 4: Test sources (for running the test problems)
+  !! 7: Test sources (for running the test problems)
+
+  !! This routine also sets the number of columns expected in the source
+  !! lists!
+  
   subroutine source_properties_ini ()
     
 
@@ -661,20 +664,28 @@ contains
        select case (uv_answer)
        case(0)
           UV_Model = "Iliev et al"
+          ncolumns_srcfile=5
        case(1)
           UV_Model = "Fixed N_gamma"
+          ncolumns_srcfile=5
        case(2)
           UV_Model = "Fixed Ndot_gamma"
+          ncolumns_srcfile=5
        case(3)
           UV_Model = "Iliev et al partial supp."
+          ncolumns_srcfile=5
        case(4)
 	  UV_Model = "Gradual supp."
+          ncolumns_srcfile=5
        case(5)
 	  UV_Model = "Collapsed fraction growth"
+          ncolumns_srcfile=5
        case(6)
 	  UV_Model = "Luminosity function"
+          ncolumns_srcfile=5
        case(7)
           UV_Model = "Test"
+          ncolumns_srcfile=4
        end select
 
        ! Record the choice in log file
