@@ -78,7 +78,7 @@ contains
        ! Construct file names
        write(zred_str,"(f6.3)") zred_now
        xfrac_file= trim(adjustl(results_dir))// &
-            "xfrac3d_"//trim(adjustl(zred_str))//".bin"
+            "xfrac3D_"//trim(adjustl(zred_str))//".bin"
 
        ! Report
        write(unit=logf,fmt="(2A)") "Reading ionization fractions from ", &
