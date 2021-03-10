@@ -44,7 +44,7 @@ module lls_module
   use cosmology_parameters, only: Omega0, H0, h
   use nbody, only: id_str,dir_LLS
   use nbody, only: LLSformat, LLSaccess, LLSheader
-  use c2ray_parameters, only: use_LLS, type_of_LLS, LLS_model
+  use c2ray_parameters, only: use_LLS, type_of_LLS, LLS_model, R_max_cMpc
 
   implicit none
 
@@ -95,6 +95,10 @@ module lls_module
 
   type(LLS_model_new) :: mfpLLS
   
+  real(kind=dp),public :: R_max_LLS
+  real(kind=dp),public :: R_max
+  
+
   public :: set_LLS, LLS_point
 
   
@@ -109,7 +113,8 @@ contains
   subroutine LLS_init ()
 
     if (use_LLS) then
-       if (type_of_LLS == 1) then
+       select case (type_of_LLS)
+       case(1)
           
           ! Choose the appropriate LLS model
           select case (LLS_model)
@@ -125,14 +130,18 @@ contains
              mfpLLS=const_cmfp_LLS
           end select
           
-          ! Report
-          write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
-       else
+       ! Report
+       write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
+       case(2)
           ! Set distance between LLS (and mean free path) to infinity
           ! If type_of_LLS = 2 this will be overwritten by cell specific
           ! values.
           n_LLS=0.0d0
-       endif
+       case(3)
+          ! Use a maximum distance from the source, similar to the R_max
+          ! implementation in 21cmFAST
+          R_max=R_max_cMpc*Mpc
+       end select
     endif
        
   end subroutine LLS_init
@@ -157,6 +166,8 @@ contains
        coldensh_LLS = N_1 * n_LLS
     case(2) 
        call read_lls_grid (z)
+    case(3)
+       R_max_LLS=R_max/(1.0+z)
     end select
 
     if (rank == 0) then

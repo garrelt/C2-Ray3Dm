@@ -99,7 +99,11 @@ module c2ray_parameters
   !! 2: lower mean free path
   !! 3: higher mean free path
   integer,parameter :: LLS_model=1
-  
+
+  !> Value of maximum comoving distance for photons from source in case of
+  !! type_of_LLS=3
+  integer,parameter :: R_max_cMpc=10
+
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.
 

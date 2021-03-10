@@ -46,7 +46,7 @@ module evolve_point
   use c2ray_parameters, only: isothermal
   use ionfractions_module, only: ionstates
   use clumping_module, only: clumping_point
-  use LLS_module, only: coldensh_LLS, LLS_point
+  use LLS_module, only: coldensh_LLS, LLS_point, R_max_LLS
   use sourceprops, only: srcpos
   use radiation_photoionrates, only: photrates, photoion_rates
   use thermalevolution, only: thermal
@@ -110,10 +110,14 @@ contains
     real(kind=dp) :: coldensh_in
     real(kind=dp),dimension(0:1) :: coldenshe_in,coldenshe_out_temp
     real(kind=dp) :: ndens_p
+    logical :: stop_rad_transfer
     
     type(photrates) :: phi, dummiphi
     type(ionstates) :: ion
 
+    ! Reset check on radiative transfer
+    stop_rad_transfer=.false.
+    
     ! Map pos to mesh pos, assuming a periodic mesh
     do idim=1,Ndim
        pos(idim)=modulo(rtpos(idim)-1,mesh(idim))+1
@@ -180,10 +184,21 @@ contains
           ! may be better to add it here.
           ! Initialize local LLS (if type of LLS is appropriate)
           if (use_LLS) then
-             if (type_of_LLS == 2) call LLS_point (pos(1),pos(2),pos(3))
-             coldensh_in = coldensh_in + coldensh_LLS * path/dr(1)
+             if (type_of_LLS == 3) then
+                ! Set the flag for stopping radiative transfer if the
+                ! distance is larger than the maximum distance set by
+                ! the LLS model.
+                if (dist2 > R_max_LLS*R_max_LLS) stop_rad_transfer=.true.
+             else
+                if (type_of_LLS == 2) call LLS_point (pos(1),pos(2),pos(3))
+                coldensh_in = coldensh_in + coldensh_LLS * path/dr(1)
+             endif
           endif          
        endif
+
+       ! Set the flag for no further radiative transfer if the ingoing column
+       ! density is above the maximum allowed value
+       if (coldensh_in > max_coldensh) stop_rad_transfer=.true.
 
        ! Only ray trace and exit. Do not touch the ionization
        ! fractions. They are updated using phih_grid in evolve0d_global.
@@ -195,7 +210,7 @@ contains
        ! Therefore no changes to xh, xh_av, etc. should happen on later passes!
        ! This option is temporarily disabled by testing niter == -1 which
        ! is always false.
-       if (niter == -1 .and. coldensh_in < max_coldensh) then
+       if (niter == -1 .and. .not.stop_rad_transfer) then
           local_chemistry=.true.
           dummiphi%photo_cell_HI=0.0_dp
 
@@ -236,7 +251,7 @@ contains
        ! column densities.
 
        ! Limit the calculation to a certain maximum column density (hydrogen)
-       if (coldensh_in < max_coldensh) then 
+       if (.not.stop_rad_transfer) then 
 
           ! photoion_rates the structure of rates (photo and heating)
           phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
@@ -254,7 +269,8 @@ contains
           if (use_LLS) call total_LLS_loss(phi%photo_in_HI*vol/vol_ph, &
                coldensh_LLS * path/dr(1))          
        else
-          ! If the H0 column density is above the maximum, set rates to zero
+          ! If the H0 column density is above the maximum or the R_max
+          ! condition from the LLS model is triggered, set rates to zero
           phi%photo_cell_HI = 0.0_dp
           phi%photo_out_HI = 0.0_dp
           phi%heat = 0.0_dp
