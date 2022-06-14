@@ -356,7 +356,8 @@ contains
           file1=trim(adjustl(results_dir))//"IonRates3D_"// &
                trim(adjustl(zred_str))//base_extension
 
-          output_array=real(phih_grid(1:mesh(1),1:mesh(2),1:mesh(3)))
+          output_array=real(phih_grid,kind=si)
+          !output_array=real(phih_grid(1:mesh(1),1:mesh(2),1:mesh(3)))
           ptr_output_array => output_array
           
           call write_sm3d_si_file_routine(file1,ptr_output_array)
@@ -367,7 +368,8 @@ contains
              file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
                   trim(adjustl(zred_str))//base_extension
 
-             output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
+             output_array=real(phiheat,kind=si)
+             !output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
              ptr_output_array => output_array
           
              call write_sm3d_si_file_routine(file1,ptr_output_array)
