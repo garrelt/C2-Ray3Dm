@@ -40,6 +40,10 @@ module master_slave_processing
   !> Minimum number of MPI processes for using the master-slave setup 
   integer, parameter ::  min_numproc_master_slave=10
 
+  !> Report about the sending of every 1000th source if check_progress
+  !! is 1000
+  integer, parameter :: check_progress = 1000000
+
 contains
 
   ! ===========================================================================
@@ -171,6 +175,15 @@ contains
        ! we use the value of num to detect this */
        if (ns1 < NumSrc) then
           ns1=ns1+1
+
+          ! Report on the sending on nth source
+          if (mod(ns1,check_progress) == 0) then
+             write(logf,"(A,I12,A,I12,A,I6,A,I12)") &
+                  "Sending source ",ns1," of ",NumSrc," to processor ",who, &
+                  " sources done ", sources_done
+             flush(logf)
+          endif
+          
           call MPI_Send (ns1, 1, MPI_INTEGER, &
                who,		&	
                1,		&	
