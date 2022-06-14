@@ -44,7 +44,7 @@ module c2ray_parameters
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
   !! no photons escape or we reach the edge of the (possibly periodic)
   !! grid
-  integer,parameter :: subboxsize=10
+  integer,parameter :: subboxsize=25
 
   !> The maximum number	of cells on EITHER side	of the	source for which
   !! ray tracing is done. This	is a very crude	mean free path parameter
@@ -86,7 +86,7 @@ module c2ray_parameters
   real,parameter :: clumping_factor=1.0
 
   !> Include LLS?
-  logical,parameter :: use_LLS=.false.
+  logical,parameter :: use_LLS=.true.
   !> Type of LLS approach
   !! 0: no LLS
   !! 1: homogeneous optical depth due to LLS
@@ -98,11 +98,13 @@ module c2ray_parameters
   !! 1: standard Worseck et al. (2014) mean free path fit
   !! 2: lower mean free path
   !! 3: higher mean free path
-  integer,parameter :: LLS_model=1
+  !! 4: constant proper Mpc
+  !! 5: constant comoving Mpc
+  integer,parameter :: LLS_model=5
 
   !> Value of maximum comoving distance for photons from source in case of
   !! type_of_LLS=3
-  integer,parameter :: R_max_cMpc=10
+  real(kind=dp),parameter :: R_max_cMpc=10.0
 
   !> Should we stop when photon conservation violation is detected?
   logical,parameter :: stop_on_photon_violation = .false.
