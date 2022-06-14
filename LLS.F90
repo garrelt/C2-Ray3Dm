@@ -91,7 +91,7 @@ module lls_module
        A_LLS=1.0, z_ref=4.0, yz_LLS=0.0)
   type(LLS_model_new),parameter :: const_cmfp_LLS=LLS_model_new(&
        reference="constant comoving mfp", &
-       A_LLS=1.0, z_ref=0.0, yz_LLS=-1.0)
+       A_LLS=10.0, z_ref=0.0, yz_LLS=-1.0)
 
   type(LLS_model_new) :: mfpLLS
   
