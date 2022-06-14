@@ -54,6 +54,9 @@ module c2ray_parameters
   !> Add photon losses back into volume or not
   logical,parameter :: add_photon_losses=.false.
 
+  !> Fraction of remaining photons below we stop ray-tracing
+  real(kind=dp) :: loss_fraction=1e-2_dp
+  
   !> Parameters for nominal SED (BB)
   !> Effective temperature (K); if set to zero, the code will ask
   !! for SED parameters

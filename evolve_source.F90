@@ -19,7 +19,7 @@ module evolve_source
   use my_mpi ! supplies all the MPI and OpenMP definitions and variables
   use file_admin, only: logf,timefile,iterdump, results_dir, dump_dir
   use abundances, only: abu_he
-  use c2ray_parameters, only: subboxsize, max_subbox
+  use c2ray_parameters, only: subboxsize, max_subbox, loss_fraction
   use sizes, only: Ndim, mesh
   use sourceprops, only: NumSrc, srcpos, NormFlux, NormFluxPL !SrcSeries
   use radiation_sed_parameters, only: S_star, pl_S_star
@@ -125,7 +125,7 @@ contains
     ! Loop through boxes of increasing size
     ! NOTE: make this limit on the photon_loss a fraction of
     ! a source flux loss_fraction*NormFlux(ns)*S_star)
-    do while (photon_loss_src > 1e-6*total_source_flux &
+    do while (photon_loss_src > loss_fraction*total_source_flux &
     !do while (all(photon_loss_src(:) /= 0.0) &
          .and. last_r(3) < lastpos_r(3) &
          .and. last_l(3) > lastpos_l(3))
