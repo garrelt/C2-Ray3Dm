@@ -1,6 +1,6 @@
 n            ! restart (y/n)
 n            ! restart from intermediate time (y/n)
 1            ! from which slice to start/restart
-4	     ! UV Luminosity recipe
+7	     ! UV Luminosity recipe
 10           ! number of timesteps per density/source slice
-10            ! number of outputs per density/source slice
+1            ! number of outputs per density/source slice
