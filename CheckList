@@ -2,6 +2,7 @@ Check list for changing simulations
 - mesh size (sizes.f90)
 - cosmological parameters (cosmoparms.f90)
 - abundances (abundances.f90)
+- SED parameters (sed_parameters.f90)
 - grey opacity (radiation.F90)
 - boxsize (module nbody (pmfast.F90, cubep3m.F90, LG.F90)
 - photon efficiencies (c2ray-parameters.f90)
