@@ -33,10 +33,10 @@ module radiation_sizes
 contains
 
   ! set up some scaling factors arrays
-  subroutine setup_scalingfactors (freq_max_src)
+  subroutine setup_scalingfactors (freq_min_src, freq_max_src)
 
     ! Contains the maximum frequency, determined by source input
-    real(kind=dp),intent(in) :: freq_max_src
+    real(kind=dp),intent(in) :: freq_min_src, freq_max_src
 
     integer :: i_subband
 
@@ -58,14 +58,16 @@ contains
 
     ! Assignment of minimum frequency in the sub-bin partition.
 
-    freq_min(NumBndin1) = ion_freq_HI
+    freq_min(NumBndin1) = max(ion_freq_HI, freq_min_src)
 
     ! calculate the width of frequency sub-bin
     do i_subband=1,NumFreqBnd 
        delta_freq(i_subband) = (freq_max(i_subband)-freq_min(i_subband))/real(NumFreq)
     enddo
 
-    ! Assign value sigma of HI, HeI and HeII at different frequencies 
+    ! Assign value sigma of HI, HeI and HeII at different frequencies
+    ! This value is used to characterise how absorbing the medium is and thus
+    ! is independent of the SED
     select case (NumBndin1)
 
     case (1)

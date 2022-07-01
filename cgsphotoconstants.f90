@@ -19,8 +19,6 @@ module cgsphotoconstants
   use precision, only: dp
   use cgsconstants
 
-  !	!> Helium ionization potentials (eV)
-  !	real(kind=dp), dimension(0:1),parameter :: ethe=(/24.587,54.416/)
   !> HI cross section at its ionzing frequency
   real(kind=dp), parameter :: sigma_HI_at_ion_freq=6.30e-18
   !real(kind=dp), parameter :: sigma_HI_at_ion_freq=6.346e-18

@@ -29,12 +29,12 @@ module output_module
   use temperature_module, only: temperature_states_dbl
   use temperature_module, only: get_temperature_point
   use evolve_data, only: phih_grid, phiheat
-  use sourceprops, only: srcpos, NormFlux, NormFluxPL, NumSrc
+  use sourceprops, only: srcpos, NormFlux_stellar, NormFlux_xray, NumSrc
   use photonstatistics, only: initialize_photonstatistics
   use photonstatistics, only: do_photonstatistics, total_ion, totrec
   use photonstatistics, only: totcollisions, dh0, grtotal_ion, photon_loss
   use photonstatistics, only: LLS_loss, grtotal_src
-  use radiation_sed_parameters, only: S_star, pl_S_star
+  use radiation_sed_parameters, only: S_star, S_star_xray
 
 
   implicit none
@@ -533,7 +533,7 @@ contains
           !    number does not appear to be calculated correctly
           total_LLS_loss = LLS_loss*dt
           ! total_src: total number of photons produced by sources
-          totalsrc=sum(NormFlux(1:NumSrc))*S_star*dt
+          totalsrc=sum(NormFlux_stellar(1:NumSrc))*S_star*dt
           ! photcons: photon conservation number. total_ion is the total 
           !    number of new ionizations plus the total number of 
           !    recombinations. We subtract the total number of ionizations

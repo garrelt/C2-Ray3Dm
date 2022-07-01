@@ -21,7 +21,7 @@ module evolve_source
   use abundances, only: abu_he
   use c2ray_parameters, only: subboxsize, max_subbox, loss_fraction
   use sizes, only: Ndim, mesh
-  use sourceprops, only: NumSrc, srcpos, NormFlux, NormFluxPL !SrcSeries
+  use sourceprops, only: NumSrc, srcpos, NormFlux_stellar, NormFlux_xray !SrcSeries
   use radiation_sed_parameters, only: S_star, pl_S_star
   use photonstatistics, only: photon_loss
 
@@ -83,7 +83,7 @@ contains
 
     ! Report on source
     !write(logf,*) "Source number: ",ns
-    !write(logf,*) NormFlux(ns)
+    !write(logf,*) NormFlux_stellar(ns)
     !write(logf,*) srcpos(:,ns)
 
     ! reset column densities for new source point
@@ -116,15 +116,15 @@ contains
     ! photons are leaving this subbox and we need to do another
     ! one. We also stop once we have done the whole grid.
     nbox=0 ! subbox counter
-    total_source_flux=NormFlux(ns)*S_star ! &
-         !! + NormFluxPL(ns)*pl_S_star
+    total_source_flux=NormFlux_stellar(ns)*S_star  !&
+        ! + NormFlux_xray(ns)*pl_S_star
     photon_loss_src=total_source_flux !-1.0 ! to pass the first while test
     last_r(:)=srcpos(:,ns) ! to pass the first while test
     last_l(:)=srcpos(:,ns) ! to pass the first while test
 
     ! Loop through boxes of increasing size
     ! NOTE: make this limit on the photon_loss a fraction of
-    ! a source flux loss_fraction*NormFlux(ns)*S_star)
+    ! a source flux loss_fraction*NormFlux_stellar(ns)*S_star)
     do while (photon_loss_src > loss_fraction*total_source_flux &
     !do while (all(photon_loss_src(:) /= 0.0) &
          .and. last_r(3) < lastpos_r(3) &

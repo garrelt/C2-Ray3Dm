@@ -25,7 +25,7 @@ module radiation_tables
 
   !use material, only: isothermal
   use c2ray_parameters, only: isothermal
-
+  use sed_parameters, only: use_xray_SED
   use radiation_sizes, only: NumFreq,NumFreqBnd,NumBndin1
   use radiation_sizes, only: Numheatbin
   use radiation_sizes, only: freq_min,freq_max,delta_freq
@@ -35,7 +35,7 @@ module radiation_tables
 
   use radiation_sed_parameters, only: sourcetype
   use radiation_sed_parameters, only: T_eff, R_star, R_star2, h_over_kT
-  use radiation_sed_parameters, only: pl_index, pl_scaling
+  use radiation_sed_parameters, only: pl_index, S_scaling
   use radiation_sed_parameters, only: pl_minfreq, pl_maxfreq
   use radiation_sed_parameters, only: spectrum_parms, spec_diag
   
@@ -50,20 +50,20 @@ module radiation_tables
   logical,parameter :: grey = .false. 
 
   ! The lowest and highest frequency subbands used for the bb and pl source
-  integer :: bb_FreqBnd_LowerLimit=1
-  integer :: bb_FreqBnd_UpperLimit=NumFreqBnd
-  integer :: pl_FreqBnd_LowerLimit
-  integer :: pl_FreqBnd_UpperLimit
+  integer :: stellar_FreqBnd_LowerLimit=1
+  integer :: stellar_FreqBnd_UpperLimit=NumFreqBnd
+  integer :: xray_FreqBnd_LowerLimit
+  integer :: xray_FreqBnd_UpperLimit
 
   ! Integrands ( frequency, optical depth )
-  real(kind=dp),dimension(:,:), allocatable :: bb_photo_thick_integrand
-  real(kind=dp),dimension(:,:), allocatable :: bb_photo_thin_integrand
-  real(kind=dp),dimension(:,:), allocatable :: pl_photo_thick_integrand
-  real(kind=dp),dimension(:,:), allocatable :: pl_photo_thin_integrand
-  real(kind=dp),dimension(:,:), allocatable :: bb_heat_thick_integrand_HI
-  real(kind=dp),dimension(:,:), allocatable :: bb_heat_thin_integrand_HI
-  real(kind=dp),dimension(:,:), allocatable :: pl_heat_thick_integrand_HI
-  real(kind=dp),dimension(:,:), allocatable :: pl_heat_thin_integrand_HI
+  real(kind=dp),dimension(:,:), allocatable :: stellar_photo_thick_integrand
+  real(kind=dp),dimension(:,:), allocatable :: stellar_photo_thin_integrand
+  real(kind=dp),dimension(:,:), allocatable :: xray_photo_thick_integrand
+  real(kind=dp),dimension(:,:), allocatable :: xray_photo_thin_integrand
+  real(kind=dp),dimension(:,:), allocatable :: stellar_heat_thick_integrand_HI
+  real(kind=dp),dimension(:,:), allocatable :: stellar_heat_thin_integrand_HI
+  real(kind=dp),dimension(:,:), allocatable :: xray_heat_thick_integrand_HI
+  real(kind=dp),dimension(:,:), allocatable :: xray_heat_thin_integrand_HI
 
   ! Frequency dependence of cross section (subband dependent)
   real(kind=dp), dimension(0:NumFreq) :: cross_section_freq_dependence
@@ -78,14 +78,14 @@ module radiation_tables
   real(kind=dp), dimension(0:NumTau) :: tau
 
   ! Integration table ( optical depth, sub-bin )
-  real(kind=dp),dimension(:,:), target, allocatable :: bb_photo_thick_table  
-  real(kind=dp),dimension(:,:), target, allocatable :: bb_photo_thin_table
-  real(kind=dp),dimension(:,:), target, allocatable :: pl_photo_thick_table 
-  real(kind=dp),dimension(:,:), target, allocatable :: pl_photo_thin_table
-  real(kind=dp),dimension(:,:), target, allocatable :: bb_heat_thick_table  
-  real(kind=dp),dimension(:,:), target, allocatable :: bb_heat_thin_table
-  real(kind=dp),dimension(:,:), target, allocatable :: pl_heat_thick_table  
-  real(kind=dp),dimension(:,:), target, allocatable :: pl_heat_thin_table
+  real(kind=dp),dimension(:,:), target, allocatable :: stellar_photo_thick_table  
+  real(kind=dp),dimension(:,:), target, allocatable :: stellar_photo_thin_table
+  real(kind=dp),dimension(:,:), target, allocatable :: xray_photo_thick_table 
+  real(kind=dp),dimension(:,:), target, allocatable :: xray_photo_thin_table
+  real(kind=dp),dimension(:,:), target, allocatable :: stellar_heat_thick_table  
+  real(kind=dp),dimension(:,:), target, allocatable :: stellar_heat_thin_table
+  real(kind=dp),dimension(:,:), target, allocatable :: xray_heat_thick_table  
+  real(kind=dp),dimension(:,:), target, allocatable :: xray_heat_thin_table
 
 #ifdef MPI       
     integer,private :: mympierror
@@ -99,15 +99,15 @@ contains
 
     ! Contains the maximum frequency, determined by source input
     ! passed from spectrum_parms to setup_scalingfactors
-    real(kind=dp) :: freq_max_src
+    real(kind=dp) :: freq_min_src, freq_max_src
 
     !
     ! Ask for the parameters of the spectrum                                                 !
-    call spectrum_parms (freq_max_src)                                                                   ! 
+    call spectrum_parms (freq_min_src, freq_max_src)                                                                   ! 
                                                                                              ! 
     ! Initializes constants and tables for radiation processes                               ! 
     ! (heating, cooling and ionization)                                                      !
-    call setup_scalingfactors (freq_max_src)                                                             !
+    call setup_scalingfactors (freq_min_src, freq_max_src)                                                             !
                                                                                              !
     ! Initialize integration routines                                                        !
     call romberg_initialisation (NumFreq)                                                    !
@@ -152,9 +152,17 @@ contains
     if (grey .and. rank == 0) write(logf,*) 'WARNING: Using grey opacities'
 
     if (rank == 0) then
-       write(logf,"(A,ES10.3)") "Using BB up to frequency ", &
+       select case (sourcetype)
+       case ("B")
+          write(logf,"(A)") "Using BB SED" 
+       case("P")
+          write(logf,"(A)") "Using PL SED" 
+       end select
+       write(logf,"(A,ES10.3,A,ES10.3)") "  between frequencies ", &
+            freq_min(NumBndin1)," and ", &
             freq_max(NumBndin1)
-       write(logf,"(A,F10.2,A)") "  this is energy ", &
+       write(logf,"(A,F10.2,A,F10.2,A)") "  this is energy ", &
+            freq_min(NumBndin1)/ev2fr," and ", &
             freq_max(NumBndin1)/ev2fr," eV"
     endif
 
@@ -204,11 +212,27 @@ contains
 
     ! report a table value
     if (rank == 0) then
-       write(logf,*) "bb_photo_thick_table: ",sum(bb_photo_thick_table(0,:))
-       write(logf,*) "bb_photo_thin_table: ",sum(bb_photo_thin_table(0,:))
+       write(logf,*) "stellar_photo_thick_table: ", &
+            sum(stellar_photo_thick_table(0,:))
+       write(logf,*) "stellar_photo_thin_table: ", &
+            sum(stellar_photo_thin_table(0,:))
+       if (use_xray_SED) then
+          write(logf,*) "xray_photo_thick_table: ", &
+               sum(xray_photo_thick_table(0,:))
+          write(logf,*) "xray_photo_thin_table: ", &
+               sum(xray_photo_thin_table(0,:))
+       endif
        if (.not.isothermal) then
-          write(logf,*) "bb_heat_thick_table: ",(bb_heat_thick_table(0,1))
-          write(logf,*) "bb_heat_thin_table: ",(bb_heat_thin_table(0,1))
+          write(logf,*) "stellar_heat_thick_table: ", &
+               (stellar_heat_thick_table(0,1))
+          write(logf,*) "stellar_heat_thin_table: ", &
+               (stellar_heat_thin_table(0,1))
+          if (use_xray_SED) then
+             write(logf,*) "xray_heat_thick_table: ", &
+                  xray_heat_thick_table(0,:1)
+             write(logf,*) "xray_heat_thin_table: ", &
+                  xray_heat_thin_table(0,1)
+          endif
        endif
     endif
     
@@ -228,17 +252,21 @@ contains
   subroutine allocate_integrand_arrays
 
     ! Photoionization integrand as a function of frequency and tau
-    allocate(bb_photo_thick_integrand(0:NumFreq, 0:NumTau))    
-    allocate(bb_photo_thin_integrand(0:NumFreq, 0:NumTau)) 
-    allocate(pl_photo_thick_integrand(0:NumFreq, 0:NumTau))    
-    allocate(pl_photo_thin_integrand(0:NumFreq, 0:NumTau)) 
-
+    allocate(stellar_photo_thick_integrand(0:NumFreq, 0:NumTau))    
+    allocate(stellar_photo_thin_integrand(0:NumFreq, 0:NumTau)) 
+    if (use_xray_SED) then
+       allocate(xray_photo_thick_integrand(0:NumFreq, 0:NumTau))    
+       allocate(xray_photo_thin_integrand(0:NumFreq, 0:NumTau)) 
+    endif
+    
     ! Heating integrand as a function of frequency and tau
     if (.not.isothermal) then
-       allocate(bb_heat_thick_integrand_HI(0:NumFreq, 0:NumTau))  
-       allocate(bb_heat_thin_integrand_HI(0:NumFreq, 0:NumTau))   
-       allocate(pl_heat_thick_integrand_HI(0:NumFreq, 0:NumTau))   
-       allocate(pl_heat_thin_integrand_HI(0:NumFreq, 0:NumTau))   
+       allocate(stellar_heat_thick_integrand_HI(0:NumFreq, 0:NumTau))  
+       allocate(stellar_heat_thin_integrand_HI(0:NumFreq, 0:NumTau))   
+       if (use_xray_SED) then
+          allocate(xray_heat_thick_integrand_HI(0:NumFreq, 0:NumTau))   
+          allocate(xray_heat_thin_integrand_HI(0:NumFreq, 0:NumTau))   
+       endif
     endif
 
   end subroutine allocate_integrand_arrays
@@ -247,17 +275,21 @@ contains
 
   subroutine deallocate_integrand_arrays
     
-    deallocate(bb_photo_thick_integrand)
-    deallocate(bb_photo_thin_integrand)
-    deallocate(pl_photo_thick_integrand)
-    deallocate(pl_photo_thin_integrand)
+    deallocate(stellar_photo_thick_integrand)
+    deallocate(stellar_photo_thin_integrand)
+    if (use_xray_SED) then
+       deallocate(xray_photo_thick_integrand)
+       deallocate(xray_photo_thin_integrand)
+    endif
     
     ! deallocate the useless heating integrand
     if (.not.isothermal) then
-       deallocate(bb_heat_thick_integrand_HI)
-       deallocate(bb_heat_thin_integrand_HI)
-       deallocate(pl_heat_thick_integrand_HI)
-       deallocate(pl_heat_thin_integrand_HI)
+       deallocate(stellar_heat_thick_integrand_HI)
+       deallocate(stellar_heat_thin_integrand_HI)
+       if (use_xray_SED) then
+          deallocate(xray_heat_thick_integrand_HI)
+          deallocate(xray_heat_thin_integrand_HI)
+       endif
     endif
     
   end subroutine deallocate_integrand_arrays
@@ -269,17 +301,21 @@ contains
     ! Allocate the table arrays
 
     ! Photoionization table as a function of photo sub-bin and tau
-    allocate(bb_photo_thick_table(0:NumTau, 1:NumFreqBnd))
-    allocate(bb_photo_thin_table(0:NumTau, 1:NumFreqBnd))
-    allocate(pl_photo_thick_table(0:NumTau, 1:NumFreqBnd))
-    allocate(pl_photo_thin_table(0:NumTau, 1:NumFreqBnd))
+    allocate(stellar_photo_thick_table(0:NumTau, 1:NumFreqBnd))
+    allocate(stellar_photo_thin_table(0:NumTau, 1:NumFreqBnd))
+    if (use_xray_SED) then
+       allocate(xray_photo_thick_table(0:NumTau, 1:NumFreqBnd))
+       allocate(xray_photo_thin_table(0:NumTau, 1:NumFreqBnd))
+    endif
     
     ! Heating table as a function of heating sub-bin and tau
     if (.not.isothermal) then
-       allocate(bb_heat_thick_table(0:NumTau, 1:NumheatBin))
-       allocate(bb_heat_thin_table(0:NumTau, 1:NumheatBin))
-       allocate(pl_heat_thick_table(0:NumTau, 1:NumheatBin))
-       allocate(pl_heat_thin_table(0:NumTau, 1:NumheatBin))
+       allocate(stellar_heat_thick_table(0:NumTau, 1:NumheatBin))
+       allocate(stellar_heat_thin_table(0:NumTau, 1:NumheatBin))
+       if (use_xray_SED) then
+          allocate(xray_heat_thick_table(0:NumTau, 1:NumheatBin))
+          allocate(xray_heat_thin_table(0:NumTau, 1:NumheatBin))
+       endif
     endif
     
   end subroutine allocate_table_arrays
@@ -291,7 +327,8 @@ contains
     integer,intent(in) :: i_subband
     
     integer :: i_freq
-    
+
+    ! These numbers were set in setup_scalingfactors in radiation_sizes module
     do i_freq=0,NumFreq
        frequency(i_freq) = freq_min(i_subband)+ &
             delta_freq(i_subband)*real(i_freq)
@@ -330,51 +367,107 @@ contains
 
     integer :: i_tau
     integer :: i_freq
+    real(kind=dp), dimension(0:NumFreq) :: stellar_SED
+    real(kind=dp), dimension(0:NumFreq) :: xray_SED
+    
+    ! Fill the SED
+    select case (sourcetype)
+    case ("B")
+       do i_freq=0,NumFreq
+          stellar_SED(i_freq)=BB_SED(i_freq)
+       enddo
+    case ("P")
+       do i_freq=0,NumFreq
+          stellar_SED(i_freq)=PL_SED(i_freq)
+       enddo
+    end select
     
     ! Loop through the tau partition
     do i_tau=0,NumTau 
        
        ! Loop through the frequency partition 
        do i_freq=0,NumFreq
-          
-          ! Assign values to the photo integrands
           if (tau(i_tau)*cross_section_freq_dependence(i_freq) < 700.0) then
-             ! GM/130729 For these high frequencies this
-             ! BB exponential term can overflow. Test for this.
-             if (frequency(i_freq)*h_over_kT < 700.0) then  
-                bb_photo_thick_integrand(i_freq,i_tau) = &
-                     4.0_dp*pi*R_star2*two_pi_over_c_square* &
-                     frequency(i_freq)*frequency(i_freq)* &
-                     exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))/ &
-                     (exp(frequency(i_freq)*h_over_kT)-1.0)  
-                bb_photo_thin_integrand(i_freq,i_tau) = &
-                     4.0_dp*pi*R_star2*two_pi_over_c_square* &
-                     frequency(i_freq)*frequency(i_freq)* &
-                     cross_section_freq_dependence(i_freq)* &
-                     exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))/ &
-                     (exp(frequency(i_freq)*h_over_kT)-1.0)  
-             else
-                bb_photo_thick_integrand(i_freq,i_tau) = 0.0
-                bb_photo_thin_integrand(i_freq,i_tau) = 0.0
-             endif
-             pl_photo_thick_integrand(i_freq,i_tau) = &
-                  pl_scaling*frequency(i_freq)**(-pl_index)* &
+             ! Assign values to the photo integrands
+             stellar_photo_thick_integrand(i_freq,i_tau) = &
+                  stellar_SED(i_freq)* &
                   exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))
-             pl_photo_thin_integrand(i_freq,i_tau) = &
-                  pl_scaling*frequency(i_freq)**(-pl_index)* &
+             stellar_photo_thin_integrand(i_freq,i_tau) = &
+                  stellar_SED(i_freq)* &
                   cross_section_freq_dependence(i_freq)* &
                   exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))
           else
-             bb_photo_thick_integrand(i_freq,i_tau) = 0.0
-             bb_photo_thin_integrand(i_freq,i_tau) = 0.0
-             pl_photo_thick_integrand(i_freq,i_tau) = 0.0
-             pl_photo_thin_integrand(i_freq,i_tau) = 0.0
+             stellar_photo_thick_integrand(i_freq,i_tau) = 0.0
+             stellar_photo_thin_integrand(i_freq,i_tau) = 0.0
           endif
           
        enddo
     enddo
-
+    
+    ! Calculate X-ray SED if required
+    if (use_xray_SED) then
+       ! Loop through the tau partition
+       do i_tau=0,NumTau 
+          
+          ! Loop through the frequency partition 
+          do i_freq=0,NumFreq
+             if (tau(i_tau)*cross_section_freq_dependence(i_freq) < 700.0) &
+                  then
+                ! Assign values to the photo integrands
+                xray_photo_thick_integrand(i_freq,i_tau) = &
+                     xray_SED(i_freq)* &
+                     exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))
+                xray_photo_thin_integrand(i_freq,i_tau) = &
+                     xray_SED(i_freq)* &
+                     cross_section_freq_dependence(i_freq)* &
+                     exp(-tau(i_tau)*cross_section_freq_dependence(i_freq))
+             else
+                xray_photo_thick_integrand(i_freq,i_tau) = 0.0
+                xray_photo_thin_integrand(i_freq,i_tau) = 0.0
+             endif
+             
+          enddo
+       enddo
+    endif
+                
   end subroutine fill_photo_integrands
+
+!---------------------------------------------------------------------------
+
+  function BB_SED(i_freq)
+
+    ! function type
+    real(kind=dp) :: BB_SED
+
+    ! arguments
+    integer,intent(in) :: i_freq
+  
+    ! GM/130729 For these high frequencies this
+    ! BB exponential term can overflow. Test for this.
+    if (frequency(i_freq)*h_over_kT < 700.0) then  
+       BB_SED = 4.0_dp*pi*R_star2*two_pi_over_c_square* &
+         frequency(i_freq)*frequency(i_freq)/ &
+         (exp(frequency(i_freq)*h_over_kT)-1.0)
+    else
+       BB_SED=0.0
+    endif
+    
+  end function BB_SED
+
+!---------------------------------------------------------------------------
+
+  function PL_SED(i_freq)
+
+    ! function type
+    real(kind=dp) :: PL_SED
+
+    ! arguments
+    integer,intent(in) :: i_freq
+  
+    PL_SED = S_scaling*frequency(i_freq)**(-pl_index)
+
+
+  end function PL_SED
 
 !---------------------------------------------------------------------------
 
@@ -389,23 +482,33 @@ contains
        ! Loop through the frequency partition
        do i_freq=0,NumFreq
           
-          bb_heat_thick_integrand_HI(i_freq,i_tau) = &
+          stellar_heat_thick_integrand_HI(i_freq,i_tau) = &
                hplanck*(frequency(i_freq)-ion_freq_HI)* &
-               bb_photo_thick_integrand(i_freq,i_tau)
-          bb_heat_thin_integrand_HI(i_freq,i_tau) = &
+               stellar_photo_thick_integrand(i_freq,i_tau)
+          stellar_heat_thin_integrand_HI(i_freq,i_tau) = &
                hplanck*(frequency(i_freq)-ion_freq_HI)* &
-               bb_photo_thin_integrand(i_freq,i_tau)
-          pl_heat_thick_integrand_HI(i_freq,i_tau) = &
-               hplanck*(frequency(i_freq)-ion_freq_HI)* &
-               pl_photo_thick_integrand(i_freq,i_tau)
-          pl_heat_thin_integrand_HI(i_freq,i_tau) = &
-               hplanck*(frequency(i_freq)-ion_freq_HI)* &
-               pl_photo_thin_integrand(i_freq,i_tau)
-          
+               stellar_photo_thin_integrand(i_freq,i_tau)
        enddo
        
     enddo
 
+    if (use_xray_SED) then
+       ! Loop through the tau partition
+       do i_tau=0,NumTau 
+          
+          ! Loop through the frequency partition
+          do i_freq=0,NumFreq
+             
+             xray_heat_thick_integrand_HI(i_freq,i_tau) = &
+                  hplanck*(frequency(i_freq)-ion_freq_HI)* &
+                  xray_photo_thick_integrand(i_freq,i_tau)
+             xray_heat_thin_integrand_HI(i_freq,i_tau) = &
+                  hplanck*(frequency(i_freq)-ion_freq_HI)* &
+                  xray_photo_thin_integrand(i_freq,i_tau)
+          enddo
+       enddo
+    endif
+    
   end subroutine fill_heating_integrands_HI
 
 !---------------------------------------------------------------------------
@@ -428,15 +531,18 @@ contains
     real(kind=dp), dimension(0:NumTau) :: answer
 
     ! Make photo tables
-    call vector_romberg (bb_photo_thick_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    bb_photo_thick_table(:,i_subband) = answer
-    call vector_romberg (bb_photo_thin_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    bb_photo_thin_table(:,i_subband) = answer
-    call vector_romberg (pl_photo_thick_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    pl_photo_thick_table(:,i_subband) = answer
-    call vector_romberg (pl_photo_thin_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    pl_photo_thin_table(:,i_subband) = answer  
+    call vector_romberg (stellar_photo_thick_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
+    stellar_photo_thick_table(:,i_subband) = answer
+    call vector_romberg (stellar_photo_thin_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
+    stellar_photo_thin_table(:,i_subband) = answer
 
+    if (use_xray_SED) then
+       call vector_romberg (xray_photo_thick_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
+       xray_photo_thick_table(:,i_subband) = answer
+       call vector_romberg (xray_photo_thin_integrand,vector_weight,NumFreq,NumFreq,NumTau,answer)
+       xray_photo_thin_table(:,i_subband) = answer  
+    endif
+    
   end subroutine make_photo_tables
 
 !---------------------------------------------------------------------------
@@ -447,14 +553,17 @@ contains
 
     real(kind=dp), dimension(0:NumTau) :: answer
 
-    call vector_romberg (bb_heat_thick_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    bb_heat_thick_table(:,table_position) = answer
-    call vector_romberg (bb_heat_thin_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    bb_heat_thin_table(:,table_position) = answer
-    call vector_romberg (pl_heat_thick_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    pl_heat_thick_table(:,table_position) = answer
-    call vector_romberg (pl_heat_thin_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
-    pl_heat_thin_table(:,table_position) = answer
+    call vector_romberg (stellar_heat_thick_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
+    stellar_heat_thick_table(:,table_position) = answer
+    call vector_romberg (stellar_heat_thin_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
+    stellar_heat_thin_table(:,table_position) = answer
+
+    if (use_xray_SED) then
+       call vector_romberg (xray_heat_thick_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
+       xray_heat_thick_table(:,table_position) = answer
+       call vector_romberg (xray_heat_thin_integrand_HI,vector_weight,NumFreq,NumFreq,NumTau,answer)
+       xray_heat_thin_table(:,table_position) = answer
+    endif
     
   end subroutine make_heat_tables_HI
   

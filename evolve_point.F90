@@ -495,7 +495,7 @@ contains
           !!! consistent with the newer variable names. Do not
           !!! uncomment and use without proper testing!
           !if (add_photon_losses) then
-          !   NormFlux(0)=sum(photon_loss(:))/S_star_nominal
+          !   NormFlux_stellar(0)=sum(photon_loss(:))/S_star_nominal
           !   ! Calculate (time averaged) column density of cell
           !   coldensh_cell=coldens(dr(1),yh_av(0),ndens_p)
           !   call photoion(phi,0.0d0,coldensh_cell,vol,0)

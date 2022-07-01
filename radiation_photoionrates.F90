@@ -21,12 +21,12 @@ module radiation_photoionrates
   use radiation_sizes, only: NumTau, NumheatBin
   
   use radiation_tables, only: minlogtau, dlogtau
-  use radiation_tables, only: bb_photo_thick_table, bb_photo_thin_table 
-  use radiation_tables, only: pl_photo_thick_table, pl_photo_thin_table 
-  use radiation_tables, only: bb_heat_thick_table, bb_heat_thin_table 
-  use radiation_tables, only: pl_heat_thick_table, pl_heat_thin_table 
-  use radiation_tables, only: bb_FreqBnd_UpperLimit, bb_FreqBnd_LowerLimit
-  use radiation_tables, only: pl_FreqBnd_UpperLimit, pl_FreqBnd_LowerLimit
+  use radiation_tables, only: stellar_photo_thick_table, stellar_photo_thin_table 
+  use radiation_tables, only: xray_photo_thick_table, xray_photo_thin_table 
+  use radiation_tables, only: stellar_heat_thick_table, stellar_heat_thin_table 
+  use radiation_tables, only: xray_heat_thick_table, xray_heat_thin_table 
+  use radiation_tables, only: stellar_FreqBnd_UpperLimit, stellar_FreqBnd_LowerLimit
+  use radiation_tables, only: xray_FreqBnd_UpperLimit, xray_FreqBnd_LowerLimit
 
   implicit none
 
@@ -71,7 +71,7 @@ contains
   function photoion_rates (colum_in_HI,colum_out_HI, &
        vol,nsrc,i_state)
 
-    use sourceprops, only: NormFlux,NormFluxPL
+    use sourceprops, only: NormFlux_stellar,NormFlux_xray
     !use cgsphotoconstants
 
     ! Function type
@@ -122,18 +122,19 @@ contains
     ! Find the photo-ionization rates by looking up the values in
     ! the (appropriate) photo-ionization tables and add to the
     ! rates
-    if (NormFlux(nsrc) > 0.0) &  
+
+    if (NormFlux_stellar(nsrc) > 0.0) &  
          phi = phi + photo_lookuptable(tau_pos_in,tau_pos_out, &
          tau_in_all,tau_out_all, &
-         NormFlux(nsrc),"B",vol)
+         NormFlux_stellar(nsrc),"B",vol)
     !if (colum_in_HI == 0.0) write(logf,*) "After photolookup: ", &
     !     phi%photo_cell_HI, phi%photo_cell_HeI, &
     !              phi%photo_cell_HeII, phi%heat
-    if (allocated(NormFluxPL)) then
-       if (NormFluxPL(nsrc) > 0.0) &  
+    if (allocated(NormFlux_xray)) then
+       if (NormFlux_xray(nsrc) > 0.0) &  
          phi = phi + photo_lookuptable(tau_pos_in,tau_pos_out, &
          tau_in_all,tau_out_all, &
-         NormFluxPL(nsrc),"P",vol)
+         NormFlux_xray(nsrc),"P",vol)
     endif
     ! Find the heating rates rates by looking up the values in
     ! the (appropriate) photo-ionization tables and using the
@@ -151,22 +152,23 @@ contains
        !        phi%photo_cell_HI, phi%photo_cell_HeI, &
        !        phi%photo_cell_HeII, phi%heat
        !endif
-       if (allocated(NormFlux)) then
-          if (NormFlux(nsrc) > 0.0) & 
+
+       if (allocated(NormFlux_stellar)) then
+          if (NormFlux_stellar(nsrc) > 0.0) & 
                phi = phi + heat_lookuptable(tau_pos_in,tau_pos_out, &
                tau_in_all,tau_out_all, &
-               tau_cell_HI,NormFlux(nsrc),"B", &
+               tau_cell_HI,NormFlux_stellar(nsrc),"B", &
                vol,i_state)
        endif
        !if (colum_in_HI == 0.0) write(logf,*) "After heatlookup: ", &
        !     phi%photo_cell_HI, phi%photo_cell_HeI, &
        !     phi%photo_cell_HeII, phi%heat
 
-        if (allocated(NormFluxPL)) then
-           if (NormFluxPL(nsrc) > 0.0) &  
+        if (allocated(NormFlux_xray)) then
+           if (NormFlux_xray(nsrc) > 0.0) &  
                 phi = phi + heat_lookuptable(tau_pos_in,tau_pos_out, &
                 tau_in_all,tau_out_all, &
-                tau_cell_HI,NormFluxPL(nsrc),"P", &
+                tau_cell_HI,NormFlux_xray(nsrc),"P", &
                 vol,i_state)
         endif
     endif
@@ -259,13 +261,13 @@ contains
     ! Set the maximum frequency band to consider (and limit the
     ! loop over the subbands below)
     if (table_type == "B") then 
-       photo_thick_table => bb_photo_thick_table
-       photo_thin_table => bb_photo_thin_table
+       photo_thick_table => stellar_photo_thick_table
+       photo_thin_table => stellar_photo_thin_table
        Minimum_FreqBnd=1
        Maximum_FreqBnd=1
     elseif (table_type == "P") then
-       photo_thick_table => pl_photo_thick_table
-       photo_thin_table => pl_photo_thin_table
+       photo_thick_table => xray_photo_thick_table
+       photo_thin_table => xray_photo_thin_table
        Minimum_FreqBnd=1
        Maximum_FreqBnd=1
     endif
@@ -356,13 +358,13 @@ contains
     ! Set the maximum frequency band to consider (and limit the
     ! loop over the subbands below)
     if (table_type == "B") then 
-       heat_thick_table => bb_heat_thick_table
-       heat_thin_table => bb_heat_thin_table
+       heat_thick_table => stellar_heat_thick_table
+       heat_thin_table => stellar_heat_thin_table
        Minimum_FreqBnd=1
        Maximum_FreqBnd=1
     elseif (table_type == "P") then
-       heat_thick_table => pl_heat_thick_table
-       heat_thin_table => pl_heat_thin_table
+       heat_thick_table => xray_heat_thick_table
+       heat_thin_table => xray_heat_thin_table
        Minimum_FreqBnd=1
        Maximum_FreqBnd=1
     endif

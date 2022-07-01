@@ -44,11 +44,13 @@ module c2ray_parameters
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until
   !! no photons escape or we reach the edge of the (possibly periodic)
   !! grid
-  integer,parameter :: subboxsize=25
+  integer,parameter :: subboxsize=5
 
   !> The maximum number	of cells on EITHER side	of the	source for which
   !! ray tracing is done. This	is a very crude	mean free path parameter
-  !! which sets	up a photon wall at exactly this distance.
+  !! which sets	up a photon barrier at exactly this distance. However,
+  !! this barrier is cubic in shape (it's a subbox) so we prefer to set
+  !! a spherical barrier, which must be done below (type_LLS=3).
   integer,parameter :: max_subbox=1000
 
   !> Add photon losses back into volume or not
@@ -61,6 +63,7 @@ module c2ray_parameters
   !> Effective temperature (K); if set to zero, the code will ask
   !! for SED parameters
   real(kind=dp),parameter :: teff_nominal=5.0e4
+  !real(kind=dp),parameter :: teff_nominal=0.0
   !> Number of ionizing photons / second
   real(kind=dp),parameter :: S_star_nominal=1e48_dp
 
@@ -95,6 +98,7 @@ module c2ray_parameters
   !! 1: homogeneous optical depth due to LLS
   !! 2: position dependent optical depth due to LLS (requires LLS input
   !!     files)
+  !! 3: hard barrier at a distance R_max_cMpc (see below)
   integer,parameter :: type_of_LLS=1
 
   !> Model selection in case of type_of_LLS=1

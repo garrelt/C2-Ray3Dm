@@ -28,8 +28,8 @@ module sourceprops
   !use material, only: xh
   use grid, only: x,y,z
   use c2ray_parameters, only: phot_per_atom, zeta, lifetime, &
-       S_star_nominal, StillNeutral, Number_Sourcetypes
-
+       StillNeutral, Number_Sourcetypes
+  use radiation_sed_parameters, only: S_star, S_star_xray
   implicit none
 
   !> base name of source list files
@@ -58,8 +58,8 @@ module sourceprops
   integer :: ncolumns_srcfile
   integer,dimension(:,:),allocatable :: srcpos !< mesh position of sources
   !real(kind=dp),dimension(:,:),allocatable :: srcMass !< masses of sources 
-  real(kind=dp),dimension(:),allocatable :: NormFlux !< normalized ionizing flux of sources
-  real(kind=dp),dimension(:),allocatable :: NormFluxPL !< normalized ionizing flux of PL sources
+  real(kind=dp),dimension(:),allocatable :: NormFlux_stellar !< normalized ionizing flux of stellar sources
+  real(kind=dp),dimension(:),allocatable :: NormFlux_xray !< normalized ionizing flux of Xray sources
   integer,dimension(:),allocatable :: srcSeries  !< a randomized list of sources
   real(kind=dp),dimension(:),allocatable :: uv_array  !< list of UV flux evolution (for some sources models)
   !> The cumulative number of uv photons. We save this number so we can add it
@@ -118,8 +118,8 @@ contains
     
     ! Deallocate source arrays
     if (allocated(srcpos)) deallocate(srcpos)
-    if (allocated(NormFlux)) deallocate(NormFlux)
-    if (allocated(NormFluxPL)) deallocate(NormFluxPL)
+    if (allocated(NormFlux_stellar)) deallocate(NormFlux_stellar)
+    if (allocated(NormFlux_xray)) deallocate(NormFlux_xray)
     
     ! Keep previous number of sources
     Prev_NumSrc=NumSrc
@@ -164,7 +164,8 @@ contains
     if (NumSrc > 0) then
 
        allocate(srcpos(3,NumSrc))
-       allocate(NormFlux(0:NumSrc)) ! position 0 will hold lost photons
+       allocate(NormFlux_stellar(0:NumSrc)) ! position 0 will hold lost photons
+       allocate(NormFlux_xray(NumSrc)) ! position 0 will hold lost photons
 
        ! Rank 0 reads in the sources
        if (rank == 0) then
@@ -177,7 +178,7 @@ contains
           ! Report
           write(logf,*) 'Source lifetime =', lifetime2/(1e6*YEAR),' Myr'
           write(logf,*) 'Total rate of ionizing photons = ', &
-               sum(NormFlux(1:NumSrc))*S_star_nominal,' s^-1'
+               sum(NormFlux_stellar(1:NumSrc))*S_star,' s^-1'
 
           ! Make a randomized list of source labels.
           !call make_random_srclist ()
@@ -187,7 +188,7 @@ contains
 #ifdef MPI
        ! Distribute the source properties to the other nodes
        call MPI_BCAST(srcpos,3*NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
-       call MPI_BCAST(NormFlux,NumSrc+1,MPI_DOUBLE_PRECISION,0, &
+       call MPI_BCAST(NormFlux_stellar,NumSrc+1,MPI_DOUBLE_PRECISION,0, &
             MPI_COMM_NEW,mympierror)
        ! Distribute the source series to the other nodes
        !call MPI_BCAST(SrcSeries,NumSrc,MPI_INTEGER,0,MPI_COMM_NEW,mympierror)
@@ -309,8 +310,10 @@ contains
        MassLMACHsupprsd=0.0
     case("read ")
        ns=0
-       dMassACH=MassACH-MassACH_previous
-       write(logf,*) "Change in HMACH mass: ",dMassACH
+       if (UV_Model == "Collapsed fraction growth") then
+          dMassACH=MassACH-MassACH_previous
+          write(logf,*) "Change in HMACH mass: ",dMassACH
+       endif
     end select
 
     ! For every line in the source file
@@ -323,7 +326,7 @@ contains
        srcpos0(1:3)=int(srclist(1:3))
        
        ! Count different types of sources
-       if (use_label == "count") then
+       if (use_label == "count" .and. UV_Model /= "Test") then
           if (srclist(HMACH) > 0.0) then
              NumMassiveSrc=NumMassiveSrc+1
              MassHMACH=MassHMACH+srclist(HMACH)
@@ -333,29 +336,33 @@ contains
              MassLMACH=MassLMACH+srclist(LMACH)
           endif
        endif
-
+       
        if (restart == 0 .or. restart == 1 .or. restart == -1) then
-          ! Now count or store sources, using the source recipe.
+          if (UV_Model /= "Test") then
+             ! Now count or store sources, using the source recipe.
 #ifdef ALLFRAC
-          ! Extract the ionization fraction in cell (used in some recipes)
-          xHii=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
+             ! Extract the ionization fraction in cell (used in some recipes)
+             xHii=xh(srcpos0(1),srcpos0(2),srcpos0(3),1)
 #else
-          xHII=xh(srcpos0(1),srcpos0(2),srcpos0(3))
+             xHII=xh(srcpos0(1),srcpos0(2),srcpos0(3))
 #endif
-          ! Establish if this source location suffers from suppression
-          suppress=suppression_criterion(xHII)
-
-          ! Count the number of suppressed sources
-          if (use_label == "count" .and.  srclist(LMACH) > 0.0 .and. suppress) then
-             NumSupprsdSrc=NumSupprsdSrc+1
-             MassLMACHsupprsd=MassLMACHsupprsd+srclist(LMACH)
-          endif
+             ! Establish if this source location suffers from suppression
+             suppress=suppression_criterion(xHII)
+             
+             ! Count the number of suppressed sources
+             if (use_label == "count" .and.  srclist(LMACH) > 0.0 .and. suppress) then
+                NumSupprsdSrc=NumSupprsdSrc+1
+                MassLMACHsupprsd=MassLMACHsupprsd+srclist(LMACH)
+             endif
             
-          ! Find the total mass of active sources in this cell, multiplied
-          ! with their efficiency factor in some cases
-          summed_weighted_mass=mass_from_source_models(srclist(HMACH), &
-               srclist(LMACH), srclist(LMACH_SUPPR), suppress)
-
+             ! Find the total mass of active sources in this cell, multiplied
+             ! with their efficiency factor in some cases
+             summed_weighted_mass=mass_from_source_models(srclist(HMACH), &
+                  srclist(LMACH), srclist(LMACH_SUPPR), suppress)
+          else
+             summed_weighted_mass=sum(srclist(4:ncolumns_srcfile))
+          endif
+          
           ! Count or store the active sources
           if (summed_weighted_mass > 0.0) then
              select case(use_label)
@@ -367,89 +374,96 @@ contains
                 srcpos(1,ns)=srcpos0(1)
                 srcpos(2,ns)=srcpos0(2)
                 srcpos(3,ns)=srcpos0(3)
-                NormFlux(ns)=summed_weighted_mass
-                ! Scale with mass growth in case of fcol growth model
-                if (UV_Model == "Collapsed fraction growth") &
-                     NormFlux(ns)=NormFlux(ns)*dMassACH/MassACH
+                if (UV_Model == "Test") then
+                   NormFlux_stellar(ns)=srclist(4)
+                   NormFlux_xray(ns)=srclist(5)
+                else   
+                   NormFlux_stellar(ns)=summed_weighted_mass
+                   ! Scale with mass growth in case of fcol growth model
+                   if (UV_Model == "Collapsed fraction growth") &
+                        NormFlux_stellar(ns)=NormFlux_stellar(ns)*dMassACH/MassACH
+                endif
              end select
           endif
        endif
     enddo
-
+    
     ! Close source file (should this be here???)
     close(50)
-       
+    
     select case(use_label)
     case("count")
        ! Calculate total mass in halos; this will be used to calculate
        ! the mass growth factor.
-       MassACH=MassHMACH+MassLMACH
-       if (restart == 0 .or. restart == 1) then       
-          ! Report source counts & statistics on suppression
-          write(logf,*) "Number of suppressable sources: ",NumSupprbleSrc
-          write(logf,*) "Number of suppressed sources: ",NumSupprsdSrc
-          write(logf,*) "Number of massive sources: ",NumMassiveSrc
-          if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
-               real(NumSupprsdSrc)/real(NumSupprbleSrc)
-          write(logf,*) "Total number of sources, with suppression: ",NumSrc
-          ! Collapsed fraction calculation
-          ! f_coll = M_halo / M_vol
-          ! However, M_halo is given in units of M_grid which is M_vol/n_box^3
-          ! so f_coll = M_halo / n_box^3
-          write(logf,*) "Collapsed fraction in massive sources: ", &
-               MassHMACH/(real(n_box)**3)
-          write(logf,*) "Collapsed fraction in suppressable sources: ", &
-               MassLMACH/(real(n_box)**3)
-          write(logf,*) "Collapsed fraction in suppressed sources: ", &
-               MassLMACHsupprsd/(real(n_box)**3)
-          if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
-               MassLMACHsupprsd/MassLMACH
-       elseif (restart == 2 ) then 
-          ! Obtain number of sources from file saved previously
-          sourcelistfile=construct_sourcefilename(redshift, &
-               number_of_redshift, sourcelistfilesuppress_base)
-          open(unit=49,file=sourcelistfile,status="old")
-          read(49,*) NumSrc
-          close(49)
-       endif
-       
-       case("read ")
-          if (restart == 0 .or. restart == 1 .or. restart == -1) then       
-             ! Record source list in sourcelistfilesuppress: first
-             ! construct file name
-             sourcelistfilesuppress= &
-                  construct_sourcefilename(redshift,number_of_redshift, &
-                  sourcelistfilesuppress_base)
-             ! Save new source list, without the suppressed ones
-             ! Only do this if this suppressed source list is different
-             ! in name, otherwise you will overwrite the original source list
-             ! (relevant for the test case)
-             if (sourcelistfilesuppress /= sourcelistfile) then
-                open(unit=49,file=sourcelistfilesuppress,status='unknown')
-                write(49,*) NumSrc
-                do ns0=1,NumSrc
-                   write(49,"(3i4,f15.5)") srcpos(1,ns0),srcpos(2,ns0),&
-                        srcpos(3,ns0), NormFlux(ns0)
-                enddo
-                close(49)
-             endif
-          else
-             ! Read source list from file saved previously
+       if (UV_Model /= "Test") then
+          MassACH=MassHMACH+MassLMACH
+          if (restart == 0 .or. restart == 1) then       
+             ! Report source counts & statistics on suppression
+             write(logf,*) "Number of suppressable sources: ",NumSupprbleSrc
+             write(logf,*) "Number of suppressed sources: ",NumSupprsdSrc
+             write(logf,*) "Number of massive sources: ",NumMassiveSrc
+             if (NumSupprbleSrc > 0) write(logf,*) "Suppressed fraction: ", &
+                  real(NumSupprsdSrc)/real(NumSupprbleSrc)
+             write(logf,*) "Total number of sources, with suppression: ",NumSrc
+             ! Collapsed fraction calculation
+             ! f_coll = M_halo / M_vol
+             ! However, M_halo is given in units of M_grid which is M_vol/n_box^3
+             ! so f_coll = M_halo / n_box^3
+             write(logf,*) "Collapsed fraction in massive sources: ", &
+                  MassHMACH/(real(n_box)**3)
+             write(logf,*) "Collapsed fraction in suppressable sources: ", &
+                  MassLMACH/(real(n_box)**3)
+             write(logf,*) "Collapsed fraction in suppressed sources: ", &
+                  MassLMACHsupprsd/(real(n_box)**3)
+             if (NumSupprbleSrc > 0) write(logf,*) "Suppressed mass fraction: ", &
+                  MassLMACHsupprsd/MassLMACH
+          elseif (restart == 2 ) then 
+             ! Obtain number of sources from file saved previously
              sourcelistfile=construct_sourcefilename(redshift, &
-                  number_of_redshift, &
-                  sourcelistfilesuppress_base)
+                  number_of_redshift, sourcelistfilesuppress_base)
              open(unit=49,file=sourcelistfile,status="old")
              read(49,*) NumSrc
-             write(logf,*) "Reading ",NumSrc," sources from ", &
-                  trim(adjustl(sourcelistfile))
+             close(49)
+          endif
+       endif
+
+    case("read ")
+       if (restart == 0 .or. restart == 1 .or. restart == -1) then       
+          ! Record source list in sourcelistfilesuppress: first
+          ! construct file name
+          sourcelistfilesuppress= &
+               construct_sourcefilename(redshift,number_of_redshift, &
+               sourcelistfilesuppress_base)
+          ! Save new source list, without the suppressed ones
+          ! Only do this if this suppressed source list is different
+          ! in name, otherwise you will overwrite the original source list
+          ! (relevant for the test case)
+          if (sourcelistfilesuppress /= sourcelistfile) then
+             open(unit=49,file=sourcelistfilesuppress,status='unknown')
+             write(49,*) NumSrc
              do ns0=1,NumSrc
-                read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
-                     NormFlux(ns0)
+                write(49,"(3i4,f15.5)") srcpos(1,ns0),srcpos(2,ns0),&
+                     srcpos(3,ns0), NormFlux_stellar(ns0)
              enddo
              close(49)
           endif
-          
-       end select
+       else
+          ! Read source list from file saved previously
+          sourcelistfile=construct_sourcefilename(redshift, &
+               number_of_redshift, &
+               sourcelistfilesuppress_base)
+          open(unit=49,file=sourcelistfile,status="old")
+          read(49,*) NumSrc
+          write(logf,*) "Reading ",NumSrc," sources from ", &
+               trim(adjustl(sourcelistfile))
+          do ns0=1,NumSrc
+             read(49,*) srcpos(1,ns0),srcpos(2,ns0),srcpos(3,ns0), &
+                  NormFlux_stellar(ns0)
+          enddo
+          close(49)
+       endif
+       
+    end select
 
   end subroutine count_or_read_in_sources
 
@@ -547,9 +561,9 @@ contains
          "Collapsed fraction growth")
        do ns=1,NumSrc
           !note that now photons/atom are already included in NormFlux
-          NormFlux(ns)=Luminosity_from_mass(NormFlux(ns),lifetime2)
+          NormFlux_stellar(ns)=Luminosity_from_mass(NormFlux_stellar(ns),lifetime2)
                        !NormFlux(ns)*M_grid*  &
-               !Omega_B/(Omega0*m_p)/S_star_nominal
+               !Omega_B/(Omega0*m_p)/S_star
           !NormFlux(ns)=NormFlux(ns)/lifetime
           !NormFlux(ns)=NormFlux(ns)/lifetime2
        enddo
@@ -562,11 +576,11 @@ contains
                   cumulative_uv,uv_array(nz),cumulative_uv/uv_array(nz)
              write(logf,*) 'Cumulative fraction used: ', cumulative_fraction
           endif
-          total_SrcMass=sum(NormFlux(1:NumSrc))
+          total_SrcMass=sum(NormFlux_stellar(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux(ns)=(1.0+cumulative_fraction)*uv_array(nz)/lifetime2* &
-                  NormFlux(ns)/(total_SrcMass*S_star_nominal)
+             NormFlux_stellar(ns)=(1.0+cumulative_fraction)*uv_array(nz)/lifetime2* &
+                  NormFlux_stellar(ns)/(total_SrcMass*S_star)
           enddo
           ! Subtract extra photons from cumulated photons
           cumulative_uv=max(0.0_dp,cumulative_uv-cumulative_fraction*uv_array(nz))
@@ -574,20 +588,20 @@ contains
        else
           ! For high redshifts there may not be a uv model.
           ! Set fluxes to zero.
-          NormFlux(:)=0.0
+          NormFlux_stellar(:)=0.0
           if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
 
     case ("Fixed Ndot_gamma")
        if (nz <= NumZred_uv) then
-          total_SrcMass=sum(NormFlux(1:NumSrc))
+          total_SrcMass=sum(NormFlux_stellar(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux(ns)=uv_array(nz)*NormFlux(ns)/total_SrcMass/S_star_nominal
+             NormFlux_stellar(ns)=uv_array(nz)*NormFlux_stellar(ns)/total_SrcMass/S_star
           enddo
        else
-          NormFlux(:)=0.0
+          NormFlux_stellar(:)=0.0
           if (rank == 0) write(logf,*) &
                "No UV model available, setting fluxes to zero."
        endif
@@ -595,7 +609,8 @@ contains
     case("Test")
        ! Do nothing, the photon production rate is already set from
        ! the source file
-       NormFlux(:)=NormFlux(:)/S_star_nominal
+       NormFlux_stellar(:)=NormFlux_stellar(:)/S_star
+       NormFlux_xray(:)=NormFlux_xray(:)/S_star_xray
     end select
     
   end subroutine assign_uv_luminosities
@@ -605,9 +620,9 @@ contains
   function Luminosity_from_mass (Mass, timeperiod)
 
     ! The normalized flux (luminosity) for normal sources is expressed
-    ! in terms of a standard ionizing photon rate, called S_star_nominal.
+    ! in terms of a standard ionizing photon rate, called S_star.
     ! In radiation the tables have been calculated for a spectrum
-    ! with an ionizing photon rate of S_star_nominal.
+    ! with an ionizing photon rate of S_star.
 
     ! Mass is supposed to be total mass of the source MULTIPLIED with
     ! the efficiency factor (f) which is the product of the star formation
@@ -620,10 +635,10 @@ contains
 
     real(kind=dp),intent(in) :: Mass !< mass in units of grid masses
     real(kind=dp),intent(in) :: timeperiod !< timeperiod in seconds
-    real(kind=dp) :: Luminosity_from_mass !< photon rate in S_star_nominal
+    real(kind=dp) :: Luminosity_from_mass !< photon rate in S_star
 
     Luminosity_from_mass = Mass*M_grid*Omega_B/(Omega0*m_p)/ &
-         (timeperiod*S_star_nominal)
+         (timeperiod*S_star)
 
   end function Luminosity_from_mass
 
@@ -685,7 +700,7 @@ contains
           ncolumns_srcfile=5
        case(7)
           UV_Model = "Test"
-          ncolumns_srcfile=4
+          ncolumns_srcfile=5
        end select
 
        ! Record the choice in log file
