@@ -59,28 +59,6 @@ module c2ray_parameters
   !> Fraction of remaining photons below we stop ray-tracing
   real(kind=dp) :: loss_fraction=1e-2_dp
   
-  !> Parameters for nominal SED (BB)
-  !> Effective temperature (K); if set to zero, the code will ask
-  !! for SED parameters
-  real(kind=dp),parameter :: teff_nominal=5.0e4
-  !real(kind=dp),parameter :: teff_nominal=0.0
-  !> Number of ionizing photons / second
-  real(kind=dp),parameter :: S_star_nominal=1e48_dp
-
-  !> nominal Eddington efficiency
-  real(kind=dp),parameter :: EddLeff_nominal=1.0_dp
-  !> nominal power law index (for photon number)
-  real(kind=dp),parameter :: pl_index_nominal=2.5_dp
-  !> nominal black hole mass for Eddington luminosity (M0)
-  real(kind=dp),parameter :: mass_nominal=1.0e6_dp
-  !> Eddington luminosity per mass_nominal solar mass (erg/s)
-  real(kind=dp),parameter :: EddLum=1.38e38*mass_nominal
-  !> Number of ionizing photons / second
-  real(kind=dp),parameter :: pl_S_star_nominal=1e48_dp
-  !> nominal minimum and maximum frequency for power law source
-  real(kind=dp),parameter :: pl_MinFreq_nominal=0.3*1e3*ev2fr
-  real(kind=dp),parameter :: pl_MaxFreq_nominal=ion_freq_HeII * 100.00_dp
-
   !> Subgrid clumping
   !! 1: constant clumping (with clumping_factor)
   !! 2: Globally Averaged Clumping Model GCM, (provide parameters file)
