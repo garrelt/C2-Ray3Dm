@@ -104,6 +104,9 @@ module c2ray_parameters
   !> Thermal: initial temperature (if used)
   real(kind=dp),parameter :: initial_temperature=1e4
 
+  !> Initial conditions for ionization fraction of H
+  real(kind=dp), parameter :: initial_ionfracH=1.0_dp-2e-4
+  
   !> Source properties: Number of different sources
   integer,parameter :: Number_Sourcetypes=2
   !> Source properties: Photon per atom for different source types (high to low mass)

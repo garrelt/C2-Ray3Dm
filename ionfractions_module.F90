@@ -4,7 +4,7 @@ module ionfractions_module
   use sizes, only: mesh
   use file_admin, only: stdinput, logf, results_dir, file_input
   use sm3d, only: read_sm3d_dp_file_routine
-  use c2ray_parameters, only: epsilon
+  use c2ray_parameters, only: epsilon, initial_ionfracH
   use my_mpi
   
   implicit none
@@ -43,10 +43,10 @@ contains
        ! here.
        ! In case of a restart this will be overwritten in xfrac_ini
 #ifdef ALLFRAC
-       xh(:,:,:,1)=2e-4
+       xh(:,:,:,1)=initial_ionfracH
        xh(:,:,:,0)=1.0_dp-xh(:,:,:,1)
 #else
-       xh(:,:,:)=2e-4
+       xh(:,:,:)=initial_ionfracH !1.0_dp-2e-4
 #endif
 
   end subroutine xfrac_array_init

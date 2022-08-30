@@ -92,45 +92,22 @@ contains
     !rhe0=rhe
     xfh1old=xfh(1)
     xfh0old=xfh(0)
-    
+
+    ! Calculate equilibrium values
     aih0=aphoth0+rhe*acolh0
     delth=aih0+rhe*brech0
     eqxfh1=aih0/delth
     eqxfh0=rhe*brech0/delth
-    deltht=delth*dt
-    ee=exp(-deltht)
-    xfh(1)=(xfh1old-eqxfh1)*ee+eqxfh1
-    xfh(0)=(xfh0old-eqxfh0)*ee+eqxfh0
-    !rhe=electrondens(rhh,xfh) ! should this really be used inside doric?
     
-    ! determine neutral densities (take care of precision fluctuations)
-    !if (xfh(0) < epsilon .and. abs(xfh(0)).lt.1.0e-10) then
-    if (xfh(0) < epsilon) then
-       xfh(0)=epsilon
-       xfh(1)=1.0_dp-epsilon
-    endif
-    ! Determine average ionization fraction over the time step
-    ! Mind fp fluctuations. (1.0-ee)/deltht should go to 1.0 for
-    ! small deltht, but finite precision leads to values slightly
-    ! above 1.0 and for very small values even to 0.0.
-    if (deltht.lt.1.0e-8) then
-       avg_factor=1.0
-    else
-       avg_factor=(1.0-ee)/deltht
-    endif
+    ! Assign equilibrium values
+    xfh(1)=eqxfh1
+    xfh(0)=eqxfh0
+    
     ! The question here is whether it would be better to calculate
     ! xfh_av(0) first, and xfh_av(1) from it.
-    xfh_av(1)=eqxfh1+(xfh1old-eqxfh1)*avg_factor
-    xfh_av(0)=1.0_dp-xfh_av(1)
+    xfh_av(1)=eqxfh1
+    xfh_av(0)=eqxfh0
     
-    ! Take care of precision
-    !if (xfh_av(0).lt.epsilon.and.abs(xfh_av(0)).lt.1.0e-10) xfh_av(0)=epsilon
-    if (xfh_av(0) < epsilon) xfh_av(0)=epsilon
-    
-    !rhe=electrondens(rhh,xfh_av) ! more in the spirit of C2-Ray; we could
-    ! iterate over rhe inside doric... Add option to doric to do this?
-    ! GM/130719
-
   end subroutine doric
   
   ! =======================================================================
