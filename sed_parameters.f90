@@ -33,7 +33,7 @@ module sed_parameters
   real(kind=dp),parameter :: bb_S_star=1e48_dp
   !> nominal minimum and maximum frequency for BB source
   real(kind=dp),parameter :: bb_MinFreq=ion_freq_HI
-  real(kind=dp),parameter :: bb_MaxFreq=ion_freq_HeII * 10.00_dp
+  real(kind=dp),parameter :: bb_MaxFreq=ion_freq_HeII * 5.00_dp
 
   !> Parameters for SED (PL)
   !> nominal power law index (for photon number)
