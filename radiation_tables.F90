@@ -24,7 +24,7 @@ module radiation_tables
                      romberg_initialisation              ! Romberg initialisation procedure
 
   !use material, only: isothermal
-  use c2ray_parameters, only: isothermal
+  use c2ray_parameters, only: isothermal, grey
   use sed_parameters, only: use_xray_SED
   use radiation_sizes, only: NumFreq,NumFreqBnd,NumBndin1
   use radiation_sizes, only: Numheatbin
@@ -45,10 +45,7 @@ module radiation_tables
   real(kind=dp),parameter :: minlogtau = -20.0                             ! Table position starts at log10(minlogtau) 
   real(kind=dp),parameter :: maxlogtau = 4.0                               ! Table position ends at log10(maxlogtau) 
   real(kind=dp),parameter :: dlogtau = (maxlogtau-minlogtau)/real(NumTau)  ! dlogtau is the step size in log10(tau)
-
-  ! Logical that determines the use of grey opacities
-  logical,parameter :: grey = .false. 
-
+  
   ! The lowest and highest frequency subbands used for the bb and pl source
   integer :: stellar_FreqBnd_LowerLimit=1
   integer :: stellar_FreqBnd_UpperLimit=NumFreqBnd
