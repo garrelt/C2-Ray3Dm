@@ -15,7 +15,6 @@ module c2ray_parameters
 
   use precision, only: dp
   use cgsconstants, only: ev2fr
-  use cgsphotoconstants, only: ion_freq_HeII
   use astroconstants, only: YEAR
   !use sizes, only: mesh
 
@@ -39,6 +38,14 @@ module c2ray_parameters
 
   !> Convergence criterion for neutral fraction (evolve4_periodic)
   real(kind=dp),parameter :: minimum_fraction_of_atoms=1.0e-8
+  
+  !> Logical that determines the use of grey opacities
+  logical,parameter :: grey = .false. 
+  !> Modification factor for the HI ionization cross section. Should
+  !! only be used in combination with grey opacities!! Will in that
+  !! case ensure that the average ionization cross sections will be
+  !! similar between the grey and non-grey cases.
+  real(kind=dp),parameter :: freq_factor=1.0_dp
 
   !> Size increase of subboxes around sources (evolve4_periodic)
   !! If 10, we do 10^3, 20^3, 30^3 cubes around a source until

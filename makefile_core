@@ -24,7 +24,7 @@
 
 UTILS=mrgrnk.o ctrper.o romberg.o report_memory.o file_admin.o read_sm3d.o
 
-CONSTANTS = mathconstants.o cgsconstants.o  cgsphotoconstants.o  cgsastroconstants.o c2ray_parameters.o cosmoparms.o abundances.o atomic.o sed_parameters.o
+CONSTANTS = mathconstants.o cgsconstants.o cgsastroconstants.o c2ray_parameters.o cgsphotoconstants.o cosmoparms.o abundances.o atomic.o sed_parameters.o
 
 RADIATION = radiation_sizes.o radiation_sed_parameters.o radiation_tables.o sourceprops.o radiation_photoionrates.o
 

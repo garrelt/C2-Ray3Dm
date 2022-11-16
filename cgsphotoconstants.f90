@@ -18,9 +18,10 @@ module cgsphotoconstants
   
   use precision, only: dp
   use cgsconstants
+  use c2ray_parameters, only: freq_factor
 
   !> HI cross section at its ionzing frequency
-  real(kind=dp), parameter :: sigma_HI_at_ion_freq=6.30e-18
+  real(kind=dp), parameter :: sigma_HI_at_ion_freq=freq_factor*6.30e-18
   !real(kind=dp), parameter :: sigma_HI_at_ion_freq=6.346e-18
   !> HeI cross section at its ionzing frequency
   real(kind=dp), parameter :: sigma_HeI_at_ion_freq=7.430e-18
