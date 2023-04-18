@@ -58,8 +58,8 @@ module radiation_sed_parameters
   character :: xray_sourcetype = " " ! Type of source, H=HMXB, &
   ! Q=quasar
   character,dimension(2) :: xray_sourcetype_string=(/ "H", "Q" /)
-  real(kind=dp) :: L_xray = 0.0  ! X-ray Ionizing luminosity
-  real(kind=dp) :: S_star_xray = 0.0  ! X-ray ionizing photons rate
+  real(kind=dp) :: L_xray = 1.0  ! X-ray Ionizing luminosity
+  real(kind=dp) :: S_star_xray = 1.0  ! X-ray ionizing photons rate
 
   ! Stellar properties
   real(kind=dp) :: T_eff  = 0.0      ! Black body effective temperature
