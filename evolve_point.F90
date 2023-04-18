@@ -54,7 +54,7 @@ module evolve_point
   use tped, only: electrondens
   use doric_module, only: doric, coldens
 
-  use evolve_data, only: phih_grid, phiheat
+  use evolve_data, only: phih_grid, phiheat_grid
   use evolve_data, only: xh_av, xh_intermed
   use evolve_data, only: coldensh_out
   use evolve_data, only: photon_loss_src_thread
@@ -283,7 +283,7 @@ contains
        phih_grid(pos(1),pos(2),pos(3))= &
             phih_grid(pos(1),pos(2),pos(3))+phi%photo_cell_HI
        if (.not. isothermal) &
-            phiheat(pos(1),pos(2),pos(3))=phiheat(pos(1),pos(2),pos(3))+phi%heat
+            phiheat_grid(pos(1),pos(2),pos(3))=phiheat_grid(pos(1),pos(2),pos(3))+phi%heat
 
        ! Photon statistics: register number of photons leaving the grid
        ! Note: This is only the H0 photo-ionization rate
@@ -361,7 +361,7 @@ contains
 
     ! Use the collected photo-ionization rates
     phi%photo_cell_HI=phih_grid(pos(1),pos(2),pos(3))
-    if(.not.isothermal) phi%heat=phiheat(pos(1),pos(2),pos(3))
+    if(.not.isothermal) phi%heat=phiheat_grid(pos(1),pos(2),pos(3))
 
     ! I think instead of calling here twice get_temp, it is perhaps better to pass t_new
     ! and t_old as arguments from/to do_chemistry. (?)
@@ -522,7 +522,7 @@ contains
             ! Thermal now takes old values and outputs new values without
             ! overwriting the old values .
             call thermal(dt, temperature_start%current, &
-            temperature_end%current, &
+            temperature_end%intermed, &
             temperature_end%average, &
             de, ndens_p, ion,phi)    
        

@@ -39,7 +39,7 @@ module evolve_data
   !> H Photo-ionization rate on the entire grid
   real(kind=dp),dimension(:,:,:),allocatable :: phih_grid
   !> Heating  rate on the entire grid
-  real(kind=dp),dimension(:,:,:),allocatable :: phiheat
+  real(kind=dp),dimension(:,:,:),allocatable :: phiheat_grid
   
 #ifdef ALLFRAC
   !> Time-averaged H ionization fraction
@@ -74,8 +74,8 @@ contains
     
     allocate(phih_grid(mesh(1),mesh(2),mesh(3)))
     phih_grid=0.0 ! Needs value for initial output
-    allocate(phiheat(mesh(1),mesh(2),mesh(3)))
-    phiheat=0.0 ! Needs value for initial output
+    allocate(phiheat_grid(mesh(1),mesh(2),mesh(3)))
+    phiheat_grid=0.0 ! Needs value for initial output
     
 #ifdef ALLFRAC       
     allocate(xh_av(mesh(1),mesh(2),mesh(3),0:1))
