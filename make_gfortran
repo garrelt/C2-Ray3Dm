@@ -42,8 +42,8 @@ FC = gfortran # GNU compiler
 MPIFC = mpif90.openmpi # MPI compiler
 
 # F90 options (gfortran)
-GFORTFLAGS = -DGFORT -O3 #-g -O0
-#GFORTFLAGS = -DGFORT -O3 -fallow-argument-mismatch
+#GFORTFLAGS = -DGFORT -g -O0 -ffpe-trap=invalid,zero,overflow -DMPILOG#-g -O0
+GFORTFLAGS = -DGFORT -O3 -fallow-argument-mismatch -ffpe-trap=invalid,zero,overflow
 
 # Processor dependent optimization
 F90FLAGS1 = $(GFORTFLAGS) 
