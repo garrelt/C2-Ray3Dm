@@ -114,7 +114,7 @@ contains
 
     if (use_LLS) then
        select case (type_of_LLS)
-       case(1)
+       case(1,2)
           
           ! Choose the appropriate LLS model
           select case (LLS_model)
@@ -132,16 +132,13 @@ contains
           
        ! Report
        write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
-       case(2)
-          ! Set distance between LLS (and mean free path) to infinity
-          ! If type_of_LLS = 2 this will be overwritten by cell specific
-          ! values.
-          n_LLS=0.0d0
+
        case(3)
           ! Use a maximum distance from the source, similar to the R_max
           ! implementation in 21cmFAST
           R_max=R_max_cMpc*Mpc
        end select
+
     endif
        
   end subroutine LLS_init
@@ -210,6 +207,7 @@ contains
     integer :: m1,m2,m3 ! size of mesh in cross section file (header)
     character(len=512):: LLS_file
     character(len=6) :: zred_str
+    real(kind=dp) :: sim_volume_pMpc
 
     ! clumping in file is in 4B reals, read in via this array
     !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
@@ -222,12 +220,12 @@ contains
        write(zred_str,"(f6.3)") zred_now
        LLS_file=trim(adjustl(dir_LLS))// &
             trim(adjustl(zred_str))// &
-            "cross_section.bin"
+            "cross_section_normalized.bin"
 
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " clumping input from ",trim(LLS_file)
+            " LLS input from ",trim(LLS_file)
 
-       ! Open clumping file: note that the format is determined
+       ! Open LLS file: note that the format is determined
        ! by the values of clumpingformat and clumping access,
        ! both set in the nbody module.
        open(unit=22,file=LLS_file,form=LLSformat, &
@@ -250,13 +248,33 @@ contains
        ! close file
        close(unit=22)
        
-       ! Calculate mean free path
+       ! Calculate mean free path, this should be 1 pMpc
        ! Make sure sim_volume is in proper length units
-       mfp_LLS_pMpc=sim_volume/(sum(LLS_grid)*Mpc*(1.0+zred_now)**3)
+       sim_volume_pMpc=sim_volume/(Mpc*(1.0+zred_now))**3
+       mfp_LLS_pMpc=sim_volume_pMpc/(sum(LLS_grid)*Mpc*Mpc*Mpc)
+       write(logf, *) "Mean free path in file is ",mfp_LLS_pMpc," pMpc"
+       if (abs(mfp_LLS_pMpc - 1.0) > 1e-2) write(logf,*) "WARNING: &
+            The LLS file contains incorrect values."
 
-       ! Convert to column density
-       LLS_grid=LLS_grid/vol ! 1/(mean free path) = n_LLS
-       LLS_grid=N_1 * LLS_grid
+       ! Calculate the desired mean free path in pMpc
+       mfp_LLS_pMpc=mfpLLS%A_LLS* &
+            ((1.0+zred_now)/(1.0+mfpLLS%z_ref))**mfpLLS%yz_LLS
+
+       ! Scale the read-in values to use this mean free path
+       LLS_grid=LLS_grid/mfp_LLS_pMpc
+       
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
+       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
+          LLS_grid(:,:,:)=0.0
+       else
+          ! Convert units to cgs
+          ! fraction of cell covered by LLS (equivalent to n_LLS in 
+          ! the routines above)
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)*(Mpc/dr(1))*(Mpc/dr(1))
+          ! Convert to column density
+          LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
+       endif
     endif
 
 #ifdef MPI       
