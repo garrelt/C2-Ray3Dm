@@ -20,8 +20,12 @@
 !! cell will instead be N_i+N_LLS.
 !!
 !! If type_of_LLS = 1 then N_LLS is calculated from a mean free path model
-!! given by Worseck et al. (2014). This model, based on observations,
-!! specifies the mean free path of Lyman continuum photons at a given redshift.
+!! chosen according to the value of the parameter LLS_model. For LLS_model
+!! 1, 2 or 3, we use a redshift-dependent fit given by Worseck et al. (2014). This model, based 
+!! on observations, specifies the mean free path of Lyman continuum photons 
+!! at a given redshift. The three different models span the uncertainty in
+!! this relation (low, standard and high values). For LLS_model 4 and 5 we
+!! use a non-evolving proper, respectively comoving value.
 !! We convert this quantity to N_LLS by making sure that after a distance
 !! correspond to this mfp, a column density corresponding to opdepth_LL
 !! (usually 1) is reached.
