@@ -3,17 +3,22 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 25-Jan-2021 (01-April-2014 (27-Jun-2013 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!! \b Date: 18-May-2023 (25-Jan-2021 (01-April-2014 (27-Jun-2013 ((derives from mat_ini_cosmo2.f))
 !!
 !! \b Version:
-!! LLS are included by adding extra HI column density to the grid. This is
+!! The effect of the presence of LLS can be included in different ways. Which
+!! way is chosen is determined by the parameter type_of_LLS, set in the module
+!! c2ray_parameters:
+!! type 1: homogeneous additional absorption
+!! type 2: position-dependent additional absorption
+!  type 3: finite distance for radiative transfer ("R_max")
+!! In type 1 and 2 extra HI column density is added to the grid. This is
 !! added at the interface between cells and so it does not contribute to the
 !! calculation for a given cell. If a cell has an outgoing column density of
 !! N_i then without the LLS model, this will be the ingoing column density of
 !! the next cell. With the LLS model, the ingoing column density for the next
 !! cell will instead be N_i+N_LLS.
-!! There are two options for this LLS model. Which one is used is set by a
-!! parameter from the c2ray_parameters module.
+!!
 !! If type_of_LLS = 1 then N_LLS is calculated from a mean free path model
 !! given by Worseck et al. (2014). This model, based on observations,
 !! specifies the mean free path of Lyman continuum photons at a given redshift.
