@@ -284,7 +284,7 @@ contains
        
        ! Do not set LLS column densities if the mfp is too small.
        ! Typically we start using LLS when the mfp is several cells (e.g. 5)
-       if (mfp_LLS_pMpc < limit_mfp_LLS_pMpc) then
+       if (mfp_LLS_pMpc < limit_mfp_LLS_cMpc/(1.0+z)) then
           LLS_grid(:,:,:)=0.0
        else
           ! Convert units to cgs
