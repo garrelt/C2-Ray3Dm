@@ -106,7 +106,11 @@ module lls_module
   
   real(kind=dp),public :: R_max_LLS
   real(kind=dp),public :: R_max
-  
+
+  character(len=30),dimension(3),parameter :: LLS_model_string=(/ &
+       " Homogeneous absorption       ", &
+       " Position-depedent absorption ", &
+       " Hard spherical barrier       " /)
 
   public :: set_LLS, LLS_point
 
@@ -122,6 +126,8 @@ contains
   subroutine LLS_init ()
 
     if (use_LLS) then
+       write(logf,"(A,A)") "Using LLS model ", &
+            trim(LLS_model_string(type_of_LLS))
        select case (type_of_LLS)
        case(1,2)
           
@@ -140,12 +146,16 @@ contains
           end select
           
        ! Report
-       write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
+       write(logf,"(A,A)") "Using mean free path model ",trim(mfpLLS%reference)
 
        case(3)
           ! Use a maximum distance from the source, similar to the R_max
           ! implementation in 21cmFAST
           R_max=R_max_cMpc*Mpc
+
+          ! Report
+          write(logf,"(A,F8.3,A)") "Using Rmax value ",R_max_cMpc*Mpc, "cMpc"
+
        end select
 
     endif
