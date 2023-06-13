@@ -270,7 +270,7 @@ contains
        ! Calculate mean free path, this should be 1 pMpc
        ! Make sure sim_volume is in proper length units
        sim_volume_pMpc=sim_volume/(Mpc*(1.0+zred_now))**3
-       mfp_LLS_pMpc=sim_volume_pMpc/(sum(LLS_grid)*Mpc*Mpc*Mpc)
+       mfp_LLS_pMpc=sim_volume_pMpc/(sum(LLS_grid))
        write(logf, *) "Mean free path in file is ",mfp_LLS_pMpc," pMpc"
        if (abs(mfp_LLS_pMpc - 1.0) > 1e-2) write(logf,*) "WARNING: &
             The LLS file contains incorrect values."
@@ -284,7 +284,7 @@ contains
        
        ! Do not set LLS column densities if the mfp is too small.
        ! Typically we start using LLS when the mfp is several cells (e.g. 5)
-       if (mfp_LLS_pMpc < limit_mfp_LLS_cMpc/(1.0+z)) then
+       if (mfp_LLS_pMpc < limit_mfp_LLS_cMpc/(1.0+zred_now)) then
           LLS_grid(:,:,:)=0.0
        else
           ! Convert units to cgs
