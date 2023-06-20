@@ -286,7 +286,11 @@ Program C2Ray
 #ifdef MPILOG     
         write(logf,*) 'Calling source_properties'
         flush(logf)
-#endif 
+#endif
+        ! We pass the current redshift, its number in the list, and
+        ! the time difference between the current time and the end time
+        ! of this time step. The latter is used as a time scale (mass to
+        ! luminosity) for some source models.
         call source_properties(zred,nz,end_time-sim_time,restart)
         
 #ifdef MPILOG     
@@ -353,7 +357,7 @@ Program C2Ray
            actual_dt=min(next_output_time-sim_time,dt)
            
            ! Report time and time step
-           if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
+           if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, time step:", &
                 sim_time/YEAR,actual_dt/YEAR," (years)"
            
            ! For cosmological simulations evolve proper quantities
