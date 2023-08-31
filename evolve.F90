@@ -196,6 +196,12 @@ contains
        endif
 
        ! Report convergence statistics
+       ! Test 1 compares the number of non-converged cells (conv_flag) to the criterion for this (conv_criterion),
+       !     if conv_flag < conv_criterion convergence has been reached. This often takes a long time
+       ! Test 2 compares the relative change in the average ionized and average neutral fractions between iterations
+       !    (rel_change_sum_xh1 and rel_change_sum_xh0) with the criterion for this (convergence_fraction). Both of
+       !    these relative changes need to be less than criterion to conclude convergence. Often Test 2 reaches
+       !    convergence before Test 1.
        if (rank == 0) then
           write(logf,*) "Convergence tests: "
           write(logf,*) "   Test 1 values: ",conv_flag, conv_criterion
