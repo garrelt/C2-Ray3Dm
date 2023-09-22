@@ -1,2 +1,8 @@
 *.o
 *.mod
+*~
+C2Ray_3D_LG_periodic*
+C2Ray_3D_cubep3m_periodic*
+C2Ray_3D_gadget_periodic*
+C2Ray_3D_pmfast_periodic*
+C2Ray_3D_test_periodic*
