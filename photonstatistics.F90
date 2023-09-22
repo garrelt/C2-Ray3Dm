@@ -24,6 +24,8 @@ module photonstatistics
   !use material, only: ndens, temper, clumping, clumping_point
   use density_module, only: ndens
   use temperature_module, only: temper
+  use temperature_module, only: temperature_states_dbl
+  use temperature_module, only: get_temperature_point
   use clumping_module, only: clumping, clumping_point
   use tped, only: electrondens
   use sourceprops, only: NormFlux_stellar, NumSrc
@@ -143,7 +145,8 @@ contains
 
     real(kind=dp),dimension(0:1) :: yh
     real(kind=dp) :: ndens_p ! needed because ndens may be single precision
-
+    type(temperature_states_dbl) :: temperature
+    
     ! Photon statistics: Determine total number of recombinations/collisions
     ! Should match the code in doric_module
 
@@ -160,15 +163,18 @@ contains
              yh(1)=xh_l(i,j,k)
 #endif
              ndens_p=ndens(i,j,k)
+
+             call get_temperature_point (i,j,k,temperature)
              ! Set clumping to local value if we have a clumping grid
              if (type_of_clumping == 3 .or. type_of_clumping == 4 .or. type_of_clumping == 5) &
                   call clumping_point (i,j,k)
              totrec=totrec+ndens_p*yh(1)*    &
                   electrondens(ndens_p,yh)*  &
-                  clumping*bh00*(temper/1e4)**albpow
+                  clumping*bh00*(temperature%average/1e4)**albpow
              totcollisions=totcollisions+ndens_p*   &
                   yh(0)*electrondens(ndens_p,yh)* &
-                  colh0*sqrt(temper)*exp(-temph0/temper)
+                  colh0*sqrt(temperature%average)*&
+                  exp(-temph0/temperature%average)
           enddo
        enddo
     enddo

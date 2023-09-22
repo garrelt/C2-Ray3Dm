@@ -32,6 +32,8 @@ module cosmology
   use sizes, only: mesh
   use cgsconstants, only: c
   use c2ray_parameters, only: cosmological
+  use grid, only: x,y,z,dr,vol
+  use density_module, only: ndens
   
   implicit none
 
@@ -167,10 +169,6 @@ contains
     ! History:
     ! - 19-Nov-2004: first version f77
 
-    !use sizes
-    use grid, only: x,y,z,dr,vol
-    use density_module, only: ndens
-    
     real(kind=dp) :: zfactor3
 
     zfactor3=zfactor*zfactor*zfactor

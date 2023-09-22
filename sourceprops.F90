@@ -5,7 +5,7 @@
 !! 
 !! \b Author: Garrelt Mellema, Ilian Iliev
 !!
-!! \b Date: Aug-2014 (30-Jan-2008)
+!! \b Date: Jun-2023 (Aug-2014 (30-Jan-2008)
 !!
 !! \b Version: CUBEP3M Nbody simulation, LG Nbody simulation, Test simulation; with source suppression, and different source models
 !!
@@ -30,6 +30,7 @@ module sourceprops
   use c2ray_parameters, only: phot_per_atom, zeta, lifetime, &
        StillNeutral, Number_Sourcetypes
   use radiation_sed_parameters, only: S_star, S_star_xray
+  use cosmology, only: zred2time
   implicit none
 
   !> base name of source list files
@@ -176,8 +177,9 @@ contains
           call assign_uv_luminosities (lifetime2,nz)
 
           ! Report
-          write(logf,*) 'Source lifetime =', lifetime2/(1e6*YEAR),' Myr'
-          write(logf,*) 'Total rate of ionizing photons = ', &
+          write(logf,'(A,f8.3,A)') 'Source lifetime =', &
+               lifetime2/(1e6*YEAR),' Myr'
+          write(logf,'(A,es10.3,A)') 'Total rate of ionizing photons on the grid = ', &
                sum(NormFlux_stellar(1:NumSrc))*S_star,' s^-1'
 
           ! Make a randomized list of source labels.
@@ -549,11 +551,27 @@ contains
 
   subroutine assign_uv_luminosities (lifetime2,nz)
     
-    real(kind=dp),intent(in) :: lifetime2 ! time step
+    real(kind=dp),intent(in) :: lifetime2 ! imported time step for some models
     integer,intent(in) :: nz
 
     integer :: ns
+    real(kind=dp) :: source_time_interval
 
+    if (UV_Model == "Collapsed fraction growth") then
+       ! Find time step for the "Collapsed fraction growth" model
+       ! This model is looking back (growth over the previous time
+       ! interval and so should use the time difference between the current
+       ! and previous redshift.
+       source_time_interval=zred2time(zred_array(nz))-&
+            zred2time(zred_array(nz-1))
+    else
+       source_time_interval=lifetime2
+    endif
+
+    ! Report
+    write(logf,'(A,A,f8.3,A)') 'Source time interval used', &
+         'when calculating luminosity=', source_time_interval/(1e6*YEAR),' Myr'
+    
     ! Turn masses into luminosities
     select case (UV_Model)
 
@@ -561,16 +579,14 @@ contains
          "Collapsed fraction growth")
        do ns=1,NumSrc
           !note that now photons/atom are already included in NormFlux
-          NormFlux_stellar(ns)=Luminosity_from_mass(NormFlux_stellar(ns),lifetime2)
-                       !NormFlux(ns)*M_grid*  &
-               !Omega_B/(Omega0*m_p)/S_star
-          !NormFlux(ns)=NormFlux(ns)/lifetime
-          !NormFlux(ns)=NormFlux(ns)/lifetime2
+          NormFlux_stellar(ns)=Luminosity_from_mass(NormFlux_stellar(ns), &
+               source_time_interval)
        enddo
 
     case ("Fixed N_gamma")
        if (nz <= NumZred_uv) then
-          cumulative_fraction=min(cumulative_fraction_max,cumulative_uv/uv_array(nz))
+          cumulative_fraction=min(cumulative_fraction_max, &
+               cumulative_uv/uv_array(nz))
           if (rank == 0) then 
              write(logf,*) 'Cumulative versus current photons: ', &
                   cumulative_uv,uv_array(nz),cumulative_uv/uv_array(nz)
@@ -579,12 +595,13 @@ contains
           total_SrcMass=sum(NormFlux_stellar(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux_stellar(ns)=(1.0+cumulative_fraction)*uv_array(nz)/lifetime2* &
+             NormFlux_stellar(ns)=(1.0+cumulative_fraction)*uv_array(nz)/ &
+                  source_time_interval* &
                   NormFlux_stellar(ns)/(total_SrcMass*S_star)
           enddo
           ! Subtract extra photons from cumulated photons
-          cumulative_uv=max(0.0_dp,cumulative_uv-cumulative_fraction*uv_array(nz))
-          !write(logf,*) uv_array(nz),SrcMass(:,0),uv_array(nz)/lifetime2
+          cumulative_uv=max(0.0_dp,cumulative_uv- &
+               cumulative_fraction*uv_array(nz))
        else
           ! For high redshifts there may not be a uv model.
           ! Set fluxes to zero.
@@ -598,7 +615,8 @@ contains
           total_SrcMass=sum(NormFlux_stellar(1:NumSrc))
           ! Only set NormFlux when data is available!
           do ns=1,NumSrc
-             NormFlux_stellar(ns)=uv_array(nz)*NormFlux_stellar(ns)/total_SrcMass/S_star
+             NormFlux_stellar(ns)=uv_array(nz)*NormFlux_stellar(ns)/ &
+                  total_SrcMass/S_star
           enddo
        else
           NormFlux_stellar(:)=0.0

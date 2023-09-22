@@ -61,7 +61,7 @@ Program C2Ray
   use evolve_data, only: evolve_ini
   use evolve, only: evolve3D
   use c2ray_parameters, only: isothermal ! NB: in some versions set in material
-
+  use radiative_cooling, only: setup_cool
 #ifdef XLF
   ! Place for xlf specific statements
 #endif
@@ -140,7 +140,7 @@ Program C2Ray
 #endif
   ! Initialize photo-ionization calculation
   call rad_ini ( )
-
+  call setup_cool ( )
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after rad_ini: ",timestamp_wallclock ()
 
@@ -176,6 +176,7 @@ Program C2Ray
 
 #ifdef MPILOG
   write(logf,*) "Before evolve_ini"
+  if (rank == 0) flush(logf)
 #endif
   ! Initialize evolve arrays
   if (startup_error == 0) call evolve_ini ()
@@ -186,6 +187,10 @@ Program C2Ray
   ! Initialize cosmology
   ! (always call bacause it initializes some of the things even if 
   ! not doing cosmo. 
+#ifdef MPILOG
+  write(logf,*) "Before cosmology_init"
+  if (rank == 0) flush(logf)
+#endif
   if (startup_error == 0) call cosmology_init(zred_array(nz0),sim_time)
 
   if (rank == 0) &
@@ -246,6 +251,11 @@ Program C2Ray
      call xfrac_restart_init(zred_interm)
      if (.not.isothermal) call temperature_restart_init(zred_interm)
   end if
+
+#ifdef MPILOG
+  write(logf,*) "Before loop"
+  if (rank == 0) flush(logf)
+#endif
   
   if (startup_error == 0) then
      ! Load required clumping model parameters file (passing resolution)
@@ -275,13 +285,26 @@ Program C2Ray
         ! Initialize source position
 #ifdef MPILOG     
         write(logf,*) 'Calling source_properties'
-#endif 
+        flush(logf)
+#endif
+        ! We pass the current redshift, its number in the list, and
+        ! the time difference between the current time and the end time
+        ! of this time step. The latter is used as a time scale (mass to
+        ! luminosity) for some source models.
         call source_properties(zred,nz,end_time-sim_time,restart)
         
+#ifdef MPILOG     
+        write(logf,*) 'Calling density properties'
+        flush(logf)
+#endif 
         if (rank == 0) write(timefile,"(A,I3,A,F8.1)") &
              "Time after setting sources for step ",nz," :", &
              timestamp_wallclock ()
         
+#ifdef MPILOG     
+        write(logf,*) 'Calling density properties'
+        flush(logf)
+#endif 
         ! Initialize density field
         call density_init(zred,nz)
         ! Set clumping and LLS in the case of position dependent values
@@ -311,6 +334,7 @@ Program C2Ray
         
 #ifdef MPILOG     
         write(logf,*) 'First output'
+        if (rank == 0) flush(logf)
 #endif 
         ! If start of simulation output (and not a restart).
         if (NumSrc > 0 .and. sim_time == 0.0 .and. restart == 0) &
@@ -333,7 +357,7 @@ Program C2Ray
            actual_dt=min(next_output_time-sim_time,dt)
            
            ! Report time and time step
-           if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, dt:", &
+           if (rank == 0) write(logf,"(A,2(es10.3,x),A)") "Time, time step:", &
                 sim_time/YEAR,actual_dt/YEAR," (years)"
            
            ! For cosmological simulations evolve proper quantities

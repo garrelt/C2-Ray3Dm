@@ -28,7 +28,7 @@ module output_module
   use temperature_module, only: temper, temperature_grid
   use temperature_module, only: temperature_states_dbl
   use temperature_module, only: get_temperature_point
-  use evolve_data, only: phih_grid, phiheat
+  use evolve_data, only: phih_grid, phiheat_grid
   use sourceprops, only: srcpos, NormFlux_stellar, NormFlux_xray, NumSrc
   use photonstatistics, only: initialize_photonstatistics
   use photonstatistics, only: do_photonstatistics, total_ion, totrec
@@ -368,8 +368,8 @@ contains
              file1=trim(adjustl(results_dir))//"HeatRates3D_"// &
                   trim(adjustl(zred_str))//base_extension
 
-             output_array=real(phiheat,kind=si)
-             !output_array=real(phiheat(1:mesh(1),1:mesh(2),1:mesh(3)))
+             output_array=real(phiheat_grid,kind=si)
+             !output_array=real(phiheat_grid(1:mesh(1),1:mesh(2),1:mesh(3)))
              ptr_output_array => output_array
           
              call write_sm3d_si_file_routine(file1,ptr_output_array)

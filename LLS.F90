@@ -3,20 +3,29 @@
 !!
 !! \b Author: Garrelt Mellema
 !!
-!! \b Date: 25-Jan-2021 (01-April-2014 (27-Jun-2013 (20-Aug-2006 (f77 21-May-2005 (derives from mat_ini_cosmo2.f))
+!! \b Date: 18-May-2023 (25-Jan-2021 (01-April-2014 (27-Jun-2013 ((derives from mat_ini_cosmo2.f))
 !!
 !! \b Version:
-!! LLS are included by adding extra HI column density to the grid. This is
+!! The effect of the presence of LLS can be included in different ways. Which
+!! way is chosen is determined by the parameter type_of_LLS, set in the module
+!! c2ray_parameters:
+!! type 1: homogeneous additional absorption
+!! type 2: position-dependent additional absorption
+!  type 3: finite distance for radiative transfer ("R_max")
+!! In type 1 and 2 extra HI column density is added to the grid. This is
 !! added at the interface between cells and so it does not contribute to the
 !! calculation for a given cell. If a cell has an outgoing column density of
 !! N_i then without the LLS model, this will be the ingoing column density of
 !! the next cell. With the LLS model, the ingoing column density for the next
 !! cell will instead be N_i+N_LLS.
-!! There are two options for this LLS model. Which one is used is set by a
-!! parameter from the c2ray_parameters module.
+!!
 !! If type_of_LLS = 1 then N_LLS is calculated from a mean free path model
-!! given by Worseck et al. (2014). This model, based on observations,
-!! specifies the mean free path of Lyman continuum photons at a given redshift.
+!! chosen according to the value of the parameter LLS_model. For LLS_model
+!! 1, 2 or 3, we use a redshift-dependent fit given by Worseck et al. (2014). This model, based 
+!! on observations, specifies the mean free path of Lyman continuum photons 
+!! at a given redshift. The three different models span the uncertainty in
+!! this relation (low, standard and high values). For LLS_model 4 and 5 we
+!! use a non-evolving proper, respectively comoving value.
 !! We convert this quantity to N_LLS by making sure that after a distance
 !! correspond to this mfp, a column density corresponding to opdepth_LL
 !! (usually 1) is reached.
@@ -97,7 +106,11 @@ module lls_module
   
   real(kind=dp),public :: R_max_LLS
   real(kind=dp),public :: R_max
-  
+
+  character(len=30),dimension(3),parameter :: LLS_model_string=(/ &
+       " Homogeneous absorption       ", &
+       " Position-depedent absorption ", &
+       " Hard spherical barrier       " /)
 
   public :: set_LLS, LLS_point
 
@@ -113,8 +126,10 @@ contains
   subroutine LLS_init ()
 
     if (use_LLS) then
+       write(logf,"(A,A)") "Using LLS model ", &
+            trim(LLS_model_string(type_of_LLS))
        select case (type_of_LLS)
-       case(1)
+       case(1,2)
           
           ! Choose the appropriate LLS model
           select case (LLS_model)
@@ -131,17 +146,18 @@ contains
           end select
           
        ! Report
-       write(logf,"(A,A)") "Using mean free path model ",mfpLLS%reference
-       case(2)
-          ! Set distance between LLS (and mean free path) to infinity
-          ! If type_of_LLS = 2 this will be overwritten by cell specific
-          ! values.
-          n_LLS=0.0d0
+       write(logf,"(A,A)") "Using mean free path model ",trim(mfpLLS%reference)
+
        case(3)
           ! Use a maximum distance from the source, similar to the R_max
           ! implementation in 21cmFAST
           R_max=R_max_cMpc*Mpc
+
+          ! Report
+          write(logf,"(A,F8.3,A)") "Using Rmax value ",R_max_cMpc*Mpc, "cMpc"
+
        end select
+
     endif
        
   end subroutine LLS_init
@@ -210,6 +226,7 @@ contains
     integer :: m1,m2,m3 ! size of mesh in cross section file (header)
     character(len=512):: LLS_file
     character(len=6) :: zred_str
+    real(kind=dp) :: sim_volume_pMpc
 
     ! clumping in file is in 4B reals, read in via this array
     !real(kind=si),dimension(:,:,:),allocatable :: clumping_real
@@ -222,12 +239,12 @@ contains
        write(zred_str,"(f6.3)") zred_now
        LLS_file=trim(adjustl(dir_LLS))// &
             trim(adjustl(zred_str))// &
-            "cross_section.bin"
+            "cross_section_normalized.bin"
 
        write(unit=logf,fmt="(4A)") "Reading ",id_str, &
-            " clumping input from ",trim(LLS_file)
+            " LLS input from ",trim(LLS_file)
 
-       ! Open clumping file: note that the format is determined
+       ! Open LLS file: note that the format is determined
        ! by the values of clumpingformat and clumping access,
        ! both set in the nbody module.
        open(unit=22,file=LLS_file,form=LLSformat, &
@@ -250,13 +267,33 @@ contains
        ! close file
        close(unit=22)
        
-       ! Calculate mean free path
+       ! Calculate mean free path, this should be 1 pMpc
        ! Make sure sim_volume is in proper length units
-       mfp_LLS_pMpc=sim_volume/(sum(LLS_grid)*Mpc*(1.0+zred_now)**3)
+       sim_volume_pMpc=sim_volume/(Mpc*(1.0+zred_now))**3
+       mfp_LLS_pMpc=sim_volume_pMpc/(sum(LLS_grid))
+       write(logf, *) "Mean free path in file is ",mfp_LLS_pMpc," pMpc"
+       if (abs(mfp_LLS_pMpc - 1.0) > 1e-2) write(logf,*) "WARNING: &
+            The LLS file contains incorrect values."
 
-       ! Convert to column density
-       LLS_grid=LLS_grid/vol ! 1/(mean free path) = n_LLS
-       LLS_grid=N_1 * LLS_grid
+       ! Calculate the desired mean free path in pMpc
+       mfp_LLS_pMpc=mfpLLS%A_LLS* &
+            ((1.0+zred_now)/(1.0+mfpLLS%z_ref))**mfpLLS%yz_LLS
+
+       ! Scale the read-in values to use this mean free path
+       LLS_grid=LLS_grid/mfp_LLS_pMpc
+       
+       ! Do not set LLS column densities if the mfp is too small.
+       ! Typically we start using LLS when the mfp is several cells (e.g. 5)
+       if (mfp_LLS_pMpc < limit_mfp_LLS_cMpc/(1.0+zred_now)) then
+          LLS_grid(:,:,:)=0.0
+       else
+          ! Convert units to cgs
+          ! fraction of cell covered by LLS (equivalent to n_LLS in 
+          ! the routines above)
+          LLS_grid(:,:,:)=LLS_grid(:,:,:)*(Mpc/dr(1))*(Mpc/dr(1))
+          ! Convert to column density
+          LLS_grid(:,:,:)=N_1 * LLS_grid(:,:,:)
+       endif
     endif
 
 #ifdef MPI       

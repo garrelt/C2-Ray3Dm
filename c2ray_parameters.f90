@@ -86,10 +86,10 @@ module c2ray_parameters
   !! 3: hard barrier at a distance R_max_cMpc (see below)
   integer,parameter :: type_of_LLS=1
 
-  !> Model selection in case of type_of_LLS=1
+  !> Model selection in case of type_of_LLS=1 and 2
   !! 1: standard Worseck et al. (2014) mean free path fit
-  !! 2: lower mean free path
-  !! 3: higher mean free path
+  !! 2: Worseck et al. (2014) lower mean free path
+  !! 3: Worseck et al. (2014) higher mean free path
   !! 4: constant proper Mpc
   !! 5: constant comoving Mpc
   integer,parameter :: LLS_model=5

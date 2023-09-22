@@ -1,5 +1,3 @@
-0 1 1 1 1    !output streams
-1e4          !temp
 y            !restart (y/n)
 n            !restart at midpoint (y/n)
 40           !from which slice to start/restart

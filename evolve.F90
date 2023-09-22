@@ -44,7 +44,7 @@ module evolve
   use photonstatistics, only: report_photonstatistics
   use photonstatistics, only: update_grandtotal_photonstatistics
 
-  use evolve_data, only: phih_grid, phiheat
+  use evolve_data, only: phih_grid, phiheat_grid
   use evolve_data, only: xh_av, xh_intermed
   use evolve_data, only: photon_loss_all, buffer
   use evolve_point, only: local_chemistry
@@ -306,7 +306,7 @@ contains
     write(iterdump) xh_av
     write(iterdump) xh_intermed
     if (.not.isothermal) then
-       write(iterdump) phiheat
+       write(iterdump) phiheat_grid
        write(iterdump) temperature_grid
     endif
     close(iterdump)
@@ -364,7 +364,7 @@ contains
           read(iterdump) xh_av
           read(iterdump) xh_intermed
           if (.not.isothermal) then
-             read(iterdump) phiheat
+             read(iterdump) phiheat_grid
              read(iterdump) temperature_grid
           endif
 
@@ -404,7 +404,7 @@ contains
             MPI_COMM_NEW,mympierror)
 #endif
        if (.not.isothermal) then
-          call MPI_BCAST(phiheat,mesh(1)*mesh(2)*mesh(3), &
+          call MPI_BCAST(phiheat_grid,mesh(1)*mesh(2)*mesh(3), &
                MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
           call MPI_BCAST(temperature_grid,mesh(1)*mesh(2)*mesh(3)*3, &
                MPI_DOUBLE_PRECISION,0,MPI_COMM_NEW,mympierror)
@@ -426,7 +426,7 @@ contains
     ! reset global rates to zero for this iteration
     phih_grid(:,:,:)=0.0
     !phihe_grid(:,:,:,:)=0.0    
-    phiheat(:,:,:)=0.0
+    phiheat_grid(:,:,:)=0.0
     ! reset photon loss counters
     photon_loss(:)=0.0
     LLS_loss = 0.0 ! make this a NumFreqBnd vector if needed later (GM/101129)
@@ -596,10 +596,10 @@ contains
     phih_grid(:,:,:)=buffer(:,:,:)
 
     if (.not.isothermal) then
-       call MPI_ALLREDUCE(phiheat, buffer, mesh(1)*mesh(2)*mesh(3), &
+       call MPI_ALLREDUCE(phiheat_grid, buffer, mesh(1)*mesh(2)*mesh(3), &
             MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_NEW, mympierror)
        ! Overwrite the processor local values with the accumulated value
-       phiheat(:,:,:)=buffer(:,:,:)    
+       phiheat_grid(:,:,:)=buffer(:,:,:)    
     endif
 
     ! accumulate (sum) the MPI distributed sum of number of boxes
