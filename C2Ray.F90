@@ -140,7 +140,7 @@ Program C2Ray
 #endif
   ! Initialize photo-ionization calculation
   call rad_ini ( )
-  call setup_cool ( )
+  if (.not.isothermal) call setup_cool ( )
   if (rank == 0) &
        write(timefile,"(A,F8.1)") "Time after rad_ini: ",timestamp_wallclock ()
 
